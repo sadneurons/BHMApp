@@ -42,10 +42,15 @@ JS_FILES=(
   "$SRC/js/snippets.js"
   "$SRC/js/instruments/cdr.js"
   "$SRC/js/instruments/diamondLewy.js"
+  "$SRC/js/instruments/neuroimaging.js"
+  "$SRC/js/instruments/medicalHistory.js"
+  "$SRC/js/instruments/medications.js"
+  "$SRC/js/instruments/diagnosis.js"
   "$SRC/js/scoring/scoring.js"
   "$SRC/js/report/reportGenerator.js"
   "$SRC/js/report/charts.js"
   "$SRC/js/export/exporter.js"
+  "$SRC/js/export/docxExport.js"
   "$SRC/js/app.js"
 )
 
@@ -65,7 +70,7 @@ cat > "$OUTPUT" << 'HTMLHEAD'
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>brainHEALTH Manchester — Assessment App</title>
+  <title>Manchester Brain Health Centre — Assessment App</title>
   <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
   <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -111,6 +116,29 @@ echo "/* ── Default Snippets (from snippets.json) ── */" >> "$OUTPUT"
 echo -n "var BHM_DEFAULT_SNIPPETS = " >> "$OUTPUT"
 cat "$SRC/snippets.json" >> "$OUTPUT"
 echo ";" >> "$OUTPUT"
+
+# Inline Gill Sans MT Std fonts as base64 (for DOCX embedding)
+FONT_DIR="Source docs"
+echo "" >> "$OUTPUT"
+echo "/* ── Embedded Fonts (Gill Sans MT Std, base64) ── */" >> "$OUTPUT"
+echo "var BHM_FONTS = {" >> "$OUTPUT"
+if [ -f "$FONT_DIR/GillSansMTStd-Book.otf" ]; then
+  echo "  book: '$(base64 -w0 "$FONT_DIR/GillSansMTStd-Book.otf")'," >> "$OUTPUT"
+  echo "  Built: embedded GillSansMTStd-Book.otf"
+fi
+if [ -f "$FONT_DIR/GillSansMTStd-Bold.otf" ]; then
+  echo "  bold: '$(base64 -w0 "$FONT_DIR/GillSansMTStd-Bold.otf")'," >> "$OUTPUT"
+  echo "  Built: embedded GillSansMTStd-Bold.otf"
+fi
+if [ -f "$FONT_DIR/GillSansMTStd-BookItalic.otf" ]; then
+  echo "  bookItalic: '$(base64 -w0 "$FONT_DIR/GillSansMTStd-BookItalic.otf")'," >> "$OUTPUT"
+  echo "  Built: embedded GillSansMTStd-BookItalic.otf"
+fi
+if [ -f "$FONT_DIR/GillSansMTStd-Heavy.otf" ]; then
+  echo "  heavy: '$(base64 -w0 "$FONT_DIR/GillSansMTStd-Heavy.otf")'," >> "$OUTPUT"
+  echo "  Built: embedded GillSansMTStd-Heavy.otf"
+fi
+echo "};" >> "$OUTPUT"
 
 for file in "${JS_FILES[@]}"; do
   echo "" >> "$OUTPUT"

@@ -153,7 +153,14 @@ BHM.Snippets = (function () {
     var cats = getCategories();
     var filterLower = (filter || '').toLowerCase();
     var anyVisible = false;
+    var isFiltered = !!filterLower;
 
+    var accordionId = 'snippetAccordion';
+    var accordion = document.createElement('div');
+    accordion.className = 'accordion accordion-flush';
+    accordion.id = accordionId;
+
+    var catIndex = 0;
     for (var cat in cats) {
       if (!cats.hasOwnProperty(cat)) continue;
       var items = cats[cat];
@@ -165,18 +172,45 @@ BHM.Snippets = (function () {
       });
       if (filtered.length === 0) continue;
       anyVisible = true;
+      catIndex++;
 
-      var catHeader = document.createElement('div');
-      catHeader.className = 'snippet-cat-header';
-      catHeader.textContent = cat;
-      container.appendChild(catHeader);
+      var itemId = 'snippetCat' + catIndex;
+      var accItem = document.createElement('div');
+      accItem.className = 'accordion-item snippet-accordion-item';
 
+      // Accordion header (clickable category name)
+      var hdr = document.createElement('h2');
+      hdr.className = 'accordion-header';
+      var btn = document.createElement('button');
+      btn.className = 'accordion-button snippet-cat-accordion-btn' + (isFiltered ? '' : ' collapsed');
+      btn.type = 'button';
+      btn.setAttribute('data-bs-toggle', 'collapse');
+      btn.setAttribute('data-bs-target', '#' + itemId);
+      btn.setAttribute('aria-expanded', isFiltered ? 'true' : 'false');
+      btn.setAttribute('aria-controls', itemId);
+      btn.innerHTML = '<span class="snippet-cat-label"><i class="bi bi-folder2 me-1"></i>' + esc(cat) + '</span><span class="badge bg-secondary snippet-cat-badge">' + filtered.length + '</span>';
+      hdr.appendChild(btn);
+      accItem.appendChild(hdr);
+
+      // Accordion body (snippet cards)
+      var collapse = document.createElement('div');
+      collapse.id = itemId;
+      collapse.className = 'accordion-collapse collapse' + (isFiltered ? ' show' : '');
+      collapse.setAttribute('data-bs-parent', '#' + accordionId);
+      var body = document.createElement('div');
+      body.className = 'accordion-body snippet-accordion-body';
       for (var i = 0; i < filtered.length; i++) {
-        container.appendChild(createSnippetCard(filtered[i]));
+        body.appendChild(createSnippetCard(filtered[i]));
       }
+      collapse.appendChild(body);
+      accItem.appendChild(collapse);
+
+      accordion.appendChild(accItem);
     }
 
-    if (!anyVisible) {
+    if (anyVisible) {
+      container.appendChild(accordion);
+    } else {
       var empty = document.createElement('div');
       empty.className = 'text-muted text-center p-3';
       empty.style.fontSize = '0.82rem';

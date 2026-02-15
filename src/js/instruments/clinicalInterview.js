@@ -71,7 +71,7 @@ BHM.Instruments.ClinicalInterview = (function () {
     r1.appendChild(wrapCol(F.createField({ label: 'Date', statePath: SP + '.interviewDate', type: 'date' }), 'col-md-3'));
     r1.appendChild(wrapCol(F.createField({ label: 'Clinician', statePath: SP + '.interviewer', placeholder: '' }), 'col-md-3'));
     r1.appendChild(wrapCol(F.createField({ label: 'Client', statePath: SP + '.clientName', placeholder: '' }), 'col-md-3'));
-    r1.appendChild(wrapCol(F.createField({ label: 'NHS Number', statePath: SP + '.nhsNumber', placeholder: '' }), 'col-md-3'));
+    r1.appendChild(wrapCol(F.createField({ label: 'EPR Number', statePath: SP + '.nhsNumber', placeholder: '' }), 'col-md-3'));
     hdr.appendChild(r1);
     var r2 = row(3);
     r2.appendChild(wrapCol(F.createField({ label: 'Informant', statePath: SP + '.informantName', placeholder: '' }), 'col-md-4'));

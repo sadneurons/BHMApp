@@ -176,7 +176,7 @@ BHM.Instruments.DiamondLewy = (function () {
   }
 
   /* ═══════════════════════════════════════
-     TABLE BUILDER (same tabular style as CDR)
+     TABLE BUILDER — clickable cells (consistent with CDR)
      ═══════════════════════════════════════ */
   function dlTable(headers, rows) {
     var wrap = document.createElement('div');
@@ -201,18 +201,16 @@ BHM.Instruments.DiamondLewy = (function () {
       tr.appendChild(tdQ);
       var key = rows[r][1];
       for (var o = 0; o < optCount; o++) {
-        var tdO = document.createElement('td');
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cdr-ws-btn';
-        btn.textContent = '\u25CB';
-        var val = headers[o + 1].toLowerCase();
-        btn.setAttribute('data-key', key);
-        btn.setAttribute('data-val', val);
+        var td = document.createElement('td');
+        td.className = 'cdr-ws-cell';
+        td.setAttribute('data-key', key);
+        td.setAttribute('data-val', headers[o + 1].toLowerCase());
+        td.setAttribute('tabindex', '0');
+        td.setAttribute('role', 'radio');
+        td.textContent = headers[o + 1];
         var cur = S.get(SP + '.' + key);
-        if (cur === val) { btn.classList.add('active'); btn.textContent = '\u25CF'; }
-        tdO.appendChild(btn);
-        tr.appendChild(tdO);
+        if (cur === headers[o + 1].toLowerCase()) { td.classList.add('selected'); }
+        tr.appendChild(td);
       }
       tbody.appendChild(tr);
     }
@@ -262,21 +260,29 @@ BHM.Instruments.DiamondLewy = (function () {
   }
 
   /* ═══════════════════════════════════════
-     EVENT HANDLING
+     EVENT HANDLING — clickable cells
      ═══════════════════════════════════════ */
   function bindAllButtons(root) {
     root.addEventListener('click', function (e) {
-      var btn = e.target.closest('.cdr-ws-btn');
-      if (!btn) return;
-      var key = btn.getAttribute('data-key');
-      var val = btn.getAttribute('data-val');
-      var row = btn.closest('tr');
-      var btns = row.querySelectorAll('.cdr-ws-btn');
-      for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); btns[i].textContent = '\u25CB'; }
-      btn.classList.add('active');
-      btn.textContent = '\u25CF';
+      var cell = e.target.closest('.cdr-ws-cell');
+      if (!cell) return;
+      var key = cell.getAttribute('data-key');
+      var val = cell.getAttribute('data-val');
+      var row = cell.closest('tr');
+      var cells = row.querySelectorAll('.cdr-ws-cell');
+      for (var i = 0; i < cells.length; i++) { cells[i].classList.remove('selected'); cells[i].setAttribute('aria-checked', 'false'); }
+      cell.classList.add('selected');
+      cell.setAttribute('aria-checked', 'true');
       S.set(SP + '.' + key, val);
       recalc();
+    });
+    root.addEventListener('keydown', function (e) {
+      var cell = e.target.closest('.cdr-ws-cell');
+      if (!cell) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        cell.click();
+      }
     });
   }
 
@@ -324,23 +330,25 @@ BHM.Instruments.DiamondLewy = (function () {
     var diagText = document.getElementById('dl-diagnosis-text');
     var diagnosis = 'incomplete';
 
-    if (essential === 'yes' && coreAnswered >= 4) {
+    // Classification proceeds when essential is 'yes' or 'uncertain', and all 4 core features are assessed
+    if ((essential === 'yes' || essential === 'uncertain') && coreAnswered >= 4) {
       if (coreCount >= 2) {
-        diagnosis = 'probable';
+        diagnosis = essential === 'uncertain' ? 'probable_pending' : 'probable';
       } else if (coreCount === 1 && bioCount >= 1) {
-        diagnosis = 'probable';
+        diagnosis = essential === 'uncertain' ? 'probable_pending' : 'probable';
       } else if (coreCount === 1 && bioCount === 0) {
-        diagnosis = 'possible';
+        diagnosis = essential === 'uncertain' ? 'possible_pending' : 'possible';
       } else if (coreCount === 0 && bioCount >= 1) {
-        diagnosis = 'possible';
+        diagnosis = essential === 'uncertain' ? 'possible_pending' : 'possible';
       } else {
-        diagnosis = 'not_met';
+        diagnosis = essential === 'uncertain' ? 'not_met_pending' : 'not_met';
       }
     } else if (essential === 'no') {
       diagnosis = 'no_dementia';
     }
 
     if (diagEl && diagText) {
+      var pendingNote = ' <span class="small">(essential criterion uncertain \u2014 confirm dementia status)</span>';
       switch (diagnosis) {
         case 'probable':
           diagEl.className = 'alert alert-success mb-0 text-center fs-5';
@@ -348,15 +356,31 @@ BHM.Instruments.DiamondLewy = (function () {
             (coreCount >= 2 ? coreCount + ' core features present' : '1 core feature + ' + bioCount + ' indicative biomarker(s)') +
             (supCount > 0 ? ' | ' + supCount + ' supportive feature(s)' : '');
           break;
+        case 'probable_pending':
+          diagEl.className = 'alert alert-success mb-0 text-center fs-5';
+          diagText.innerHTML = '<strong>Probable DLB</strong> \u2014 ' +
+            (coreCount >= 2 ? coreCount + ' core features present' : '1 core feature + ' + bioCount + ' indicative biomarker(s)') +
+            (supCount > 0 ? ' | ' + supCount + ' supportive feature(s)' : '') + pendingNote;
+          break;
         case 'possible':
           diagEl.className = 'alert alert-warning mb-0 text-center fs-5';
           diagText.innerHTML = '<strong>Possible DLB</strong> \u2014 ' +
             (coreCount === 1 ? '1 core feature (no indicative biomarkers)' : bioCount + ' indicative biomarker(s) (no core features)') +
             (supCount > 0 ? ' | ' + supCount + ' supportive feature(s)' : '');
           break;
+        case 'possible_pending':
+          diagEl.className = 'alert alert-warning mb-0 text-center fs-5';
+          diagText.innerHTML = '<strong>Possible DLB</strong> \u2014 ' +
+            (coreCount === 1 ? '1 core feature (no indicative biomarkers)' : bioCount + ' indicative biomarker(s) (no core features)') +
+            (supCount > 0 ? ' | ' + supCount + ' supportive feature(s)' : '') + pendingNote;
+          break;
         case 'not_met':
           diagEl.className = 'alert alert-secondary mb-0 text-center fs-5';
           diagText.innerHTML = '<strong>DLB criteria not met</strong> \u2014 Dementia present but no core features or indicative biomarkers identified';
+          break;
+        case 'not_met_pending':
+          diagEl.className = 'alert alert-secondary mb-0 text-center fs-5';
+          diagText.innerHTML = '<strong>DLB criteria not met</strong> \u2014 No core features or indicative biomarkers identified' + pendingNote;
           break;
         case 'no_dementia':
           diagEl.className = 'alert alert-secondary mb-0 text-center fs-5';

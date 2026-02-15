@@ -29,10 +29,25 @@ BHM.Export = (function () {
     return name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
   }
 
-  // ── Export raw session as JSON ──
+  // ── Export raw session as JSON (includes ALL stored data) ──
   function exportJSON() {
     var session = S.getSession();
-    var json = JSON.stringify(session, null, 2);
+
+    // Build a complete export bundle that includes data stored outside the session
+    var bundle = {
+      _exportVersion: 2,
+      _exportedAt: new Date().toISOString(),
+      session: session,
+      // User-customised snippets (stored separately in localStorage)
+      snippetCustomisations: (function () {
+        try { var raw = localStorage.getItem('bhm_snippets_v1'); return raw ? JSON.parse(raw) : null; }
+        catch (e) { return null; }
+      })(),
+      // Theme preference
+      themePreference: localStorage.getItem('bhm-theme') || 'default'
+    };
+
+    var json = JSON.stringify(bundle, null, 2);
     var filename = 'BHM_' + getPatientSlug() + '_' + getTimestamp() + '.json';
     downloadFile(json, filename, 'application/json');
   }
@@ -99,6 +114,72 @@ BHM.Export = (function () {
       rows.push(['NPI-Q', 'Severity Total', scores.npiQ.severityTotal]);
       rows.push(['NPI-Q', 'Distress Total', scores.npiQ.distressTotal]);
     }
+
+    // CDR
+    if (scores.cdr) {
+      if (scores.cdr.totalCDR !== undefined) rows.push(['CDR', 'Total CDR', scores.cdr.totalCDR]);
+      if (scores.cdr.sumOfBoxes !== undefined) rows.push(['CDR', 'Sum of Boxes', scores.cdr.sumOfBoxes]);
+    }
+
+    // DIAMOND Lewy
+    if (scores.diamondLewy) {
+      if (scores.diamondLewy.diagnosis) rows.push(['DIAMOND Lewy', 'Classification', scores.diamondLewy.diagnosis]);
+      if (scores.diamondLewy.coreCount !== undefined) rows.push(['DIAMOND Lewy', 'Core Features', scores.diamondLewy.coreCount]);
+    }
+
+    // RBANS
+    if (scores.rbans) {
+      var rbIdx = scores.rbans.indices || {};
+      var rbFields = ['immediateMemory', 'visuospatial', 'language', 'attention', 'delayedMemory', 'totalScale'];
+      for (var ri = 0; ri < rbFields.length; ri++) {
+        if (rbIdx[rbFields[ri]] !== undefined) rows.push(['RBANS', 'Index: ' + rbFields[ri], rbIdx[rbFields[ri]]]);
+      }
+      var rbCent = scores.rbans.centiles || {};
+      for (var rc = 0; rc < rbFields.length; rc++) {
+        if (rbCent[rbFields[rc]] !== undefined) rows.push(['RBANS', 'Centile: ' + rbFields[rc], rbCent[rbFields[rc]]]);
+      }
+    }
+
+    // Diagnoses
+    var diagList = S.get('diagnoses') || [];
+    for (var di = 0; di < diagList.length; di++) {
+      var dg = diagList[di];
+      var dgLabel = dg.diagnosisId || 'Unknown';
+      rows.push(['Diagnosis ' + (di + 1), 'ID', dgLabel]);
+      if (dg.qualifier) rows.push(['Diagnosis ' + (di + 1), 'Qualifier', dg.qualifier]);
+      if (dg.primary) rows.push(['Diagnosis ' + (di + 1), 'Primary', 'Yes']);
+    }
+
+    // Medications count
+    var medsList = S.get('medications.list') || [];
+    rows.push(['Medications', 'Count', medsList.length]);
+    for (var mi = 0; mi < medsList.length; mi++) {
+      var med = medsList[mi];
+      if (med.name) rows.push(['Medication ' + (mi + 1), 'Name', med.name]);
+      if (med.dose) rows.push(['Medication ' + (mi + 1), 'Dose', med.dose]);
+      if (med.frequency) rows.push(['Medication ' + (mi + 1), 'Frequency', med.frequency]);
+      if (med.category) rows.push(['Medication ' + (mi + 1), 'Category', med.category]);
+    }
+
+    // Neuroimaging
+    var scans = S.get('neuroimaging.scans') || [];
+    for (var ni = 0; ni < scans.length; ni++) {
+      var sc = scans[ni];
+      var prefix = 'Scan ' + (ni + 1);
+      rows.push([prefix, 'Modality', sc.modality || '']);
+      rows.push([prefix, 'Date', sc.scanDate || '']);
+      if (sc.fazekasPV !== null && sc.fazekasPV !== undefined) rows.push([prefix, 'Fazekas PV', sc.fazekasPV]);
+      if (sc.fazekasDWM !== null && sc.fazekasDWM !== undefined) rows.push([prefix, 'Fazekas DWM', sc.fazekasDWM]);
+      if (sc.gca !== null && sc.gca !== undefined) rows.push([prefix, 'GCA', sc.gca]);
+      if (sc.koedam !== null && sc.koedam !== undefined) rows.push([prefix, 'Koedam', sc.koedam]);
+      if (sc.mtaLeft !== null && sc.mtaLeft !== undefined) rows.push([prefix, 'MTA Left', sc.mtaLeft]);
+      if (sc.mtaRight !== null && sc.mtaRight !== undefined) rows.push([prefix, 'MTA Right', sc.mtaRight]);
+    }
+
+    // Medical history — CV risk factor count
+    var cvRisk = S.get('medicalHistory.cvRisk') || {};
+    var cvCount = Object.keys(cvRisk).length;
+    if (cvCount > 0) rows.push(['Medical History', 'CV Risk Factors', cvCount]);
 
     var csv = rows.map(function (row) {
       return row.map(function (cell) {

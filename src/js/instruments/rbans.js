@@ -39,13 +39,12 @@ BHM.Instruments.RBANS = (function () {
     var html = '';
     html += '<h5 class="mb-3"><i class="bi bi-calculator me-2"></i>RBANS Calculator &amp; Supplementary Analysis</h5>';
 
-    // ── Two-column layout: inputs left, results right ──
+    // ── Three-column layout: demographics, subtests, results ──
     html += '<div class="row g-3">';
 
-    // ═══ LEFT COLUMN: Inputs ═══
-    html += '<div class="col-lg-5">';
+    // ═══ COL 1: Demographics ═══
+    html += '<div class="col-lg-3">';
 
-    // -- Demographics card --
     html += '<div class="card mb-3">';
     html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-person me-1"></i> Demographics</div>';
     html += '<div class="card-body p-2">';
@@ -61,7 +60,15 @@ BHM.Instruments.RBANS = (function () {
     html += '</table>';
     html += '</div></div>';
 
-    // -- Subtests card --
+    // -- Calculate button --
+    html += '<div class="d-grid mb-3"><button class="btn btn-primary" id="rbans-calculate-btn">' +
+      '<i class="bi bi-calculator me-1"></i>Calculate All Scores</button></div>';
+
+    html += '</div>'; // end col 1
+
+    // ═══ COL 2: Subtest Raw Scores ═══
+    html += '<div class="col-lg-4">';
+
     html += '<div class="card mb-3">';
     html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-pencil-square me-1"></i> Subtest Raw Scores</div>';
     html += '<div class="card-body p-2">';
@@ -89,19 +96,15 @@ BHM.Instruments.RBANS = (function () {
     html += '</tbody></table>';
     html += '</div></div>';
 
-    // -- Calculate button --
-    html += '<div class="d-grid mb-3"><button class="btn btn-primary" id="rbans-calculate-btn">' +
-      '<i class="bi bi-calculator me-1"></i>Calculate All Scores</button></div>';
+    html += '</div>'; // end col 2
 
-    html += '</div>'; // end left column
-
-    // ═══ RIGHT COLUMN: Results ═══
-    html += '<div class="col-lg-7">';
+    // ═══ COL 3: Results ═══
+    html += '<div class="col-lg-5">';
     html += '<div id="rbans-results">';
     html += '<div class="card mb-3"><div class="card-body text-center text-muted py-4">' +
       '<i class="bi bi-arrow-left-circle me-1"></i>Enter demographics and subtest scores, then click Calculate</div></div>';
     html += '</div>';
-    html += '</div>'; // end right column
+    html += '</div>'; // end col 3
 
     html += '</div>'; // end row
 
@@ -459,7 +462,7 @@ BHM.Instruments.RBANS = (function () {
     // ── Chart ──
     html += '<div class="card mb-3">';
     html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
-    html += '<div class="card-body p-2"><div style="position:relative;height:380px">';
+    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:1/2">';
     html += '<canvas id="rbans-chart"></canvas>';
     html += '</div></div></div>';
 

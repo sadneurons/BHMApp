@@ -25,6 +25,7 @@ BHM.State = (function () {
         nhsNumber: '',
         dateOfCompletion: '',
         clinicianName: '',
+        referringGP: '',
         informantName: '',
         informantRelationship: ''
       },
@@ -44,7 +45,12 @@ BHM.State = (function () {
         diamondLewy: {},
         clinical: {}
       },
+      diagnoses: [],
+      medications: { list: [], recentChanges: '', adherence: '' },
+      medicalHistory: {},
+      neuroimaging: { scans: [] },
       scores: {},
+      snippetInserts: {},
       clinicianInserts: {
         overallSummary: '',
         agreedToday: '',
@@ -128,20 +134,27 @@ BHM.State = (function () {
     var lastKey = parts[parts.length - 1];
     var oldValue = obj[lastKey];
 
-    // Don't log if no actual change
-    if (oldValue === value) return;
+    // Don't log if no actual change (skip for objects/arrays — reference may be same after mutation)
+    if (oldValue === value && typeof value !== 'object') return;
 
     obj[lastKey] = value;
 
-    // Audit log entry
+    // Audit log entry — for objects/arrays, store a compact summary to avoid log bloat
+    var logOld = (oldValue !== null && typeof oldValue === 'object') ? '[object]' : (oldValue === undefined ? null : oldValue);
+    var logNew = (value !== null && typeof value === 'object') ? '[object]' : value;
     _session.auditLog.push({
       timestamp: new Date().toISOString(),
       field: path,
-      oldValue: oldValue === undefined ? null : oldValue,
-      newValue: value,
+      oldValue: logOld,
+      newValue: logNew,
       operator: _session.meta.operator || 'unknown',
       sourceMode: _session.meta.sourceMode
     });
+
+    // Cap audit log to prevent localStorage overflow
+    if (_session.auditLog.length > 2000) {
+      _session.auditLog = _session.auditLog.slice(-1500);
+    }
 
     save();
     notifyAll(path);
@@ -159,13 +172,15 @@ BHM.State = (function () {
       }
       var lastKey = parts[parts.length - 1];
       var oldValue = obj[lastKey];
-      if (oldValue !== u.value) {
+      if (oldValue !== u.value || typeof u.value === 'object') {
         obj[lastKey] = u.value;
+        var bLogOld = (oldValue !== null && typeof oldValue === 'object') ? '[object]' : (oldValue === undefined ? null : oldValue);
+        var bLogNew = (u.value !== null && typeof u.value === 'object') ? '[object]' : u.value;
         _session.auditLog.push({
           timestamp: new Date().toISOString(),
           field: u.path,
-          oldValue: oldValue === undefined ? null : oldValue,
-          newValue: u.value,
+          oldValue: bLogOld,
+          newValue: bLogNew,
           operator: _session.meta.operator || 'unknown',
           sourceMode: _session.meta.sourceMode
         });

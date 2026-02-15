@@ -81,6 +81,18 @@ BHM.App = (function () {
     // DIAMOND Lewy
     BHM.Instruments.DiamondLewy.render(document.getElementById('diamondLewyContent'));
 
+    // Neuroimaging
+    BHM.Instruments.Neuroimaging.render(document.getElementById('neuroimagingContent'));
+
+    // Medical History
+    BHM.Instruments.MedicalHistory.render(document.getElementById('medicalHistoryContent'));
+
+    // Medications
+    BHM.Instruments.Medications.render(document.getElementById('medicationsContent'));
+
+    // Diagnosis
+    BHM.Instruments.Diagnosis.render(document.getElementById('diagnosisContent'));
+
     // Audit log
     BHM.Export.renderAuditTab(document.getElementById('auditContent'));
   }
@@ -165,10 +177,13 @@ BHM.App = (function () {
     var auditBtn = document.getElementById('exportAudit');
     var printBtn = document.getElementById('printReport');
 
+    var docxBtn = document.getElementById('exportDocx');
+
     if (jsonBtn) jsonBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportJSON(); });
     if (csvBtn) csvBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportCSV(); });
     if (auditBtn) auditBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportAudit(); });
     if (printBtn) printBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.printReport(); });
+    if (docxBtn) docxBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.DocxExport.exportDocx(); });
   }
 
   // ── Tab events ──

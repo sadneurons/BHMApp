@@ -3,7 +3,7 @@
     "id": "lp-explanation",
     "title": "Lumbar Puncture Explanation",
     "category": "Investigations",
-    "text": "A lumbar puncture (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20-30 minutes, and most people find it straightforward. "
+    "text": "<b>A lumbar puncture</b> (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20-30 minutes, and most people find it straightforward. "
   },
   {
     "id": "blood-biomarkers",
@@ -58,5 +58,41 @@
     "title": "Lasting Power of Attorney",
     "category": "Practical",
     "text": "A Lasting Power of Attorney (LPA) is a legal document that lets you appoint someone you trust to make decisions on your behalf, should you become unable to make them yourself in the future. There are two types: one for health and welfare decisions, and one for property and financial affairs. It is a good idea to set these up while you have the capacity to do so, regardless of your current level of difficulty. You can arrange an LPA through a solicitor or via the Office of the Public Guardian website (gov.uk/power-of-attorney)."
+  },
+  {
+    "id": "alzheimers-society-contact",
+    "title": "Alzheimer's Society — Support & Helpline",
+    "category": "Support Organisations",
+    "text": "The Alzheimer's Society is the UK's leading dementia charity. They provide information, advice, and practical support to anyone affected by dementia — whether you have a diagnosis yourself or you are supporting someone who does. Their services include a telephone helpline, online resources, local support groups, and one-to-one guidance on topics such as benefits, legal rights, and day-to-day living.\n\nDementia Support Line: 0333 150 3456\nOpen Monday to Wednesday 9am–8pm, Thursday and Friday 9am–5pm, Saturday and Sunday 10am–4pm.\nSupport is also available in Welsh (03300 947 400) and other languages on request.\n\nWebsite: www.alzheimers.org.uk\n\nYou do not need a referral to contact them — anyone can call or visit the website for help and information."
+  },
+  {
+    "id": "aruk-info-leaflets",
+    "title": "Alzheimer's Research UK — Information & Leaflets",
+    "category": "Support Organisations",
+    "text": "Alzheimer's Research UK (ARUK) is the UK's leading dementia research charity. As well as funding research, they provide free, easy-to-understand information booklets about dementia, including guides on different types of dementia, symptoms, treatments, risk factors, and how to take part in research studies. These booklets are written in plain language and are independently reviewed for accuracy.\n\nYou can order free printed booklets or read them online at: www.alzheimersresearchuk.org/dementia-information\n\nDementia Research Infoline: 0300 111 5111\nOpen Monday to Friday, 9am–5pm (excluding bank holidays).\nEmail: infoline@alzheimersresearchuk.org\n\nThe Infoline team can answer questions about dementia, diagnosis, and ongoing research. You do not need to be involved in research to contact them."
+  },
+  {
+    "id": "local-dementia-charities",
+    "title": "Local Support — Together Dementia Support & Others",
+    "category": "Support Organisations",
+    "text": "There are local charities in the Manchester area that offer hands-on, community-based support for people living with dementia and their families.\n\nTogether Dementia Support is a Manchester-based charity providing friendship groups, social activities, day trips, short-term carer respite, free carer training, and one-to-one home visits. Their services cover Manchester and North Trafford. You can refer yourself, or a family member, friend, or professional can refer on your behalf.\n\nTogether Dementia Support:\nPhone: 0161 226 7186 (Monday–Friday, 9am–5pm)\nEmail: admin@togetherdementiasupport.org\nWebsite: www.togetherdementiasupport.org\nAddress: Kath Locke Centre, Moss Lane East, Manchester M15 5DD\n\nOther local resources include the Dementia United programme (part of Greater Manchester Health and Social Care), Age UK Manchester, and local Alzheimer's Society groups. Your clinical team can help you find the services most suitable for your situation."
+  },
+  {
+    "id": "emergency-111-ed",
+    "title": "When to Seek Urgent Help (111 & A&E)",
+    "category": "Safety",
+    "text": "If you or the person you care for becomes suddenly unwell or you are worried about a rapid change in their condition, help is available.\n\nFor urgent but non-life-threatening concerns — for example, a sudden worsening of confusion, a fall with possible injury, new difficulty speaking or swallowing, or any health problem that cannot wait for a routine appointment — please contact NHS 111.\n\nNHS 111: Call 111 (free from landlines and mobiles, available 24 hours a day, 7 days a week).\nYou can also visit 111.nhs.uk for online advice.\nA trained adviser will help you decide what to do next, which may include advice to manage at home, arranging a GP appointment, or directing you to the nearest urgent care service.\n\nIn a medical emergency — for example, if someone has collapsed, is unresponsive, is having a seizure, has severe difficulty breathing, or you believe their life may be at risk — call 999 or go directly to your nearest Emergency Department (A&E) immediately. Do not wait.\n\nIf you are ever unsure, it is always better to call for advice than to wait."
+  },
+  {
+    "id": "join-dementia-research",
+    "title": "Join Dementia Research",
+    "category": "Research",
+    "text": "Join Dementia Research is a free service run by the National Institute for Health and Care Research (NIHR) that allows you to register your interest in taking part in dementia research studies. You do not need to have a diagnosis of dementia to sign up — the service is open to everyone, including people with memory concerns, carers, and healthy volunteers.\n\nOnce registered, researchers running studies that match your profile may contact you to invite you to take part. There is no obligation to participate in any study you are contacted about, and you can withdraw at any time.\n\nTaking part in research helps scientists understand dementia better and develop new treatments. Many people find it a positive and meaningful experience.\n\nYou can sign up online at: www.joindementiaresearch.nihr.ac.uk\nOr call the Join Dementia Research helpline: 0300 111 5111"
+  },
+  {
+    "id": "local-research-gmmh",
+    "title": "Local Research Studies (GMMH)",
+    "category": "Research",
+    "text": "The Manchester Brain Health Centre is actively involved in research to improve the understanding, diagnosis, and treatment of dementia and other conditions affecting the brain. As part of your care with us, your details will be shared with our local research team so that they can consider whether any current or upcoming studies may be suitable for you.\n\nThis means you will very likely be contacted by a member of the research team to discuss opportunities to participate. There is absolutely no obligation to take part in any study — it is always your choice, and declining will not affect your care in any way. If you would prefer not to be contacted about research at all, please let your clinician know and we will ensure your wishes are respected.\n\nIf you have questions about research participation or would like to find out what studies are currently running, you or a family member can contact the research team directly:\n\nEmail: dementiaresearch@gmmh.nhs.uk\n\nMany of our patients and their families find research participation rewarding, knowing that their contribution helps advance knowledge and may benefit others in the future."
   }
 ]

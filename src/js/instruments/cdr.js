@@ -257,7 +257,7 @@ BHM.Instruments.CDR = (function () {
     container.appendChild(card);
   }
 
-  /* ── Tabular helper: build a worksheet table ── */
+  /* ── Tabular helper: build a worksheet table with clickable cells ── */
   function wsTable(headers, rows) {
     var wrap = document.createElement('div');
     wrap.className = 'table-responsive';
@@ -273,7 +273,7 @@ BHM.Instruments.CDR = (function () {
     }
     thead.appendChild(htr);
     table.appendChild(thead);
-    // body
+    // body — entire cell is clickable, shows header text
     var tbody = document.createElement('tbody');
     var optCount = headers.length - 1;
     for (var r = 0; r < rows.length; r++) {
@@ -283,19 +283,20 @@ BHM.Instruments.CDR = (function () {
       tr.appendChild(tdQ);
       var key = rows[r][1];
       for (var o = 0; o < optCount; o++) {
-        var tdO = document.createElement('td');
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cdr-ws-btn';
-        btn.textContent = '\u25CB';
-        var val = headers[o + 1].toLowerCase();
-        btn.setAttribute('data-key', key);
-        btn.setAttribute('data-val', val);
-        btn.addEventListener('click', wsBtnHandler);
+        var td = document.createElement('td');
+        td.className = 'cdr-ws-cell';
+        td.setAttribute('data-key', key);
+        td.setAttribute('data-val', headers[o + 1].toLowerCase());
+        td.setAttribute('tabindex', '0');
+        td.setAttribute('role', 'radio');
+        td.textContent = headers[o + 1];
+        td.addEventListener('click', wsCellHandler);
+        td.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wsCellHandler.call(this, e); }
+        });
         var cur = S.get(SP + '.' + key);
-        if (cur === val) { btn.classList.add('active'); btn.textContent = '\u25CF'; }
-        tdO.appendChild(btn);
-        tr.appendChild(tdO);
+        if (cur === headers[o + 1].toLowerCase()) { td.classList.add('selected'); }
+        tr.appendChild(td);
       }
       tbody.appendChild(tr);
     }
@@ -304,16 +305,16 @@ BHM.Instruments.CDR = (function () {
     return wrap;
   }
 
-  function wsBtnHandler(e) {
-    var btn = e.target;
-    var key = btn.getAttribute('data-key');
-    var val = btn.getAttribute('data-val');
+  function wsCellHandler(e) {
+    var cell = e.target.closest('.cdr-ws-cell') || e.target;
+    var key = cell.getAttribute('data-key');
+    var val = cell.getAttribute('data-val');
     // deselect siblings in same row
-    var row = btn.closest('tr');
-    var btns = row.querySelectorAll('.cdr-ws-btn');
-    for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); btns[i].textContent = '\u25CB'; }
-    btn.classList.add('active');
-    btn.textContent = '\u25CF';
+    var row = cell.closest('tr');
+    var cells = row.querySelectorAll('.cdr-ws-cell');
+    for (var i = 0; i < cells.length; i++) { cells[i].classList.remove('selected'); cells[i].setAttribute('aria-checked', 'false'); }
+    cell.classList.add('selected');
+    cell.setAttribute('aria-checked', 'true');
     S.set(SP + '.' + key, val);
   }
 
@@ -409,17 +410,19 @@ BHM.Instruments.CDR = (function () {
       tr.appendChild(tdLabel);
       for (var c = 0; c < item.opts.length; c++) {
         var td = document.createElement('td');
+        td.className = 'cdr-ws-cell';
+        td.setAttribute('data-key', item.key);
+        td.setAttribute('data-val', String(c));
+        td.setAttribute('tabindex', '0');
+        td.setAttribute('role', 'radio');
         td.title = item.opts[c];
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cdr-ws-btn';
-        btn.innerHTML = '<small>' + esc(item.opts[c]) + '</small>';
-        btn.setAttribute('data-key', item.key);
-        btn.setAttribute('data-val', String(c));
-        btn.addEventListener('click', wsBtnHandler);
+        td.innerHTML = '<small>' + esc(item.opts[c]) + '</small>';
+        td.addEventListener('click', wsCellHandler);
+        td.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wsCellHandler.call(this, e); }
+        });
         var cur = S.get(SP + '.' + item.key);
-        if (cur === String(c)) { btn.classList.add('active'); }
-        td.appendChild(btn);
+        if (cur === String(c)) { td.classList.add('selected'); }
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
@@ -472,20 +475,23 @@ BHM.Instruments.CDR = (function () {
       inp.addEventListener('input', function () { S.set(SP + '.' + this.getAttribute('data-key'), this.value); });
       tdA.appendChild(inp);
       tr.appendChild(tdA);
-      // correct/incorrect buttons
-      var ciBtns = ['correct', 'incorrect'];
-      for (var ci = 0; ci < ciBtns.length; ci++) {
+      // correct/incorrect clickable cells
+      var ciVals = ['correct', 'incorrect'];
+      var ciLabels = ['Correct', 'Incorrect'];
+      for (var ci = 0; ci < ciVals.length; ci++) {
         var tdCI = document.createElement('td');
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'cdr-ws-btn';
-        btn.textContent = '\u25CB';
-        btn.setAttribute('data-key', qs[r][0]);
-        btn.setAttribute('data-val', ciBtns[ci]);
-        btn.addEventListener('click', wsBtnHandler);
+        tdCI.className = 'cdr-ws-cell';
+        tdCI.setAttribute('data-key', qs[r][0]);
+        tdCI.setAttribute('data-val', ciVals[ci]);
+        tdCI.setAttribute('tabindex', '0');
+        tdCI.setAttribute('role', 'radio');
+        tdCI.textContent = ciLabels[ci];
+        tdCI.addEventListener('click', wsCellHandler);
+        tdCI.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wsCellHandler.call(this, e); }
+        });
         var cur = S.get(SP + '.' + qs[r][0]);
-        if (cur === ciBtns[ci]) { btn.classList.add('active'); btn.textContent = '\u25CF'; }
-        tdCI.appendChild(btn);
+        if (cur === ciVals[ci]) { tdCI.classList.add('selected'); }
         tr.appendChild(tdCI);
       }
       tbody.appendChild(tr);

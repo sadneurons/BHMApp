@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>brainHEALTH Manchester — Assessment App</title>
+  <title>Manchester Brain Health Centre — Assessment App</title>
   <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
   <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -31,7 +31,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg">
         <div class="modal-header bg-primary text-white">
-          <h4 class="modal-title" id="disclaimerTitle"><i class="bi bi-shield-check me-2"></i>brainHEALTH Manchester — Assessment App</h4>
+          <h4 class="modal-title" id="disclaimerTitle"><i class="bi bi-shield-check me-2"></i>Manchester Brain Health Centre — Assessment App</h4>
         </div>
         <div class="modal-body" style="font-size:0.92rem;line-height:1.6">
 
@@ -87,7 +87,7 @@
       <a class="navbar-brand d-flex align-items-center" href="#">
         <!-- Placeholder logo -->
         <span class="brand-logo-placeholder me-2">BHM</span>
-        <span class="d-none d-md-inline">brainHEALTH Manchester</span>
+        <span class="d-none d-md-inline">Manchester Brain Health Centre</span>
       </a>
       <div class="d-flex align-items-center gap-2">
         <button class="btn btn-danger btn-sm" id="resetSessionBtn" title="Clear all data and start a new session">
@@ -113,6 +113,7 @@
           <li><a class="dropdown-item" href="#" id="exportCSV"><i class="bi bi-filetype-csv me-2"></i>Export Scores CSV</a></li>
           <li><a class="dropdown-item" href="#" id="exportAudit"><i class="bi bi-journal-text me-2"></i>Export Audit Log</a></li>
           <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" id="exportDocx"><i class="bi bi-file-earmark-word me-2"></i>Export Word (.docx)</a></li>
           <li><a class="dropdown-item" href="#" id="printReport"><i class="bi bi-printer me-2"></i>Print Report</a></li>
         </ul>
       </div>
@@ -147,6 +148,11 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="tab-clinical" data-bs-toggle="tab" data-bs-target="#panel-clinical" type="button" role="tab">
           <i class="bi bi-clipboard2-pulse me-1"></i>Clinical Interview
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-diagnosis" data-bs-toggle="tab" data-bs-target="#panel-diagnosis" type="button" role="tab">
+          <i class="bi bi-shield-check me-1"></i>Diagnosis
         </button>
       </li>
       <li class="nav-item" role="presentation">
@@ -252,13 +258,30 @@
             <li class="nav-item" role="presentation">
               <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-diamond-lewy" type="button" role="tab">DIAMOND Lewy</button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-neuroimaging" type="button" role="tab">Neuroimaging</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-medical-history" type="button" role="tab">Medical History</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-medications" type="button" role="tab">Medications</button>
+            </li>
           </ul>
           <div class="tab-content" id="clinicalSubContent">
             <div class="tab-pane fade show active" id="sub-interview" role="tabpanel"><div id="clinicalContent"></div></div>
             <div class="tab-pane fade" id="sub-cdr-assess" role="tabpanel"><div id="cdrAssessContent"></div></div>
             <div class="tab-pane fade" id="sub-cdr-scoring" role="tabpanel"><div id="cdrScoringContent"></div></div>
             <div class="tab-pane fade" id="sub-diamond-lewy" role="tabpanel"><div id="diamondLewyContent"></div></div>
+            <div class="tab-pane fade" id="sub-neuroimaging" role="tabpanel"><div id="neuroimagingContent"></div></div>
+            <div class="tab-pane fade" id="sub-medical-history" role="tabpanel"><div id="medicalHistoryContent"></div></div>
+            <div class="tab-pane fade" id="sub-medications" role="tabpanel"><div id="medicationsContent"></div></div>
           </div>
+        </div>
+
+        <!-- ══════ DIAGNOSIS TAB ══════ -->
+        <div class="tab-pane fade" id="panel-diagnosis" role="tabpanel">
+          <div id="diagnosisContent"></div>
         </div>
 
         <!-- ══════ REPORT TAB ══════ -->
@@ -307,6 +330,10 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- Chart.js from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- docx.js for Word export -->
+  <script src="https://cdn.jsdelivr.net/npm/docx@9.5.2/dist/index.iife.js"></script>
+  <!-- JSZip for font embedding in DOCX -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <!-- App modules (load order matters) -->
   <script src="js/themes.js"></script>
@@ -333,6 +360,7 @@
   <script src="js/report/reportGenerator.js"></script>
   <script src="js/report/charts.js"></script>
   <script src="js/export/exporter.js"></script>
+  <script src="js/export/docxExport.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

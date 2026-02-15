@@ -35,7 +35,7 @@ BHM.Report = (function () {
     var name = S.get('patient.name') || '[Patient Name]';
     var date = S.get('patient.dateOfCompletion') || '[Date]';
     header.innerHTML =
-      '<div style="font-size:0.85rem;color:#6c757d">PLACEHOLDER — brainHEALTH Manchester Logo</div>' +
+      '<div style="font-size:0.85rem;color:#6c757d">PLACEHOLDER — Manchester Brain Health Centre Logo</div>' +
       '<h3>Assessment Report</h3>' +
       '<p class="mb-0"><strong>' + esc(name) + '</strong></p>' +
       '<p class="text-muted mb-0">Date: ' + esc(date) + '</p>';
@@ -80,23 +80,39 @@ BHM.Report = (function () {
 
   function generateHTML(compact) {
     var html = '';
-    html += section('About This Report',
-      '<p>This report was generated from questionnaire responses completed ' +
-      (S.get('meta.sourceMode') === 'live' ? 'during your appointment' : 'from your paper booklet responses') +
-      '. It provides a summary of the information gathered, written in plain language. ' +
-      'The scores and descriptions below are based on standardised questionnaires and are intended to help you understand the results.</p>', compact, 'about');
 
-    html += sleepSection(compact);
-    html += moodSection(compact);
-    html += alcoholSection(compact);
-    html += dietSection(compact);
-    html += qolSection(compact);
-    html += hearingSection(compact);
-    html += informantSection(compact);
+    // ── Diagnostic Block (bold, at the very top) ──
+    html += diagnosisBlock(compact);
+
+    html += section('About This Report', aboutContent(), compact, 'about');
+
+    // ── Clinical assessment sections (first) ──
     html += clinicalSection(compact);
     html += stagingSection(compact);
-    html += rbansSection(compact);
     html += lewySection(compact);
+    html += neuroimagingSection(compact);
+    html += rbansSection(compact);
+
+    // ── Medications & Medical History (placeholders) ──
+    html += medicationsSection(compact);
+    html += medicalHistorySection(compact);
+
+    // ── Informant scales ──
+    html += informantSection(compact);
+
+    // ── Patient questionnaires ──
+    html += moodSection(compact);
+    html += sleepSection(compact);
+    html += qolSection(compact);
+    html += alcoholSection(compact);
+    html += dietSection(compact);
+    html += hearingSection(compact);
+
+    // Summary & Plan section break
+    if (!compact) {
+      html += '<hr style="border:none;border-top:3px double var(--bs-primary, #1a3c6e);margin:2rem 0 1.5rem">';
+      html += '<h3 style="color:var(--bs-primary, #1a3c6e);margin-bottom:1rem">Summary &amp; Plan</h3>';
+    }
 
     // Global inserts at the end (only full report)
     if (!compact) {
@@ -277,6 +293,584 @@ BHM.Report = (function () {
   var GAD_FREQ = ['not at all', 'several days', 'more than half the days', 'nearly every day'];
 
   // ═══════════════════════════════════════════
+  //  NEUROIMAGING
+  // ═══════════════════════════════════════════
+  function neuroimagingSection(compact) {
+    var scans = S.get('neuroimaging.scans') || [];
+    if (scans.length === 0) {
+      return section('Neuroimaging', '<p class="text-muted">No neuroimaging results have been recorded.</p>', compact, 'neuroimaging');
+    }
+
+    var content = '';
+    for (var i = 0; i < scans.length; i++) {
+      var scan = scans[i];
+      if (scans.length > 1) content += '<h5>' + esc(scan.modality || 'Scan') + (scan.scanDate ? ' (' + niDate(scan.scanDate) + ')' : '') + '</h5>';
+
+      var mod = scan.modality || '';
+      var para = niOpener(scan);
+
+      // ── Modality-specific narrative ──
+      if (mod === 'MRI Brain')    { para += niMRI(scan); }
+      else if (mod === 'CT Head') { para += niCT(scan); }
+      else if (mod === 'FDG-PET') { para += niFDG(scan); }
+      else if (mod === 'Amyloid PET') { para += niAmyloid(scan); }
+      else if (mod === 'Tau PET') { para += niTau(scan); }
+      else if (mod === 'DaT-SPECT') { para += niDaT(scan); }
+      else if (mod === 'MIBG') { para += niMIBG(scan); }
+      else if (mod === 'EEG') { para += niEEG(scan); }
+
+      // Universal extras
+      if (scan.otherFindings && scan.otherFindings.trim()) {
+        para += 'Additional findings: ' + esc(scan.otherFindings) + '. ';
+      }
+
+      content += '<p>' + para + '</p>';
+
+      // ── Scores table (MRI / CT only) ──
+      content += niScoresTable(scan, mod);
+
+      // Clinician interpretation
+      if (scan.clinicianInterpretation && scan.clinicianInterpretation.trim()) {
+        content += '<p><em>' + esc(scan.clinicianInterpretation) + '</em></p>';
+      }
+    }
+
+    return section('Neuroimaging', content, compact, 'neuroimaging');
+  }
+
+  /* ── Neuroimaging narrative helpers ── */
+  function niOpener(scan) {
+    var modName = esc(scan.modality || 'Brain scan');
+    var dateStr = scan.scanDate ? ' dated ' + niDate(scan.scanDate) : '';
+    if (scan.location) dateStr += ' (' + esc(scan.location) + ')';
+    return 'Your ' + modName.toLowerCase() + dateStr + ' was reviewed during this assessment. ';
+  }
+
+  // ── MRI narrative ──
+  function niMRI(scan) {
+    var p = '';
+    // Fazekas (small vessel disease)
+    var hasFaz = scan.fazekasPV !== null || scan.fazekasDWM !== null;
+    if (hasFaz) {
+      var pvG = scan.fazekasPV; var dwmG = scan.fazekasDWM;
+      var maxFaz = Math.max(pvG || 0, dwmG || 0);
+      if (maxFaz === 0) {
+        p += 'There was no evidence of significant small vessel disease. ';
+      } else {
+        var svdSev = maxFaz === 1 ? 'mild' : maxFaz === 2 ? 'moderate' : 'severe';
+        p += 'The scan showed <strong>' + svdSev + ' small vessel disease</strong>';
+        var fd = [];
+        if (pvG !== null) fd.push('periventricular Fazekas grade ' + pvG);
+        if (dwmG !== null) fd.push('deep white matter Fazekas grade ' + dwmG);
+        p += ' (' + fd.join(', ') + '). ';
+        if (maxFaz >= 2) p += 'This indicates changes in the small blood vessels of the brain, which can contribute to thinking and memory difficulties. ';
+      }
+    }
+    // GCA
+    p += niGCA(scan);
+    // MTA
+    p += niMTA(scan);
+    // Koedam
+    p += niKoedam(scan);
+    // Structural
+    if (scan.microbleeds && scan.microbleeds.trim()) p += 'Microbleeds: ' + esc(scan.microbleeds) + '. ';
+    if (scan.lacunes && scan.lacunes.trim()) p += 'Lacunar infarcts: ' + esc(scan.lacunes) + '. ';
+    if (scan.strategicInfarcts && scan.strategicInfarcts.trim()) p += 'Strategic infarcts: ' + esc(scan.strategicInfarcts) + '. ';
+    return p;
+  }
+
+  // ── CT narrative (no Fazekas, no Koedam, no microbleeds) ──
+  function niCT(scan) {
+    var p = '';
+    p += niGCA(scan);
+    p += niMTA(scan);
+    if (scan.lacunes && scan.lacunes.trim()) p += 'Lacunar infarcts: ' + esc(scan.lacunes) + '. ';
+    if (scan.strategicInfarcts && scan.strategicInfarcts.trim()) p += 'Strategic infarcts: ' + esc(scan.strategicInfarcts) + '. ';
+    return p;
+  }
+
+  // ── FDG-PET narrative ──
+  function niFDG(scan) {
+    var p = '';
+    var patternLabels = { normal: 'normal', ad: 'an Alzheimer\'s disease-typical (temporoparietal)', ftd: 'a frontotemporal dementia-typical (frontal / anterior temporal)', dlb: 'a Lewy body dementia-typical (occipital ± temporoparietal)', other: 'an atypical' };
+    if (scan.fdgPattern) {
+      p += 'The FDG-PET showed <strong>' + (patternLabels[scan.fdgPattern] || scan.fdgPattern) + ' pattern</strong> of glucose metabolism. ';
+    }
+    if (scan.fdgRegions && scan.fdgRegions.trim()) {
+      p += 'Regions of reduced metabolism were noted in ' + esc(scan.fdgRegions) + '. ';
+    }
+    if (scan.fdgPattern === 'normal') {
+      p += 'This means the brain\'s use of glucose appeared within normal limits, which is reassuring. ';
+    } else if (scan.fdgPattern && scan.fdgPattern !== 'normal') {
+      p += 'This pattern of reduced brain activity can help clarify the underlying cause of cognitive difficulties. ';
+    }
+    return p;
+  }
+
+  // ── Amyloid PET narrative ──
+  function niAmyloid(scan) {
+    var p = '';
+    if (scan.amyloidResult) {
+      if (scan.amyloidResult === 'positive') {
+        p += 'The amyloid PET scan was <strong>positive</strong>, indicating the presence of amyloid plaques in the brain. ';
+        p += 'Amyloid is one of the proteins associated with Alzheimer\'s disease, though its presence alone does not necessarily mean Alzheimer\'s is causing symptoms. ';
+      } else if (scan.amyloidResult === 'negative') {
+        p += 'The amyloid PET scan was <strong>negative</strong>, meaning no significant amyloid deposits were found. ';
+        p += 'This makes Alzheimer\'s disease a less likely cause of any cognitive difficulties. ';
+      } else {
+        p += 'The amyloid PET scan result was <strong>equivocal</strong> (borderline), meaning it was not clearly positive or negative. ';
+      }
+    }
+    if (scan.centiloid && scan.centiloid.trim()) {
+      p += 'The Centiloid value was ' + esc(scan.centiloid) + '. ';
+    }
+    if (scan.amyloidNotes && scan.amyloidNotes.trim()) {
+      p += esc(scan.amyloidNotes) + ' ';
+    }
+    return p;
+  }
+
+  // ── Tau PET narrative ──
+  function niTau(scan) {
+    var p = '';
+    if (scan.tauResult) {
+      if (scan.tauResult === 'positive') {
+        p += 'The tau PET scan was <strong>positive</strong>, showing abnormal accumulation of tau protein in the brain. ';
+        p += 'Tau tangles are closely associated with nerve cell damage and the progression of Alzheimer\'s disease. ';
+      } else if (scan.tauResult === 'negative') {
+        p += 'The tau PET scan was <strong>negative</strong>, with no significant tau accumulation detected. ';
+      } else {
+        p += 'The tau PET scan result was <strong>equivocal</strong>. ';
+      }
+    }
+    if (scan.tauBraak) {
+      p += 'The distribution of tau corresponded to <strong>Braak stage ' + esc(scan.tauBraak) + '</strong>. ';
+    }
+    if (scan.tauRegions && scan.tauRegions.trim()) {
+      p += 'Elevated tau uptake was observed in ' + esc(scan.tauRegions) + '. ';
+    }
+    return p;
+  }
+
+  // ── DaT-SPECT narrative ──
+  function niDaT(scan) {
+    var p = '';
+    if (scan.datResult) {
+      if (scan.datResult === 'normal') {
+        p += 'The DaT-SPECT scan showed <strong>normal</strong> dopamine transporter uptake. ';
+        p += 'This makes conditions that affect the dopamine system, such as Lewy body dementia or Parkinson\'s disease, less likely. ';
+      } else {
+        p += 'The DaT-SPECT scan was <strong>abnormal</strong>, showing reduced dopamine transporter uptake. ';
+        p += 'This suggests involvement of the dopamine pathways, which can be seen in conditions such as Lewy body dementia or Parkinson\'s disease. ';
+      }
+    }
+    var latLabels = { symmetric: 'symmetric (both sides affected equally)', left: 'asymmetric, with the left side more affected', right: 'asymmetric, with the right side more affected' };
+    if (scan.datLaterality && latLabels[scan.datLaterality]) {
+      p += 'The pattern was ' + latLabels[scan.datLaterality] + '. ';
+    }
+    if (scan.datPattern && scan.datPattern.trim()) {
+      p += esc(scan.datPattern) + ' ';
+    }
+    return p;
+  }
+
+  // ── MIBG narrative ──
+  function niMIBG(scan) {
+    var p = '';
+    if (scan.mibgResult) {
+      if (scan.mibgResult === 'normal') {
+        p += 'The MIBG cardiac scan showed <strong>normal</strong> cardiac sympathetic innervation. ';
+      } else {
+        p += 'The MIBG cardiac scan was <strong>abnormal</strong>, showing reduced cardiac sympathetic innervation. ';
+        p += 'This finding can support a diagnosis of Lewy body dementia. ';
+      }
+    }
+    if (scan.mibgHMEarly && scan.mibgHMEarly.trim()) p += 'Heart-to-mediastinum ratio (early): ' + esc(scan.mibgHMEarly) + '. ';
+    if (scan.mibgHMDelayed && scan.mibgHMDelayed.trim()) p += 'Heart-to-mediastinum ratio (delayed): ' + esc(scan.mibgHMDelayed) + '. ';
+    return p;
+  }
+
+  // ── EEG narrative ──
+  function niEEG(scan) {
+    var p = '';
+    var patLabels = { normal: 'normal', generalised_slow: 'generalised slowing', focal_slow: 'focal slowing', periodic_discharges: 'periodic discharges', epileptiform: 'epileptiform activity', other: 'other abnormalities' };
+    if (scan.eegPattern) {
+      if (scan.eegPattern === 'normal') {
+        p += 'The EEG recording was <strong>normal</strong>. ';
+      } else {
+        p += 'The EEG showed <strong>' + (patLabels[scan.eegPattern] || scan.eegPattern) + '</strong>. ';
+      }
+    }
+    if (scan.eegSlowing && scan.eegSlowing !== 'none') {
+      p += 'Background slowing was ' + esc(scan.eegSlowing) + '. ';
+    }
+    if (scan.eegPDR && scan.eegPDR.trim()) {
+      p += 'The posterior dominant rhythm was ' + esc(scan.eegPDR) + '. ';
+    }
+    if (scan.eegNotes && scan.eegNotes.trim()) {
+      p += esc(scan.eegNotes) + ' ';
+    }
+    return p;
+  }
+
+  /* ── Shared sub-narratives (GCA, MTA, Koedam) ── */
+  function niGCA(scan) {
+    if (scan.gca === null) return '';
+    if (scan.gca === 0) return 'There was no significant global brain shrinkage. ';
+    var sev = scan.gca === 1 ? 'mild' : scan.gca === 2 ? 'moderate' : 'severe';
+    var p = 'There was <strong>' + sev + ' global brain shrinkage</strong> (GCA grade ' + scan.gca + '). ';
+    if (scan.gca >= 2) p += 'This means the brain has lost some of its overall volume, which can be associated with cognitive changes. ';
+    return p;
+  }
+  function niMTA(scan) {
+    var hasMTA = scan.mtaLeft !== null || scan.mtaRight !== null;
+    if (!hasMTA) return '';
+    var mtaL = scan.mtaLeft || 0; var mtaR = scan.mtaRight || 0;
+    var mx = Math.max(mtaL, mtaR);
+    if (mx === 0) return 'The memory areas of the brain (hippocampi) appeared normal in size. ';
+    var p = '';
+    var bilateral = scan.mtaLeft !== null && scan.mtaRight !== null;
+    if (bilateral && mtaL === mtaR) {
+      var sev = mtaL <= 1 ? 'mild' : mtaL <= 2 ? 'mild-to-moderate' : mtaL <= 3 ? 'moderate' : 'severe';
+      p += 'There was <strong>' + sev + ' shrinkage of the memory areas (hippocampi) on both sides</strong> (MTA grade ' + mtaL + ' bilaterally). ';
+    } else if (bilateral) {
+      p += 'There was shrinkage of the memory areas (hippocampi) — <strong>MTA grade ' + mtaL + ' on the left and grade ' + mtaR + ' on the right</strong>. ';
+    } else if (scan.mtaLeft !== null) {
+      p += 'Left medial temporal atrophy was graded at <strong>MTA ' + mtaL + '</strong>. ';
+    } else {
+      p += 'Right medial temporal atrophy was graded at <strong>MTA ' + mtaR + '</strong>. ';
+    }
+    if (mx >= 2) p += 'These areas are important for forming new memories, and changes here can be an early sign of conditions such as Alzheimer\'s disease. ';
+    return p;
+  }
+  function niKoedam(scan) {
+    if (scan.koedam === null) return '';
+    if (scan.koedam === 0) return 'The posterior (back) regions of the brain did not show significant shrinkage. ';
+    var sev = scan.koedam === 1 ? 'mild' : scan.koedam === 2 ? 'moderate' : 'severe';
+    var p = 'There was <strong>' + sev + ' posterior brain shrinkage</strong> (Koedam grade ' + scan.koedam + '). ';
+    if (scan.koedam >= 2) p += 'The posterior regions of the brain are involved in visual processing and spatial awareness, and changes here can be associated with certain forms of dementia. ';
+    return p;
+  }
+
+  /* ── Scores table (MRI / CT structural scales) ── */
+  function niScoresTable(scan, mod) {
+    if (mod !== 'MRI Brain' && mod !== 'CT Head') return '';
+    var rows = [];
+    if (scan.fazekasPV !== null && mod === 'MRI Brain') rows.push({ s: 'Fazekas — Periventricular', v: scan.fazekasPV, r: '0–3', i: fazLabel(scan.fazekasPV) });
+    if (scan.fazekasDWM !== null && mod === 'MRI Brain') rows.push({ s: 'Fazekas — Deep White Matter', v: scan.fazekasDWM, r: '0–3', i: fazDWMLabel(scan.fazekasDWM) });
+    if (scan.gca !== null) rows.push({ s: 'GCA — Global Cortical Atrophy', v: scan.gca, r: '0–3', i: gcaLabel(scan.gca) });
+    if (scan.koedam !== null && mod === 'MRI Brain') rows.push({ s: 'Koedam — Posterior Atrophy', v: scan.koedam, r: '0–3', i: koedamLabel(scan.koedam) });
+    if (scan.mtaLeft !== null) rows.push({ s: 'MTA — Left (Scheltens)', v: scan.mtaLeft, r: '0–4', i: mtaLabel(scan.mtaLeft) });
+    if (scan.mtaRight !== null) rows.push({ s: 'MTA — Right (Scheltens)', v: scan.mtaRight, r: '0–4', i: mtaLabel(scan.mtaRight) });
+    if (rows.length === 0) return '';
+    var h = '<table style="width:100%;border-collapse:collapse;margin:0.5rem 0 0.75rem">';
+    h += '<thead><tr>' + rptTh('Scale') + rptTh('Score', 'center') + rptTh('Range', 'center') + rptTh('Interpretation', 'center') + '</tr></thead><tbody>';
+    for (var j = 0; j < rows.length; j++) h += '<tr>' + rptTd(rows[j].s) + rptTd(rows[j].v, 'center', true) + rptTd(rows[j].r, 'center') + rptTd(rows[j].i, 'center') + '</tr>';
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // Rating scale label helpers
+  function fazLabel(g) { return ['Absent', 'Caps / pencil-thin lining', 'Smooth halo', 'Irregular, into deep WM'][g] || '—'; }
+  function fazDWMLabel(g) { return ['Absent', 'Punctate foci', 'Beginning confluence', 'Large confluent areas'][g] || '—'; }
+  function gcaLabel(g) { return ['No atrophy', 'Mild opening of sulci', 'Moderate gyral volume loss', 'Severe knife-blade atrophy'][g] || '—'; }
+  function koedamLabel(g) { return ['No posterior atrophy', 'Mild posterior widening', 'Moderate parietal atrophy', 'Severe parietal atrophy'][g] || '—'; }
+  function mtaLabel(g) { return ['No atrophy', 'Widened choroid fissure', 'Also widened temporal horn', 'Moderate hippocampal loss', 'Severe hippocampal loss'][g] || '—'; }
+  function niDate(d) { if (!d) return ''; var parts = d.split('-'); if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0]; return d; }
+
+  // ═══════════════════════════════════════════
+  //  MEDICATIONS
+  // ═══════════════════════════════════════════
+  function medicationsSection(compact) {
+    var meds = S.get('medications.list') || [];
+    var recentChanges = S.get('medications.recentChanges') || '';
+    var adherence = S.get('medications.adherence') || '';
+
+    if (meds.length === 0 && !recentChanges.trim() && !adherence.trim()) {
+      return section('Medications', '<p class="text-muted">No medications have been recorded.</p>', compact, 'medications');
+    }
+
+    var content = '';
+
+    if (meds.length > 0) {
+      // Group by category
+      var byCat = {};
+      for (var i = 0; i < meds.length; i++) {
+        var m = meds[i];
+        if (!m.name || !m.name.trim()) continue;
+        var cat = m.category || 'Other';
+        if (!byCat[cat]) byCat[cat] = [];
+        byCat[cat].push(m);
+      }
+
+      // Medications table
+      content += '<table style="width:100%;border-collapse:collapse;margin:0.5rem 0 0.75rem">';
+      content += '<thead><tr>' + rptTh('Medication') + rptTh('Dose') + rptTh('Frequency') + rptTh('Route') + rptTh('Indication') + '</tr></thead><tbody>';
+      for (var j = 0; j < meds.length; j++) {
+        var med = meds[j];
+        if (!med.name || !med.name.trim()) continue;
+        content += '<tr>' +
+          rptTd('<strong>' + esc(med.name) + '</strong>') +
+          rptTd(esc(med.dose || '—')) +
+          rptTd(esc(med.frequency || '—')) +
+          rptTd(esc(med.route || '—')) +
+          rptTd(esc(med.indication || '—')) +
+          '</tr>';
+      }
+      content += '</tbody></table>';
+
+      // Plain-language summary
+      var catNames = Object.keys(byCat);
+      if (catNames.length > 0) {
+        var summaryParts = [];
+        for (var c = 0; c < catNames.length; c++) {
+          var catMeds = byCat[catNames[c]];
+          var names = catMeds.map(function (m) { return '<strong>' + esc(m.name) + '</strong>' + (m.dose ? ' ' + esc(m.dose) : ''); });
+          if (catNames[c] === 'Dementia') {
+            summaryParts.push('You are currently taking ' + joinList(names) + ' for your memory');
+          } else {
+            summaryParts.push(joinList(names) + ' (' + catNames[c].toLowerCase() + ')');
+          }
+        }
+        content += '<p>At the time of this assessment, your medications included: ' + summaryParts.join('; ') + '.</p>';
+      }
+    }
+
+    if (recentChanges && recentChanges.trim()) {
+      content += '<p><strong>Recent changes:</strong> ' + esc(recentChanges) + '</p>';
+    }
+    if (adherence && adherence.trim()) {
+      content += '<p><strong>Adherence:</strong> ' + esc(adherence) + '</p>';
+    }
+
+    return section('Medications', content, compact, 'medications');
+  }
+
+  // ═══════════════════════════════════════════
+  //  MEDICAL HISTORY
+  // ═══════════════════════════════════════════
+  function medicalHistorySection(compact) {
+    var MH = 'medicalHistory.';
+    var cvRisk = S.get(MH + 'cvRisk') || {};
+    var cvNotes = S.get(MH + 'cvNotes') || '';
+    var neuro = S.get(MH + 'neuro') || {};
+    var neuroNotes = S.get(MH + 'neuroNotes') || '';
+    var psych = S.get(MH + 'psych') || {};
+    var psychNotes = S.get(MH + 'psychNotes') || '';
+    var otherMedical = S.get(MH + 'otherMedical') || '';
+    var family = S.get(MH + 'family') || {};
+    var familyNotes = S.get(MH + 'familyNotes') || '';
+    var allergies = S.get(MH + 'allergies') || '';
+
+    var hasAnything = Object.keys(cvRisk).length || cvNotes.trim() ||
+      Object.keys(neuro).length || neuroNotes.trim() ||
+      Object.keys(psych).length || psychNotes.trim() ||
+      otherMedical.trim() ||
+      Object.keys(family).length || familyNotes.trim() ||
+      allergies.trim();
+
+    if (!hasAnything) {
+      return section('Medical History', '<p class="text-muted">No medical history has been recorded.</p>', compact, 'medicalHistory');
+    }
+
+    var content = '';
+    var CVDefs = (BHM.Instruments.MedicalHistory && BHM.Instruments.MedicalHistory.CV_RISK_FACTORS) || [];
+    var NeuroDefs = (BHM.Instruments.MedicalHistory && BHM.Instruments.MedicalHistory.NEURO_CONDITIONS) || [];
+    var PsychDefs = (BHM.Instruments.MedicalHistory && BHM.Instruments.MedicalHistory.PSYCH_CONDITIONS) || [];
+    var FamDefs = (BHM.Instruments.MedicalHistory && BHM.Instruments.MedicalHistory.FAMILY_CONDITIONS) || [];
+
+    // ── Cardiovascular risk factors ──
+    var cvItems = checkedLabels(cvRisk, CVDefs);
+    if (cvItems.length > 0 || cvNotes.trim()) {
+      var cvPara = '';
+      if (cvItems.length > 0) {
+        cvPara += 'Cardiovascular risk factors include ' + joinList(cvItems.map(function (l) { return '<strong>' + l + '</strong>'; })) + '. ';
+      } else {
+        cvPara += 'No specific cardiovascular risk factors were identified. ';
+      }
+      if (cvNotes.trim()) cvPara += esc(cvNotes) + ' ';
+      content += '<p>' + cvPara + '</p>';
+    }
+
+    // ── Neurological history ──
+    var neuroItems = checkedLabels(neuro, NeuroDefs);
+    if (neuroItems.length > 0 || neuroNotes.trim()) {
+      var neuroPara = '';
+      if (neuroItems.length > 0) {
+        neuroPara += 'Neurological history includes ' + joinList(neuroItems.map(function (l) { return '<strong>' + l + '</strong>'; })) + '. ';
+      }
+      if (neuroNotes.trim()) neuroPara += esc(neuroNotes) + ' ';
+      content += '<p>' + neuroPara + '</p>';
+    }
+
+    // ── Psychiatric history ──
+    var psychItems = checkedLabels(psych, PsychDefs);
+    if (psychItems.length > 0 || psychNotes.trim()) {
+      var psychPara = '';
+      if (psychItems.length > 0) {
+        psychPara += 'Psychiatric history includes ' + joinList(psychItems.map(function (l) { return '<strong>' + l + '</strong>'; })) + '. ';
+      }
+      if (psychNotes.trim()) psychPara += esc(psychNotes) + ' ';
+      content += '<p>' + psychPara + '</p>';
+    }
+
+    // ── Other medical / surgical ──
+    if (otherMedical.trim()) {
+      content += '<p><strong>Other medical / surgical history:</strong> ' + esc(otherMedical) + '</p>';
+    }
+
+    // ── Family history ──
+    var famItems = checkedLabels(family, FamDefs);
+    if (famItems.length > 0 || familyNotes.trim()) {
+      var famPara = '';
+      if (famItems.length > 0) {
+        famPara += 'There is a family history of ' + joinList(famItems.map(function (l) { return '<strong>' + l.toLowerCase() + '</strong>'; })) + '. ';
+      } else {
+        famPara += 'No significant family history was reported. ';
+      }
+      if (familyNotes.trim()) famPara += esc(familyNotes) + ' ';
+      content += '<p>' + famPara + '</p>';
+    }
+
+    // ── Allergies ──
+    if (allergies.trim()) {
+      content += '<p><strong>Allergies &amp; adverse reactions:</strong> ' + esc(allergies) + '</p>';
+    }
+
+    return section('Medical History', content, compact, 'medicalHistory');
+  }
+
+  // Helper: extract checked labels from a checklist object
+  function checkedLabels(obj, defs) {
+    var labels = [];
+    var keys = Object.keys(obj);
+    for (var i = 0; i < defs.length; i++) {
+      if (obj[defs[i].id]) labels.push(defs[i].label);
+    }
+    return labels;
+  }
+
+  // Helper: join array as natural list ("a, b, and c")
+  function joinList(arr) {
+    if (arr.length === 0) return '';
+    if (arr.length === 1) return arr[0];
+    if (arr.length === 2) return arr[0] + ' and ' + arr[1];
+    return arr.slice(0, -1).join(', ') + ', and ' + arr[arr.length - 1];
+  }
+
+  // ═══════════════════════════════════════════
+  //  ABOUT THIS REPORT
+  // ═══════════════════════════════════════════
+  function aboutContent() {
+    var gp = S.get('patient.referringGP') || '';
+    var clinician = S.get('patient.clinicianName') || '';
+    var informant = S.get('patient.informantName') || '';
+    var informantRel = S.get('patient.informantRelationship') || '';
+    var assessDate = S.get('patient.dateOfCompletion') || '';
+
+    var html = '<p>';
+
+    // Referral line
+    html += 'You were referred to the memory assessment services by ';
+    html += gp.trim() ? '<strong>' + esc(gp) + '</strong>' : 'your GP';
+    html += '. ';
+
+    // Centre intro
+    html += 'Because you are independent in Instrumental Activities of Daily Living (IADL), and likely to be functioning independently, ' +
+      'we invited you to the <strong>Manchester Brain Health Centre</strong>. ' +
+      'The Centre is a new collaboration between GMMH and MFT NHS Trusts. ' +
+      'This is a new approach to the assessment of people with milder forms of cognitive impairment. We aim to:</p>';
+
+    // Numbered aims
+    html += '<ol style="margin:0.25rem 0 0.75rem">';
+    html += '<li>Optimise cognitive performance by addressing sensory impairment, pain, and medication effects, and to identify people who are more or less likely to have worsening of their cognitive impairment in the short term &mdash; <em>Risk Profiling</em>.</li>';
+    html += '<li>Diagnose neurodegenerative diseases in a timely way.</li>';
+    html += '<li>Reduce people\u2019s risk of worsening cognition using techniques for behaviour change as well as group and individual education.</li>';
+    html += '<li>We encourage everyone to participate in one of our many currently running research studies of promising new therapies.</li>';
+    html += '</ol>';
+
+    // Seen-by line
+    html += '<p>';
+    html += 'You were seen by ';
+    html += clinician.trim() ? '<strong>' + esc(clinician) + '</strong>' : 'your clinician';
+
+    if (informant.trim()) {
+      html += ' with ';
+      if (informantRel.trim()) html += 'your ' + esc(informantRel.toLowerCase()) + ', ';
+      html += '<strong>' + esc(informant) + '</strong>';
+    }
+
+    if (assessDate) {
+      var parts = assessDate.split('-');
+      if (parts.length === 3) {
+        html += ' on ' + fmtDateLong(parts[0], parts[1], parts[2]);
+      }
+    }
+    html += '.</p>';
+
+    // What this report contains
+    html += '<p>This report is a summary of your assessment, your scans, and your cognitive testing results. ' +
+      'It provides a summary of the information gathered, written in plain language. ' +
+      'The scores and descriptions below are based on standardised questionnaires and are intended to help you understand the results.</p>';
+
+    return html;
+  }
+
+  // Format date as "5th February 2026"
+  function fmtDateLong(y, m, d) {
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var day = parseInt(d, 10);
+    var suffix = 'th';
+    if (day === 1 || day === 21 || day === 31) suffix = 'st';
+    else if (day === 2 || day === 22) suffix = 'nd';
+    else if (day === 3 || day === 23) suffix = 'rd';
+    return day + suffix + ' ' + (months[parseInt(m, 10) - 1] || m) + ' ' + y;
+  }
+
+  // ═══════════════════════════════════════════
+  //  DIAGNOSIS BLOCK (top of report)
+  // ═══════════════════════════════════════════
+  function diagnosisBlock(compact) {
+    var diagList = S.get('diagnoses') || [];
+    if (diagList.length === 0) {
+      return '<div class="diagnosis-report-block" style="border:2px solid var(--bs-border-color);border-radius:8px;padding:12px 16px;margin-bottom:1.2rem;background:var(--bs-tertiary-bg, #f8f9fa)">' +
+        '<p class="text-muted mb-0" style="font-size:0.9rem"><i class="bi bi-info-circle me-1"></i>No diagnosis has been recorded. Use the Diagnosis tab to add diagnostic codes.</p></div>';
+    }
+
+    var DiagMod = BHM.Instruments.Diagnosis;
+    // Sort: primary first
+    var sorted = diagList.slice().sort(function (a, b) { return (b.primary ? 1 : 0) - (a.primary ? 1 : 0); });
+
+    var html = '<div class="diagnosis-report-block" style="border:2px solid var(--bs-primary, #1a3c6e);border-radius:8px;padding:14px 18px;margin-bottom:1.2rem;background:var(--bs-primary-bg-subtle, #eef2f9)">';
+    html += '<h4 style="color:var(--bs-primary, #1a3c6e);margin:0 0 8px;font-size:1.1rem"><i class="bi bi-shield-check me-2"></i>Diagnosis</h4>';
+
+    for (var i = 0; i < sorted.length; i++) {
+      var entry = sorted[i];
+      var diagObj = DiagMod ? DiagMod.findDiagnosis(entry.diagnosisId) : null;
+      if (!diagObj) continue;
+
+      var qualLabel = '';
+      if (entry.qualifier && DiagMod) {
+        for (var q = 0; q < DiagMod.QUALIFIERS.length; q++) {
+          if (DiagMod.QUALIFIERS[q].id === entry.qualifier) { qualLabel = DiagMod.QUALIFIERS[q].label; break; }
+        }
+      }
+
+      html += '<div style="margin-bottom:6px;font-size:0.95rem">';
+      html += '<strong>' + (i + 1) + '. ' + esc(diagObj.label) + '</strong>';
+      if (qualLabel) html += ' — <em>' + esc(qualLabel) + '</em>';
+      if (entry.freeText) html += ' <span style="color:var(--bs-secondary-color, #6c757d)">(' + esc(entry.freeText) + ')</span>';
+      html += ' <span class="score-badge" style="font-size:0.75rem;padding:1px 6px;margin-left:4px">ICD-10: ' + diagObj.icd10 + '</span>';
+      html += ' <span class="score-badge" style="font-size:0.75rem;padding:1px 6px;background:#e0f2fe;color:#0369a1">SNOMED: ' + diagObj.snomed + '</span>';
+      if (entry.primary) html += ' <span class="badge bg-warning text-dark" style="font-size:0.65rem;vertical-align:middle">PRIMARY</span>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  // ═══════════════════════════════════════════
   //  SLEEP (PSQI + Epworth)
   // ═══════════════════════════════════════════
   function sleepSection(compact) {
@@ -407,6 +1001,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>You mentioned feeling sleepier during the day than might be expected. This is worth exploring further, as addressing the underlying cause can make a real difference to how you feel day-to-day.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-epworth"></div>';
     } else {
       content += '<p class="text-muted">Epworth not yet completed.</p>';
     }
@@ -965,34 +1560,37 @@ BHM.Report = (function () {
     var c = S.getSession().instruments.clinical || {};
     var content = '';
     var hasAnything = false;
+    var CI = BHM.Instruments.ClinicalInterview;
 
     // ── A. Memory ──
-    var CI = BHM.Instruments.ClinicalInterview;
     var memItems = CI ? CI.getMemItems() : [];
-    var memPresent = [], memAbsent = 0;
+    var memDaily = [], memWeekly = [], memMonthly = [], memOther = [];
+    var memAbsent = 0;
     for (var mi = 0; mi < memItems.length; mi++) {
       var mk = memItems[mi].key;
       if (c[mk] === 'yes') {
-        var freq = c[mk + '_freq'];
-        var onset = c[mk + '_onset'];
+        var freq = c[mk + '_freq'] || '';
         var desc = memItems[mi].label.toLowerCase();
-        var txt = desc;
-        if (freq) txt += ' (' + freq + ')';
-        if (onset) txt += ' — onset: ' + esc(onset);
-        memPresent.push(txt);
-      } else if (c[mk] === 'no') {
-        memAbsent++;
-      }
+        if (freq === 'daily') memDaily.push(desc);
+        else if (freq === 'weekly') memWeekly.push(desc);
+        else if (freq === 'monthly') memMonthly.push(desc);
+        else memOther.push(desc + (freq ? ' (' + freq + ')' : ''));
+      } else if (c[mk] === 'no') { memAbsent++; }
     }
-    if (memPresent.length > 0) {
+    if (memDaily.length > 0 || memWeekly.length > 0 || memMonthly.length > 0 || memOther.length > 0) {
       hasAnything = true;
-      content += '<p><strong>Memory and new learning:</strong> Difficulties were reported with ' + joinList(memPresent) + '.</p>';
-    } else if (memAbsent === memItems.length) {
+      content += '<p><strong>Memory and new learning:</strong> You described difficulties with your memory. ';
+      if (memDaily.length > 0) content += 'On a daily basis, this includes ' + joinList(memDaily) + '. ';
+      if (memWeekly.length > 0) content += 'On a weekly basis, you noted ' + joinList(memWeekly) + '. ';
+      if (memMonthly.length > 0) content += 'Less frequently, you reported ' + joinList(memMonthly) + '. ';
+      if (memOther.length > 0) content += 'You also reported ' + joinList(memOther) + '. ';
+      content += '</p>';
+    } else if (memAbsent === memItems.length && memItems.length > 0) {
       hasAnything = true;
-      content += '<p><strong>Memory and new learning:</strong> No difficulties were reported in this area.</p>';
+      content += '<p><strong>Memory and new learning:</strong> You did not report any significant difficulties with memory or learning new information.</p>';
     }
     if (c.memoryNotes && c.memoryNotes.trim()) {
-      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Examples:</strong> ' + esc(c.memoryNotes) + '</p>';
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem">' + esc(c.memoryNotes) + '</p>';
     }
 
     // ── B. Language ──
@@ -1001,30 +1599,25 @@ BHM.Report = (function () {
     for (var li = 0; li < langItems.length; li++) {
       var lk = langItems[li].key;
       if (c[lk] === 'yes') {
-        var lfreq = c[lk + '_freq'];
-        var ltxt = langItems[li].label.toLowerCase();
-        if (lfreq) ltxt += ' (' + lfreq + ')';
-        langPresent.push(ltxt);
-      } else if (c[lk] === 'no') {
-        langAbsent++;
-      }
+        var lfreq = c[lk + '_freq'] || '';
+        langPresent.push(langItems[li].label.toLowerCase() + (lfreq ? ' (' + lfreq + ')' : ''));
+      } else if (c[lk] === 'no') { langAbsent++; }
     }
-    if (langPresent.length > 0) {
+    if (langPresent.length > 0 || langAbsent === langItems.length) {
       hasAnything = true;
-      content += '<p><strong>Word-finding and language:</strong> Difficulties were noted with ' + joinList(langPresent) + '.';
-      if (c.primaryLanguage) content += ' Primary language: ' + esc(c.primaryLanguage) + '.';
+      if (langPresent.length > 0) {
+        content += '<p><strong>Word-finding and language:</strong> You reported difficulties with ' + joinList(langPresent) + '.';
+      } else {
+        content += '<p><strong>Word-finding and language:</strong> You did not report difficulties with word-finding or language.';
+      }
+      if (c.primaryLanguage) content += ' Your primary language is ' + esc(c.primaryLanguage) + '.';
       if (c.langDifficulty && c.langDifficulty !== 'No' && c.langDifficulty !== '') {
         content += ' A longstanding language difficulty was noted (' + esc(c.langDifficulty) + ').';
       }
       content += '</p>';
-    } else if (langAbsent === langItems.length) {
-      hasAnything = true;
-      content += '<p><strong>Word-finding and language:</strong> No difficulties were reported.';
-      if (c.primaryLanguage) content += ' Primary language: ' + esc(c.primaryLanguage) + '.';
-      content += '</p>';
     }
     if (c.languageNotes && c.languageNotes.trim()) {
-      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Notes:</strong> ' + esc(c.languageNotes) + '</p>';
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem">' + esc(c.languageNotes) + '</p>';
     }
 
     // ── C. Wayfinding / visuospatial ──
@@ -1032,55 +1625,70 @@ BHM.Report = (function () {
     var visPresent = [], visStopped = [], visSafety = [];
     for (var vi = 0; vi < visItems.length; vi++) {
       var vk = visItems[vi].key;
-      var lbl = visItems[vi].label.toLowerCase().replace(/^gets /, '').replace(/^difficulty /, 'difficulty ');
-      if (c[vk + '_present'] === 'yes') visPresent.push(lbl);
-      if (c[vk + '_stopped'] === 'yes') visStopped.push(lbl);
-      if (c[vk + '_safety'] === 'yes') visSafety.push(lbl);
+      var vlbl = visItems[vi].label.toLowerCase().replace(/^gets /, 'getting ').replace(/^difficulty /, 'difficulty ');
+      if (c[vk + '_present'] === 'yes') visPresent.push(vlbl);
+      if (c[vk + '_stopped'] === 'yes') visStopped.push(vlbl);
+      if (c[vk + '_safety'] === 'yes') visSafety.push(vlbl);
     }
     if (visPresent.length > 0 || visStopped.length > 0) {
       hasAnything = true;
       content += '<p><strong>Wayfinding and visuospatial skills:</strong> ';
-      if (visPresent.length > 0) content += 'Current difficulties were reported with ' + joinList(visPresent) + '. ';
-      if (visStopped.length > 0) content += 'The person has stopped: ' + joinList(visStopped) + '. ';
-      if (visSafety.length > 0) content += '<strong>Safety concerns</strong> were flagged for ' + joinList(visSafety) + '. ';
+      if (visPresent.length > 0) content += 'You described current difficulties with ' + joinList(visPresent) + '. ';
+      if (visStopped.length > 0) content += 'You have stopped or are no longer able to do the following due to these difficulties: ' + joinList(visStopped) + '. ';
+      if (visSafety.length > 0) content += '<strong>Safety concerns</strong> were identified in relation to ' + joinList(visSafety) + '.';
       content += '</p>';
     }
     if (c.visuospatialNotes && c.visuospatialNotes.trim()) {
-      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Examples:</strong> ' + esc(c.visuospatialNotes) + '</p>';
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem">' + esc(c.visuospatialNotes) + '</p>';
     }
 
-    // ── D. Personal history ──
-    var dParts = [];
-    if (c.birthPlace) dParts.push('born in ' + esc(c.birthPlace));
-    if (c.livingSituation) dParts.push('currently ' + esc(c.livingSituation).toLowerCase());
-    if (c.siblings) dParts.push(esc(c.siblings) + ' siblings');
-    if (c.relationships) dParts.push('relationship status: ' + esc(c.relationships));
-    if (c.children) dParts.push('children: ' + esc(c.children));
-    if (c.military === 'Yes') dParts.push('history of military service');
-    if (dParts.length > 0) {
+    // ── D. Personal background ──
+    var hasBg = c.birthPlace || c.livingSituation || c.siblings || c.relationships || c.children || c.military === 'Yes';
+    if (hasBg) {
       hasAnything = true;
-      content += '<p><strong>Personal background:</strong> ' + dParts[0].charAt(0).toUpperCase() + dParts[0].slice(1);
-      if (dParts.length > 1) content += '; ' + dParts.slice(1).join('; ');
-      content += '.</p>';
+      content += '<p><strong>Personal background:</strong> ';
+      var bgSentences = [];
+      if (c.birthPlace) bgSentences.push('You were born in ' + esc(c.birthPlace));
+      if (c.livingSituation) bgSentences.push('you currently ' + esc(c.livingSituation).toLowerCase());
+      var famParts = [];
+      if (c.siblings) famParts.push(esc(c.siblings) + ' sibling' + (c.siblings !== '1' ? 's' : ''));
+      if (c.children) famParts.push(esc(c.children) + ' child' + (c.children !== '1' ? 'ren' : ''));
+      if (famParts.length > 0) bgSentences.push('you have ' + famParts.join(' and '));
+      if (c.relationships) {
+        var rel = esc(c.relationships).toLowerCase();
+        if (/married|partner|civil/.test(rel)) bgSentences.push('you are ' + rel);
+        else if (/single|divorced|widow|separated|bereaved/.test(rel)) bgSentences.push('you are ' + rel);
+        else bgSentences.push('your relationship status is ' + rel);
+      }
+      if (c.military === 'Yes') bgSentences.push('you have a history of military service');
+      // Join into flowing prose
+      if (bgSentences.length > 0) {
+        content += bgSentences[0];
+        for (var bs = 1; bs < bgSentences.length; bs++) {
+          content += (bs === bgSentences.length - 1 ? ', and ' : ', ') + bgSentences[bs];
+        }
+        content += '.';
+      }
+      content += '</p>';
     }
     if (c.trauma === 'Yes' && c.traumaDetails) {
-      content += '<p>History of trauma was disclosed: ' + esc(c.traumaDetails) + '.</p>';
+      content += '<p>A history of trauma was disclosed: ' + esc(c.traumaDetails) + '.</p>';
     }
 
     // ── E. Head injury ──
     if (c.headInjury === 'Yes') {
       hasAnything = true;
-      content += '<p><strong>Head injury:</strong> A history of head injury was reported.';
-      if (c.headInjuryMech) content += ' Mechanism: ' + esc(c.headInjuryMech) + '.';
-      if (c.headInjuryLOC && c.headInjuryLOC !== 'No' && c.headInjuryLOC !== '') content += ' Loss of consciousness: ' + esc(c.headInjuryLOC) + '.';
-      if (c.headInjuryPTA && c.headInjuryPTA !== 'No' && c.headInjuryPTA !== '') content += ' Post-traumatic amnesia: ' + esc(c.headInjuryPTA) + '.';
-      if (c.repeatedConcussions === 'Yes') content += ' Repeated concussions reported' + (c.concussionCount ? ' (approximately ' + c.concussionCount + ')' : '') + '.';
-      if (c.contactSports === 'Yes') content += ' Contact sports history: ' + esc(c.contactSportsDetails || 'yes') + '.';
-      if (c.headInjuryOngoing && c.headInjuryOngoing.trim()) content += ' Ongoing symptoms: ' + esc(c.headInjuryOngoing) + '.';
+      content += '<p><strong>Head injury:</strong> You reported a history of head injury.';
+      if (c.headInjuryMech) content += ' This was caused by ' + esc(c.headInjuryMech).toLowerCase() + '.';
+      if (c.headInjuryLOC && c.headInjuryLOC !== 'No' && c.headInjuryLOC !== '') content += ' There was a loss of consciousness (' + esc(c.headInjuryLOC).toLowerCase() + ').';
+      if (c.headInjuryPTA && c.headInjuryPTA !== 'No' && c.headInjuryPTA !== '') content += ' Post-traumatic amnesia was reported (' + esc(c.headInjuryPTA).toLowerCase() + ').';
+      if (c.repeatedConcussions === 'Yes') content += ' You reported repeated concussions' + (c.concussionCount ? ' (approximately ' + c.concussionCount + ')' : '') + '.';
+      if (c.contactSports === 'Yes') content += ' You have a history of contact sports (' + esc(c.contactSportsDetails || 'details not specified') + ').';
+      if (c.headInjuryOngoing && c.headInjuryOngoing.trim()) content += ' You continue to experience: ' + esc(c.headInjuryOngoing) + '.';
       content += '</p>';
     } else if (c.headInjury === 'No') {
       hasAnything = true;
-      content += '<p><strong>Head injury:</strong> No significant history of head injury.</p>';
+      content += '<p><strong>Head injury:</strong> You did not report any significant history of head injury.</p>';
     }
 
     // ── F. Premorbid personality ──
@@ -1089,46 +1697,79 @@ BHM.Report = (function () {
     for (var pi = 0; pi < persItems.length; pi++) {
       var pv = c[persItems[pi].key];
       if (pv && pv !== 'typical') {
-        persParts.push(pv + ' ' + persItems[pi].label.toLowerCase());
+        persParts.push({ trait: persItems[pi].label.toLowerCase(), level: pv.toLowerCase() });
       }
     }
-    if (c.persConflict) persParts.push('handles conflict: ' + c.persConflict.toLowerCase());
-    if (c.persMood) persParts.push('baseline mood: ' + c.persMood.toLowerCase());
-    if (c.persSocial) persParts.push('social engagement: ' + c.persSocial.toLowerCase());
-    if (persParts.length > 0) {
+    var hasPersMeta = c.persConflict || c.persMood || c.persSocial;
+    if (persParts.length > 0 || hasPersMeta) {
       hasAnything = true;
-      content += '<p><strong>Premorbid personality:</strong> ' + persParts.join('; ') + '.</p>';
+      content += '<p><strong>Premorbid personality:</strong> Before these difficulties began, you were described as someone ';
+      var persDesc = [];
+      for (var pd = 0; pd < persParts.length; pd++) {
+        persDesc.push('with ' + persParts[pd].level + ' ' + persParts[pd].trait);
+      }
+      if (c.persMood) persDesc.push('with a ' + esc(c.persMood).toLowerCase() + ' baseline mood');
+      if (c.persSocial) persDesc.push('who was ' + esc(c.persSocial).toLowerCase() + 'ly socially engaged');
+      if (c.persConflict) persDesc.push('who tended to be ' + esc(c.persConflict).toLowerCase() + ' in conflict situations');
+      content += joinList(persDesc) + '.</p>';
     }
 
     // ── G. Education and occupation ──
-    var edParts = [];
-    if (c.highestQual) edParts.push('highest qualification: ' + esc(c.highestQual));
-    if (c.schoolLeaveAge) edParts.push('left school at age ' + c.schoolLeaveAge);
-    if (c.yearsEdu) edParts.push(c.yearsEdu + ' years of education');
-    if (c.academicPerf) edParts.push('self-rated academic performance: ' + c.academicPerf.toLowerCase());
-    if (c.peakOccupation) edParts.push('peak occupation: ' + esc(c.peakOccupation));
-    if (c.occStatus) edParts.push('currently ' + esc(c.occStatus).toLowerCase());
-    if (c.workDomain) edParts.push('work domain: ' + esc(c.workDomain).toLowerCase());
-    if (c.learningDiff && c.learningDiff !== 'No' && c.learningDiff !== '') edParts.push('learning difficulty: ' + esc(c.learningDiff));
-    if (edParts.length > 0) {
+    var hasEd = c.highestQual || c.schoolLeaveAge || c.yearsEdu || c.peakOccupation || c.occStatus;
+    if (hasEd) {
       hasAnything = true;
-      content += '<p><strong>Education and occupation:</strong> ' + edParts.join('; ') + '.</p>';
+      content += '<p><strong>Education and occupation:</strong> ';
+      var edSentences = [];
+      if (c.highestQual) {
+        var qualStr = 'Your highest qualification is ' + esc(c.highestQual);
+        if (c.schoolLeaveAge) qualStr += ', and you left school at age ' + esc(c.schoolLeaveAge);
+        if (c.yearsEdu) qualStr += ' with approximately ' + esc(c.yearsEdu) + ' years of education';
+        edSentences.push(qualStr);
+      } else {
+        if (c.yearsEdu) edSentences.push('You completed approximately ' + esc(c.yearsEdu) + ' years of education');
+        if (c.schoolLeaveAge) edSentences.push('you left school at age ' + esc(c.schoolLeaveAge));
+      }
+      if (c.academicPerf) edSentences.push('you described your academic performance as ' + esc(c.academicPerf).toLowerCase());
+      if (c.peakOccupation) {
+        var occStr = 'your peak occupation was ' + esc(c.peakOccupation);
+        if (c.occStatus) occStr += ' and you are currently ' + esc(c.occStatus).toLowerCase();
+        edSentences.push(occStr);
+      } else if (c.occStatus) {
+        edSentences.push('you are currently ' + esc(c.occStatus).toLowerCase());
+      }
+      if (c.workDomain) edSentences.push('working in the ' + esc(c.workDomain).toLowerCase() + ' sector');
+      if (c.learningDiff && c.learningDiff !== 'No' && c.learningDiff !== '') edSentences.push('a learning difficulty was noted (' + esc(c.learningDiff) + ')');
+      content += edSentences[0];
+      for (var es = 1; es < edSentences.length; es++) {
+        content += '. ' + edSentences[es].charAt(0).toUpperCase() + edSentences[es].slice(1);
+      }
+      content += '.</p>';
     }
 
     // ── H. Substance use ──
-    var subParts = [];
-    if (c.alcUnitsWk) subParts.push('alcohol: ' + esc(c.alcUnitsWk) + ' units/week');
-    if (c.alcPast === 'Past harmful use') subParts.push('past harmful alcohol use' + (c.alcPastDetails ? ' (' + esc(c.alcPastDetails) + ')' : ''));
-    if (c.tobacco) subParts.push('tobacco: ' + esc(c.tobacco).toLowerCase() + (c.tobaccoPacks ? ', ' + esc(c.tobaccoPacks) + ' packs/day' : '') + (c.tobaccoYears ? ' for ' + esc(c.tobaccoYears) + ' years' : ''));
-    if (c.cannabis && c.cannabis !== 'Never' && c.cannabis !== '') subParts.push('cannabis: ' + esc(c.cannabis).toLowerCase());
-    if (c.otherSubstances && c.otherSubstances !== 'None' && c.otherSubstances !== '') subParts.push('other substances: ' + esc(c.otherSubstances).toLowerCase());
-    if (c.substanceHarms && c.substanceHarms !== 'No' && c.substanceHarms !== '') subParts.push('harms reported: ' + esc(c.substanceHarms).toLowerCase());
-    if (subParts.length > 0) {
+    var hasSub = c.alcUnitsWk || c.alcPast === 'Past harmful use' || c.tobacco || (c.cannabis && c.cannabis !== 'Never' && c.cannabis !== '');
+    if (hasSub) {
       hasAnything = true;
-      content += '<p><strong>Substance use:</strong> ' + subParts.join('; ') + '.</p>';
+      content += '<p><strong>Substance use:</strong> ';
+      var subSentences = [];
+      if (c.alcUnitsWk) subSentences.push('you reported drinking approximately ' + esc(c.alcUnitsWk) + ' units of alcohol per week');
+      if (c.alcPast === 'Past harmful use') subSentences.push('there is a history of past harmful alcohol use' + (c.alcPastDetails ? ' (' + esc(c.alcPastDetails) + ')' : ''));
+      if (c.tobacco) {
+        var tobStr = 'regarding tobacco, you are ' + esc(c.tobacco).toLowerCase();
+        if (c.tobaccoPacks) tobStr += ' (' + esc(c.tobaccoPacks) + ' packs/day';
+        if (c.tobaccoYears) tobStr += (c.tobaccoPacks ? ' for ' : '(') + esc(c.tobaccoYears) + ' years)';
+        else if (c.tobaccoPacks) tobStr += ')';
+        subSentences.push(tobStr);
+      }
+      if (c.cannabis && c.cannabis !== 'Never' && c.cannabis !== '') subSentences.push('cannabis use was reported (' + esc(c.cannabis).toLowerCase() + ')');
+      if (c.otherSubstances && c.otherSubstances !== 'None' && c.otherSubstances !== '') subSentences.push('other substance use: ' + esc(c.otherSubstances).toLowerCase());
+      if (c.substanceHarms && c.substanceHarms !== 'No' && c.substanceHarms !== '') subSentences.push('substance-related harms were reported (' + esc(c.substanceHarms).toLowerCase() + ')');
+      content += subSentences[0].charAt(0).toUpperCase() + subSentences[0].slice(1);
+      for (var ss = 1; ss < subSentences.length; ss++) content += '. ' + subSentences[ss].charAt(0).toUpperCase() + subSentences[ss].slice(1);
+      content += '.</p>';
     }
     if (c.substanceNotes && c.substanceNotes.trim()) {
-      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Notes:</strong> ' + esc(c.substanceNotes) + '</p>';
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem">' + esc(c.substanceNotes) + '</p>';
     }
 
     // ── I. Clinician summary ──
@@ -1139,12 +1780,14 @@ BHM.Report = (function () {
     if (c.safetyConcerns && c.safetyConcerns.trim()) {
       hasAnything = true;
       content += '<p><strong>Safety concerns:</strong> ' + esc(c.safetyConcerns) + '</p>';
+    } else if (hasAnything) {
+      content += '<p><strong>Safety concerns:</strong> None identified during this assessment.</p>';
     }
 
     if (!hasAnything) {
       content = '<p class="text-muted">Clinical interview not yet completed.</p>';
     } else {
-      content += '<p><em>This information was gathered during a semi-structured clinical interview and provides important context for interpreting the assessment findings. It will be considered alongside all other results when forming an overall impression.</em></p>';
+      content += '<p><em>This information was gathered during a semi-structured clinical interview and provides important context for interpreting the assessment findings.</em></p>';
     }
 
     return section('Clinical Interview', content, compact, 'clinical');
@@ -1236,18 +1879,24 @@ BHM.Report = (function () {
     var dl = S.getScore('diamondLewy');
     if (!dl || dl.diagnosis === 'incomplete') return section('Lewy Body Features', '<p class="text-muted">DIAMOND Lewy assessment not yet completed.</p>', compact, 'lewy');
     var content = '';
-    switch (dl.diagnosis) {
-      case 'probable': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-poor">Probable Dementia with Lewy Bodies (DLB)</span></p>'; break;
-      case 'possible': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-moderate">Possible Dementia with Lewy Bodies (DLB)</span></p>'; break;
-      case 'not_met': content += '<p><strong>Diagnostic classification:</strong> DLB criteria not met.</p>'; break;
+    var diag = dl.diagnosis;
+    var isPending = diag.indexOf('_pending') !== -1;
+    var baseDiag = diag.replace('_pending', '');
+    var pendingNote = isPending ? ' <em>(note: the presence of progressive cognitive decline is currently uncertain and requires further evaluation)</em>' : '';
+
+    switch (baseDiag) {
+      case 'probable': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-poor">Probable Dementia with Lewy Bodies (DLB)</span>' + pendingNote + '</p>'; break;
+      case 'possible': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-moderate">Possible Dementia with Lewy Bodies (DLB)</span>' + pendingNote + '</p>'; break;
+      case 'not_met': content += '<p><strong>Diagnostic classification:</strong> DLB criteria not met.' + pendingNote + '</p>'; break;
       case 'no_dementia': content += '<p><strong>Diagnostic classification:</strong> Essential criterion (progressive cognitive decline) not established.</p>'; break;
     }
     content += '<p><strong>Core features present (' + dl.coreCount + '/4):</strong> ' + ((dl.corePresent && dl.corePresent.length > 0) ? dl.corePresent.join(', ') : 'None identified') + '</p>';
     content += '<p><strong>Indicative biomarkers:</strong> ' + dl.biomarkerCount + ' present</p>';
     if (dl.supportiveCount > 0) { content += '<p><strong>Supportive features (' + dl.supportiveCount + '):</strong> ' + ((dl.supportivePresent && dl.supportivePresent.length > 0) ? dl.supportivePresent.join(', ') : '') + '</p>'; }
-    if (dl.diagnosis === 'probable') content += '<p>The assessment findings meet criteria for <em>probable</em> Dementia with Lewy Bodies based on the 4th DLB Consensus Criteria (McKeith et al., 2017). This means the pattern of symptoms is consistent with this form of dementia, and the implications will be discussed with you.</p>';
-    else if (dl.diagnosis === 'possible') content += '<p>The assessment findings meet criteria for <em>possible</em> Dementia with Lewy Bodies. This means some features suggestive of this diagnosis were identified, but the full diagnostic criteria were not met. Further investigation may be helpful.</p>';
-    else if (dl.diagnosis === 'not_met') content += '<p>While dementia was identified, the specific features needed for a diagnosis of Dementia with Lewy Bodies were not found during this assessment.</p>';
+    if (baseDiag === 'probable') content += '<p>The assessment findings meet criteria for <em>probable</em> Dementia with Lewy Bodies based on the 4th DLB Consensus Criteria (McKeith et al., 2017). This means the pattern of symptoms is consistent with this form of dementia, and the implications will be discussed with you.</p>';
+    else if (baseDiag === 'possible') content += '<p>The assessment findings meet criteria for <em>possible</em> Dementia with Lewy Bodies. This means some features suggestive of this diagnosis were identified, but the full diagnostic criteria were not met. Further investigation may be helpful.</p>';
+    else if (baseDiag === 'not_met' && !isPending) content += '<p>While dementia was identified, the specific features needed for a diagnosis of Dementia with Lewy Bodies were not found during this assessment.</p>';
+    else if (baseDiag === 'not_met' && isPending) content += '<p>The specific features needed for a diagnosis of Dementia with Lewy Bodies were not found during this assessment. The question of whether progressive cognitive decline is present remains to be clarified.</p>';
     return section('Lewy Body Features', content, compact, 'lewy');
   }
 

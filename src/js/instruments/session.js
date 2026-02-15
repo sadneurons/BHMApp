@@ -76,7 +76,7 @@ BHM.Instruments.Session = (function () {
     }), 'col-md-4'));
 
     patRow.appendChild(wrapCol(F.createField({
-      label: 'NHS Number',
+      label: 'EPR Number',
       statePath: 'patient.nhsNumber',
       placeholder: 'Optional',
       helpText: 'Optional — for clinical linking'
@@ -96,13 +96,19 @@ BHM.Instruments.Session = (function () {
       label: 'Clinician Name',
       statePath: 'patient.clinicianName',
       placeholder: 'Assessing clinician'
-    }), 'col-md-4'));
+    }), 'col-md-3'));
+
+    clinRow.appendChild(wrapCol(F.createField({
+      label: 'Referring GP / Clinician',
+      statePath: 'patient.referringGP',
+      placeholder: 'e.g. Dr A. Smith'
+    }), 'col-md-3'));
 
     clinRow.appendChild(wrapCol(F.createField({
       label: 'Informant Name',
       statePath: 'patient.informantName',
       placeholder: 'Friend or relative'
-    }), 'col-md-4'));
+    }), 'col-md-3'));
 
     clinRow.appendChild(wrapCol(F.createField({
       label: 'Informant Relationship',
@@ -112,7 +118,7 @@ BHM.Instruments.Session = (function () {
         'Spouse / Partner', 'Son / Daughter', 'Sibling',
         'Friend', 'Carer', 'Other'
       ]
-    }), 'col-md-4'));
+    }), 'col-md-3'));
 
     clinSection.appendChild(clinRow);
     card.appendChild(clinSection);
