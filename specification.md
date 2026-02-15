@@ -374,3 +374,191 @@ Must support:
 - Every input change immediately updates the plain-language report and charts, with no manual refresh.
 - Report is printable and exports are available for JSON, CSV, and audit log.
 
+---
+
+## 13. Additional instruments (implemented post-v1)
+
+### 13.1 RBANS Calculator & Supplementary Analysis
+Full implementation of the Repeatable Battery for the Assessment of Neuropsychological Status:
+- **12 subtest raw score inputs**: List Learning, Story Learning, Figure Copy, Line Orientation, Picture Naming, Semantic Fluency, Digit Span, Coding, List Recall, List Recognition, Story Recall, Figure Recall.
+- **Demographics**: Age (auto-derived from DOB on Session tab), Sex (auto-derived from Session tab), Years of Education (auto-derived from Clinical Interview), Ethnicity, TOPF score.
+- **Standard RBANS scoring**: Age-banded lookup tables (50s, 60s, 70s, 80+) for 5 domain indices (Immediate Memory, Visuospatial/Constructional, Language, Attention, Delayed Memory) and Total Scale score.
+- **Duff regression norms**: Age/sex/education/ethnicity-adjusted index scores and percentiles for all 5 domains and Total Scale, using published regression coefficients (Duff & Ramezani 2015, Duff et al. 2003).
+- **TOPF estimated FSIQ**: Polynomial regression from TOPF raw score, education, and sex.
+- **Effort indices**: Silverberg EI (digit span + list recognition composite) with published sensitivity/specificity table; Novitski ES.
+- **Cortical-Subcortical Index**: Beatty (2003) method.
+- **Chart**: Plotly.js multi-axis plot with severity bands, percentile axis, separate Total Scale column, Standard Norms and Duff Adjusted lines. 2:1 vertical-to-horizontal aspect ratio (A5 proportions for the plot area).
+- **Domain narratives**: Auto-generated plain-language summaries for each cognitive domain.
+
+### 13.2 CDR: Clinical Dementia Rating
+- **Assessment tab**: Full CDR worksheet with 6 domains (Memory, Orientation, Judgement & Problem Solving, Community Affairs, Home & Hobbies, Personal Care), each with structured rating scales matching the published CDR form.
+- **Scoring tab**: Washington University CDR scoring algorithm implementation with global CDR score (0, 0.5, 1, 2, 3), CDR Sum of Boxes, and classification labels.
+
+### 13.3 DIAMOND Lewy Screening Tool
+- Structured screening for Lewy body dementia features across multiple domains: essential features, core clinical features (fluctuating cognition, visual hallucinations, REM sleep behaviour disorder, parkinsonism), supportive features, and biomarker indicators.
+- Probability classification based on the number and type of endorsed features.
+
+### 13.4 Neuroimaging Review
+- Multi-scan support with modality selector (MRI, CT, FDG-PET, Amyloid PET, Tau PET, DaTSCAN, MIBG, EEG).
+- Structured findings fields per modality (e.g., MTA grade, Fazekas scale, microbleeds, Centiloid, Braak stage).
+- Clinician interpretation free text per scan.
+- All findings flow into the report with modality-appropriate narrative generation.
+
+### 13.5 Medical History
+- Structured entry for cardiovascular, neurological, psychiatric, and family history.
+- Dementia-specific family history tracking.
+- Allergies and adverse reactions.
+
+### 13.6 Medications
+- Dynamic medication list with name, dose, frequency, route, indication, and category (Dementia, Psychiatric, Cardiovascular, Analgesic, Other).
+- Recent changes and adherence tracking.
+- Category-grouped display in the report.
+
+### 13.7 Physical Examination
+- **Anthropometrics**: Height, weight, BMI (auto-calculated), neck circumference, waist circumference.
+- **Vital signs**: Blood pressure (systolic/diastolic), heart rate, O2 saturation, temperature, respiratory rate.
+- **General observations**: Gait, tremor, rigidity, nutritional status.
+- **Focal neurological signs** and other findings (free text).
+- **STOP-BANG Sleep Apnoea Screen**: Auto-populated from data collected elsewhere (snoring from PSQI, tiredness from Epworth, BMI from anthropometrics, age, neck circumference, sex) with remaining items collected in-situ. Infographic display in report with letter-based icon grid.
+
+### 13.8 QRISK3 Cardiovascular Risk Calculator
+- Full QRISK3-2017 algorithm implementation (Hippisley-Cox et al., BMJ 2017).
+- Captures all required inputs (age, sex, ethnicity, smoking, diabetes type, clinical measurements, conditions, medications).
+- Auto-populates from data already entered elsewhere in the app (BMI, blood pressure, smoking status, medical history).
+- 10-year cardiovascular risk percentage with risk classification.
+- Smiley-face grid infographic for patient-friendly risk communication.
+
+### 13.9 Diagnosis Coding
+- Multi-axis diagnostic coding with searchable combobox.
+- Comprehensive catalogue covering MCI subtypes, Alzheimer's variants, vascular, Lewy body spectrum, frontotemporal, mixed, reversible causes, functional, and other diagnoses.
+- Each diagnosis includes SNOMED-CT and ICD-10 codes.
+- Qualifiers: confirmed/probable/possible/rule-out.
+- Free text annotation per diagnosis.
+
+---
+
+## 14. Export enhancements (post-v1)
+
+### 14.1 DOCX Export
+- Full Word document generation using the `docx` library (client-side).
+- Custom font embedding (Gill Sans MT Std) via OOXML manipulation with JSZip.
+- Structured sections mirroring the HTML report with consistent formatting.
+- **Graphical summary page**: Landscape A4 page with a table-based layout arranging all instrument charts. RBANS chart spans 3 rows in a right-hand column; remaining charts arranged in a 3-column main grid plus a 4-column overflow row. Chart images captured via `html2canvas` (DOM-based charts) and `Plotly.toImage()` (Plotly charts).
+- Print-ready formatting with headers, footers, and page breaks.
+
+---
+
+## 15. UI features (post-v1)
+
+### 15.1 Theme Picker
+- Bootswatch theme integration with 10+ themes (Default, Cosmo, Flatly, Journal, Lux, Minty, Slate, Solar, Superhero, Vapor, Cyborg, Dracula).
+- Theme preference persisted in localStorage (unencrypted — no PHI).
+- Early theme application script prevents flash of wrong theme on load.
+
+### 15.2 Snippet Library
+- Boilerplate text snippet system for patient information inserts in the report.
+- Side panel with categorised, searchable, draggable snippet cards.
+- Drop zones in report sections accept dragged snippets.
+- Snippet manager modal for CRUD operations, import/export as JSON.
+- Default snippets inlined at build time from `snippets.json`.
+- User customisations persisted in localStorage (encrypted).
+
+### 15.3 Speech Dictation
+- Web Speech API integration for clinician note textareas.
+- Microphone button on each clinician insert area.
+- Graceful fallback for unsupported browsers.
+
+---
+
+## 16. Security (implemented)
+
+### 16.1 AES-256-GCM Encryption for localStorage
+- All patient data encrypted at rest in localStorage using the Web Crypto API.
+- **Key derivation**: User-chosen 4-6 digit PIN -> PBKDF2 with 600,000 iterations + random 16-byte salt -> AES-256-GCM CryptoKey.
+- **Encrypted envelope format**: `{v:1, salt, iv, ct}` — random 12-byte IV per write, GCM authenticated encryption.
+- **PIN verification**: Encrypted marker string (`bhm_pin_check`) — GCM authentication tag failure detects wrong PIN without revealing data.
+- **Session caching**: Derived CryptoKey exported as JWK to sessionStorage (tab-scoped, clears on tab close). Page refresh does not re-prompt for PIN.
+- **Legacy migration**: Automatically detects and re-encrypts pre-encryption plaintext data on first save after PIN setup.
+- **Forgotten PIN recovery**: "Reset all data" option with double confirmation. No backdoor — encryption is irrecoverable without the PIN.
+- **What is NOT encrypted**: Theme preference (`bhm-theme`) — contains no PHI.
+
+### 16.2 Content Security Policy (CSP)
+Meta tag with the following directives:
+- `default-src 'self'`
+- `script-src 'self' 'unsafe-inline' cdn.jsdelivr.net` — `unsafe-inline` required for built single-file version
+- `style-src 'self' 'unsafe-inline' cdn.jsdelivr.net`
+- `font-src cdn.jsdelivr.net`
+- `img-src 'self' data: blob:` — required for chart image generation
+- `connect-src 'none'` — **blocks all network exfiltration** (fetch, XHR, WebSocket)
+- `object-src 'none'` — blocks plugin injection
+- `form-action 'none'` — blocks form submission to external URLs
+- `base-uri 'self'` — prevents base tag hijacking
+
+### 16.3 Subresource Integrity (SRI)
+All CDN-loaded scripts and stylesheets carry `integrity="sha384-..."` and `crossorigin="anonymous"` attributes, preventing execution of tampered CDN resources:
+- Bootstrap CSS, Bootstrap Icons CSS
+- Bootstrap JS bundle, Chart.js, docx.js, JSZip, html2canvas, Plotly.js
+
+### 16.4 Import Sanitization
+- Snippet JSON import validates structure (array of objects with expected string fields only).
+- HTML tags stripped from all imported text content.
+- File size limited to 500 KB.
+
+### 16.5 Output Escaping
+- All user-entered text rendered in the HTML report is escaped via `esc()` (textContent -> innerHTML pattern) to prevent stored XSS.
+
+---
+
+## 17. Build and deployment
+
+### 17.1 Technology stack
+- **Vanilla JavaScript** — no framework, no build toolchain beyond a shell script.
+- **Bootstrap 5** (CDN) — UI framework and responsive layout.
+- **Chart.js** (CDN) — bar charts, traffic lights, severity bars, wind roses, infographics.
+- **Plotly.js** (CDN) — RBANS multi-axis chart.
+- **docx** library (CDN) — client-side Word document generation.
+- **JSZip** (CDN) — OOXML font embedding in DOCX.
+- **html2canvas** (CDN) — DOM-based chart capture for DOCX export.
+
+### 17.2 Build process
+`build.sh` bundles the entire application into a single self-contained HTML file (`dist/bhm-app.html`):
+- All CSS inlined in a `<style>` block.
+- All JS concatenated in load order into a single `<script>` block.
+- Default snippets from `snippets.json` inlined as a JS variable.
+- Gill Sans MT Std font files base64-encoded for DOCX embedding.
+- CDN dependencies loaded at runtime (not inlined — too large).
+- CSP meta tag and SRI hashes included in the built output.
+
+### 17.3 File structure
+```
+src/
+  index.html          — Main HTML shell with modals, navigation, content areas
+  css/styles.css      — Custom styles
+  snippets.json       — Default boilerplate snippets
+  js/
+    crypto.js         — AES-256-GCM encryption module
+    themes.js         — Bootswatch theme picker
+    state.js          — Centralised state store with encrypted persistence
+    app.js            — Application controller (async init with PIN unlock)
+    snippets.js       — Snippet library with encrypted storage
+    components/
+      clickableGrid.js — Reusable grid selection component
+    instruments/       — One file per instrument/section
+      session.js, psqi.js, epworth.js, gad7.js, depression.js,
+      diet.js, auditTool.js, casp19.js, hearing.js, mbiC.js,
+      npiQ.js, clinicalInterview.js, rbansNorms.js, rbans.js,
+      cdr.js, diamondLewy.js, neuroimaging.js, medicalHistory.js,
+      medications.js, physicalExam.js, qrisk3.js, diagnosis.js
+    scoring/
+      scoring.js       — Cross-instrument derived scores (STOP-BANG)
+      qrisk3Algorithm.js — QRISK3-2017 survival model
+    report/
+      reportGenerator.js — Live HTML report generation
+      charts.js          — All chart rendering functions
+    export/
+      exporter.js      — JSON, CSV, audit log, print export
+      docxExport.js    — Word document generation
+Source docs/           — Reference PDFs, source HTML calculators, fonts
+build.sh              — Single-file build script
+dist/bhm-app.html     — Built output (single file, ~1.2 MB)
+```
