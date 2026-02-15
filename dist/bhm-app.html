@@ -1440,6 +1440,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <!-- html2canvas for DOM-based chart capture -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Plotly.js for RBANS chart -->
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
 
   <!-- App modules (load order matters) -->
   <script>
@@ -1457,6 +1459,12 @@ var BHM_DEFAULT_SNIPPETS = [
     "title": "Blood Biomarker Explanation",
     "category": "Investigations",
     "text": "We have arranged blood tests that look for specific markers associated with brain health. These include proteins such as phosphorylated tau (p-tau) and neurofilament light chain (NfL), which can provide information about whether changes related to Alzheimer's disease or other neurological conditions may be occurring. Blood-based biomarkers are a relatively new and evolving area of clinical practice. The results are interpreted alongside all other assessment findings and are not used in isolation to make a diagnosis."
+  },
+    {
+    "id": "scan-education",
+    "title": "Imaging Explanation",
+    "category": "Investigations",
+    "text": "We talked through the sldies on 'Understanding Memory and your brain'. We looked at some images to ddemonstrate white matter and gray matter and talked about their different functions. Then we looked at white matter disease (wiring problems) and gray matter disease (cell death) and how they can contribute to memory problems. We spoke about hoe the cauliflower of the temporal lobe and the swiss roll of the hippocampus can get damaged and how this can contribute to memory problems. We spoke briefly about the different diseases underlying dementia and how they can be diagnosed."
   },
   {
     "id": "mri-explanation",
@@ -6553,7 +6561,7 @@ BHM.Instruments.RBANS = (function () {
   var S = BHM.State;
   var N = BHM.RBANSNorms;
   var PREFIX = 'instruments.rbans';
-  var _chart = null; // Chart.js instance
+  // Chart rendering now uses Plotly (no persistent instance needed)
 
   // ── Subtest definitions ──
   var SUBTESTS = [
@@ -7059,8 +7067,8 @@ BHM.Instruments.RBANS = (function () {
     html += '<div class="col-lg-7">';
     html += '<div class="card mb-0" style="height:100%">';
     html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
-    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:2/1">';
-    html += '<canvas id="rbans-chart"></canvas>';
+    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;min-height:780px">';
+    html += '<div id="rbans-chart" style="width:100%;height:100%"></div>';
     html += '</div></div></div>';
     html += '</div>'; // end right col
 
@@ -7179,119 +7187,65 @@ BHM.Instruments.RBANS = (function () {
   }
 
   // ═══════════════════════════════════════════
-  //  CHART (Chart.js)
+  //  CHART (Plotly — mirrors report chart)
   // ═══════════════════════════════════════════
   function renderChart(r) {
-    var canvas = document.getElementById('rbans-chart');
-    if (!canvas) return;
+    if (typeof Plotly === 'undefined') return;
+    var el = document.getElementById('rbans-chart');
+    if (!el) return;
 
-    // Destroy previous chart if exists
-    if (_chart) { _chart.destroy(); _chart = null; }
+    // Re-use the report chart builder if available
+    if (BHM.Charts && BHM.Charts.renderRBANSPlotly) {
+      BHM.Charts.renderRBANSPlotly('rbans-chart');
+      return;
+    }
 
-    var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
+    // Fallback: build inline (same logic as report createRBANSPlotly)
+    var domains = ['Immediate Memory', 'Visuospatial', 'Language', 'Attention', 'Delayed Memory'];
     var stdData = [r.indices.immediateMemory, r.indices.visuospatial, r.indices.language, r.indices.attention, r.indices.delayedMemory];
     var duffData = [parseFloat(r.duff.immIndex), parseFloat(r.duff.visuoIndex), parseFloat(r.duff.langIndex),
       parseFloat(r.duff.attIndex), parseFloat(r.duff.memIndex)];
+    var totalStd = (r.indices && r.indices.totalScale) ? r.indices.totalScale : null;
+    var totalDuff = (r.duff && r.duff.totalIndex) ? parseFloat(r.duff.totalIndex) : null;
 
-    _chart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Standard Norms',
-            data: stdData,
-            borderColor: 'rgb(17, 157, 255)',
-            backgroundColor: 'rgba(17, 157, 255, 0.1)',
-            borderWidth: 2.5,
-            pointRadius: 6,
-            pointBackgroundColor: 'rgb(17, 157, 255)',
-            tension: 0.1
-          },
-          {
-            label: 'Duff Adjusted',
-            data: duffData,
-            borderColor: 'rgb(255, 102, 0)',
-            backgroundColor: 'rgba(255, 102, 0, 0.1)',
-            borderWidth: 2.5,
-            borderDash: [6, 3],
-            pointRadius: 6,
-            pointBackgroundColor: 'rgb(255, 102, 0)',
-            pointStyle: 'rectRot',
-            tension: 0.1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: 'RBANS Index Profile',
-            font: { size: 14, weight: 'bold' }
-          },
-          legend: {
-            position: 'bottom'
-          },
-          annotation: undefined // no plugin needed
-        },
-        scales: {
-          y: {
-            min: 40,
-            max: 160,
-            ticks: {
-              stepSize: 10,
-              callback: function (val) {
-                // Show percentile on the right
-                return val;
-              }
-            },
-            title: {
-              display: true,
-              text: 'Index Score'
-            }
-          }
-        }
-      },
-      plugins: [{
-        id: 'rbans-bands',
-        beforeDraw: function (chart) {
-          var ctx = chart.ctx;
-          var yScale = chart.scales.y;
-          var area = chart.chartArea;
+    var pctVals = [40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160];
+    var pctText = ['<0.1','<0.1','<0.1','0.1','0.4','1','2','5','9','14','25','37','50','63',
+      '75','84','91','95','98','99','99.6','99.9','>99.9','>99.9','>99.9'];
+    var bo = 0.15;
 
-          // Severity bands
-          var bands = [
-            { lo: 40, hi: 55, color: 'rgba(255,77,77,0.10)' },    // Extremely Low
-            { lo: 55, hi: 70, color: 'rgba(255,165,0,0.10)' },    // Borderline
-            { lo: 70, hi: 85, color: 'rgba(255,255,0,0.08)' },    // Low Average
-            { lo: 85, hi: 115, color: 'rgba(204,255,204,0.12)' },  // Average
-            { lo: 115, hi: 130, color: 'rgba(153,255,153,0.10)' }, // High Average+
-            { lo: 130, hi: 160, color: 'rgba(77,255,77,0.10)' }   // Superior+
-          ];
-
-          ctx.save();
-          for (var b = 0; b < bands.length; b++) {
-            var top = yScale.getPixelForValue(bands[b].hi);
-            var bottom = yScale.getPixelForValue(bands[b].lo);
-            ctx.fillStyle = bands[b].color;
-            ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
-          }
-
-          // Mean line
-          var meanY = yScale.getPixelForValue(100);
-          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(area.left, meanY);
-          ctx.lineTo(area.right, meanY);
-          ctx.stroke();
-          ctx.restore();
-        }
-      }]
-    });
+    el.innerHTML = '';
+    Plotly.newPlot(el, [
+      { x: domains, y: stdData, mode: 'lines+markers', name: 'Standard Norms',
+        marker: { color: 'rgb(17,157,255)', size: 9, line: { color: 'rgb(128,0,128)', width: 1.5 } },
+        line: { color: 'rgb(17,157,255)', width: 2 } },
+      { x: domains, y: stdData.map(function(){return null;}), yaxis: 'y2', mode: 'none', opacity: 0, showlegend: false, hoverinfo: 'skip' },
+      { x: ['Total'], y: totalStd ? [totalStd] : [], xaxis: 'x2', yaxis: 'y3', mode: 'markers', showlegend: false,
+        marker: { color: 'rgb(17,157,255)', size: 11, line: { color: 'rgb(128,0,128)', width: 1.5 } } },
+      { x: domains, y: duffData, mode: 'lines+markers', name: 'Duff Adjusted',
+        marker: { color: 'rgb(255,102,0)', size: 9, symbol: 'diamond', line: { color: 'rgb(128,0,128)', width: 1.5 } },
+        line: { color: 'rgb(255,102,0)', width: 2, dash: 'dash' } },
+      { x: ['Total'], y: totalDuff ? [totalDuff] : [], xaxis: 'x2', yaxis: 'y3', mode: 'markers', showlegend: false,
+        marker: { color: 'rgb(255,102,0)', size: 11, symbol: 'diamond', line: { color: 'rgb(128,0,128)', width: 1.5 } } }
+    ], {
+      title: { text: 'RBANS Indices', font: { size: 16 } },
+      showlegend: true, legend: { orientation: 'h', y: -0.18, x: 0.5, xanchor: 'center', font: { size: 11 } },
+      margin: { l: 45, r: 50, t: 40, b: 70 },
+      xaxis:  { domain: [0, 0.78], type: 'category', tickfont: { size: 10 } },
+      yaxis:  { range: [40, 160], dtick: 5, ticklen: 0, tickfont: { size: 9 }, title: { text: 'Index Score', font: { size: 12, color: 'grey' } } },
+      yaxis2: { range: [40, 160], overlaying: 'y', side: 'right', tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 8 } },
+      xaxis2: { domain: [0.88, 1], anchor: 'y3', type: 'category', tickfont: { size: 10 } },
+      yaxis3: { range: [40, 160], overlaying: 'y', side: 'right', anchor: 'x2', tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 8 } },
+      shapes: [
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:85,  x1:4, y1:115, fillcolor:'rgb(204,255,204)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:70,  x1:4, y1:85,  fillcolor:'rgb(153,255,153)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:115, x1:4, y1:130, fillcolor:'rgb(153,255,153)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:55,  x1:4, y1:70,  fillcolor:'rgb(77,255,77)',   opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:130, x1:4, y1:145, fillcolor:'rgb(77,255,77)',   opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:40,  x1:4, y1:55,  fillcolor:'rgb(0,204,0)',     opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:145, x1:4, y1:160, fillcolor:'rgb(0,204,0)',     opacity:bo, line:{width:0} },
+        { type:'line', xref:'x', yref:'y', x0:0, y0:100, x1:4, y1:100, line:{ color:'rgb(227,63,120)', width:2, dash:'dash' }, opacity:0.9 }
+      ]
+    }, { responsive: true, displayModeBar: false, staticPlot: true });
   }
 
   return {
@@ -14219,7 +14173,7 @@ BHM.Report = (function () {
     for (var d2 = 0; d2 < domainList.length; d2++) { var dm = domainList[d2]; content += '<tr>' + rptTd(dm.label, null, true) + rptTd(dm.i, 'center') + rptTd(dm.c + '%', 'center') + rptTd(classifyIndex(dm.i), 'center') + '</tr>'; }
     content += '<tr style="background:#e8edf3;font-weight:600">' + rptTd('Total Scale', null, true) + rptTd(idx.totalScale, 'center') + rptTd(cent.totalScale + '%', 'center') + rptTd(classifyIndex(idx.totalScale), 'center') + '</tr>';
     content += '</tbody></table>';
-    if (!compact) content += '<div class="chart-container" id="chart-rbans"></div>';
+    if (!compact) content += '<div class="chart-container" id="chart-rbans" style="min-height:780px;max-width:700px;margin:0 auto"></div>';
     content += '<div style="margin-top:1rem">';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Immediate Memory</h5>';
     content += '<p>You scored ' + (raw.listlearning || '--') + '/40 on the word list learning task which is a sensitive indicator of your ability to remember new words. You scored ' + (raw.storylearning || '--') + '/24 on the short story learning task which is similar. This gives an Immediate Memory Index Score of <strong>' + idx.immediateMemory + '</strong>. This means that ' + cent.immediateMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
@@ -14833,68 +14787,140 @@ BHM.Charts = (function () {
   }
 
   // ═══════════════════════════════════════════
-  //  10. RBANS LINE PROFILE (preserved)
+  //  10. RBANS — Plotly chart (faithful to rbanscalc.html)
   // ═══════════════════════════════════════════
-  function createRBANSChart(containerId) {
+  //  Features: domain scores (80%), total scale bar (10% right),
+  //  percentile y-axis, severity bands, dashed mean line
+  // ═══════════════════════════════════════════
+  function createRBANSPlotly(containerId, opts) {
+    if (typeof Plotly === 'undefined') { console.warn('Plotly not loaded'); return; }
     var rb = S.getScore('rbans');
     if (!rb || !rb.indices) return;
     var container = document.getElementById(containerId);
-    if (container) { container.style.maxWidth = '700px'; container.style.margin = '0 auto'; }
-    var c = ensureCanvas(containerId, 550);
-    if (!c) return;
-    var tc = themeColors();
-    var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
+    if (!container) return;
+
     var idx = rb.indices; var duff = rb.duff;
+    var domains = ['Immediate Memory', 'Visuospatial', 'Language', 'Attention', 'Delayed Memory'];
     var stdData = [idx.immediateMemory, idx.visuospatial, idx.language, idx.attention, idx.delayedMemory];
-    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex), parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
+    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex),
+      parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
+
+    // Total scale score
+    var totalStd = (rb.indices && rb.indices.totalScale) ? rb.indices.totalScale : null;
+    var totalDuff = (rb.duff && rb.duff.totalIndex) ? parseFloat(rb.duff.totalIndex) : null;
+
+    // Percentile tick mapping (index → percentile label)
+    var pctVals = [40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160];
+    var pctText = ['<0.1','<0.1','<0.1','0.1','0.4','1','2','5','9','14','25','37','50','63',
+      '75','84','91','95','98','99','99.6','99.9','>99.9','>99.9','>99.9'];
+
+    // ── Traces ──
+    // Trace 1: Standard norms (domain scores)
+    var trace1 = {
+      x: domains, y: stdData, mode: 'lines+markers', name: 'Standard Norms',
+      marker: { color: 'rgb(17, 157, 255)', size: 7, line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      line: { color: 'rgb(17, 157, 255)', width: 1.75 }
+    };
+
+    // Trace 2: invisible — just for percentile y-axis overlay
+    var trace2 = {
+      x: domains, y: stdData.map(function () { return null; }),
+      yaxis: 'y2', type: 'scatter', mode: 'none', opacity: 0, showlegend: false, hoverinfo: 'skip'
+    };
+
+    // Trace 3: Total Scale — standard
+    var trace3 = {
+      x: ['Total Scale'], y: totalStd ? [totalStd] : [], name: 'Total (Standard)',
+      xaxis: 'x2', yaxis: 'y3', mode: 'markers',
+      marker: { color: 'rgb(17, 157, 255)', size: 9, line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      showlegend: false
+    };
+
+    // Trace 4: Duff norms (domain scores)
+    var trace4 = {
+      x: domains, y: duffData, mode: 'lines+markers', name: 'Duff Adjusted',
+      marker: { color: 'rgb(255, 102, 0)', size: 7, symbol: 'diamond',
+        line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      line: { color: 'rgb(255, 102, 0)', width: 1.75, dash: 'dash' }
+    };
+
+    // Trace 5: Total Scale — Duff
+    var trace5 = {
+      x: ['Total Scale'], y: totalDuff ? [totalDuff] : [], name: 'Total (Duff)',
+      xaxis: 'x2', yaxis: 'y3', mode: 'markers',
+      marker: { color: 'rgb(255, 102, 0)', size: 9, symbol: 'diamond',
+        line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      showlegend: false
+    };
+
+    // ── Severity band shapes ──
+    var bandOpacity = 0.15;
+    var shapes = [
+      // Normal range: 85-115
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:85,  x1:4, y1:115, fillcolor:'rgb(204,255,204)', opacity:bandOpacity, line:{width:0} },
+      // Mild: 70-85 and 115-130
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:70,  x1:4, y1:85,  fillcolor:'rgb(153,255,153)', opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:115, x1:4, y1:130, fillcolor:'rgb(153,255,153)', opacity:bandOpacity, line:{width:0} },
+      // Moderate: 55-70 and 130-145
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:55,  x1:4, y1:70,  fillcolor:'rgb(77,255,77)',   opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:130, x1:4, y1:145, fillcolor:'rgb(77,255,77)',   opacity:bandOpacity, line:{width:0} },
+      // Extreme: 40-55 and 145-160
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:40,  x1:4, y1:55,  fillcolor:'rgb(0,204,0)',     opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:145, x1:4, y1:160, fillcolor:'rgb(0,204,0)',     opacity:bandOpacity, line:{width:0} },
+      // Mean line at 100
+      { type:'line', xref:'x', yref:'y', x0:0, y0:100, x1:4, y1:100,
+        line:{ color:'rgb(227,63,120)', width:2, dash:'dash' }, opacity:0.9 }
+    ];
+
+    // ── Layout — main graph area at A5 proportions (148×210mm, h/w = √2) ──
+    // With margins l:75 r:75 t:70 b:100 and x-domain [0,0.78]:
+    //   plot_w = (700-150)*0.78 = 429;  plot_h = 429*(210/148) ≈ 609
+    //   container = 700 × 779
+    var ML = 75, MR = 75, MT = 70, MB = 150;
+    var XDOM = 0.78;
+    var A5_RATIO = 210 / 148;  // ≈ 1.4189
+    var LW = 700;
+    var plotW = (LW - ML - MR) * XDOM;           // 429
+    var plotH = Math.round(plotW * A5_RATIO);     // 609
+    var LH = plotH + MT + MB;                     // 779
+
+    var layout = {
+      width: LW, height: LH, autosize: false,
+      title: { text: 'RBANS Indices', font: { size: 30 }, x: 0.01, xanchor: 'left' },
+      showlegend: true,
+      legend: { orientation: 'h', y: 1.02, x: 0.35, xanchor: 'left', yanchor: 'bottom', font: { size: 10 } },
+      margin: { l: ML, r: MR, t: MT, b: MB },
+      xaxis: {
+        domain: [0, XDOM],
+        title: { text: 'Cognitive Domain', font: { size: 21, color: 'grey' }, standoff: 50 },
+        type: 'category',
+        tickfont: { size: 18 }
+      },
+      yaxis: {
+        title: { text: 'Index Score', font: { size: 21, color: 'grey' } },
+        range: [40, 160], dtick: 5, ticklen: 0, tickfont: { size: 16 }
+      },
+      yaxis2: {
+        title: { text: 'Percentile', font: { size: 21, color: 'grey' } },
+        range: [40, 160], overlaying: 'y', side: 'right',
+        tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 15 }
+      },
+      xaxis2: {
+        domain: [0.88, 1], anchor: 'y3', type: 'category', tickfont: { size: 16 }
+      },
+      yaxis3: {
+        title: { text: 'Percentile', font: { size: 21, color: 'grey' } },
+        range: [40, 160], overlaying: 'y', side: 'right', anchor: 'x2',
+        tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 15 }
+      },
+      shapes: shapes
+    };
+
+    container.innerHTML = '';
     try {
-      _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Standard Norms', data: stdData, borderColor: tc.primary, backgroundColor: hexToRGBA(tc.primary, 0.08), borderWidth: 3, pointRadius: 7, pointBackgroundColor: tc.primary, fill: false, tension: 0.1 },
-            { label: 'Duff Adjusted', data: duffData, borderColor: tc.warning, backgroundColor: hexToRGBA(tc.warning, 0.08), borderWidth: 3, borderDash: [6,3], pointRadius: 7, pointBackgroundColor: tc.warning, pointStyle: 'rectRot', fill: false, tension: 0.1 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            title: { display: true, text: 'RBANS Index Profile', font: { size: 26, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } },
-            legend: { position: 'bottom', labels: { font: { size: 22 }, color: tc.tickColor, padding: 16 } }
-          },
-          scales: {
-            y: { min: 40, max: 160, ticks: { stepSize: 10, font: { size: 20 }, color: tc.tickColor }, title: { display: true, text: 'Index Score', font: { size: 22 }, color: tc.tickColor }, grid: { color: tc.gridColor } },
-            x: { ticks: { font: { size: 20 }, color: tc.tickColor }, grid: { color: tc.gridColor } }
-          }
-        },
-        plugins: [{
-          id: 'rbans-report-bands',
-          beforeDraw: function (chart) {
-            var ctx = chart.ctx; var yScale = chart.scales.y; var area = chart.chartArea;
-            var bandAlpha = isDark() ? 0.12 : 0.07;
-            var bands = [
-              { lo: 40, hi: 70, color: hexToRGBA(tc.danger, bandAlpha) },
-              { lo: 70, hi: 85, color: hexToRGBA(tc.warning, bandAlpha) },
-              { lo: 85, hi: 115, color: hexToRGBA(tc.success, bandAlpha) },
-              { lo: 115, hi: 160, color: hexToRGBA(tc.info, bandAlpha * 0.7) }
-            ];
-            ctx.save();
-            for (var b = 0; b < bands.length; b++) {
-              var top = yScale.getPixelForValue(bands[b].hi);
-              var bottom = yScale.getPixelForValue(bands[b].lo);
-              ctx.fillStyle = bands[b].color;
-              ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
-            }
-            var meanY = yScale.getPixelForValue(100);
-            ctx.strokeStyle = isDark() ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
-            ctx.lineWidth = 1; ctx.setLineDash([4,4]);
-            ctx.beginPath(); ctx.moveTo(area.left, meanY); ctx.lineTo(area.right, meanY); ctx.stroke();
-            ctx.restore();
-          }
-        }]
-      });
-    } catch (e) { console.warn('BHM Charts: RBANS failed', containerId, e); }
+      Plotly.newPlot(container, [trace1, trace2, trace3, trace4, trace5], layout,
+        { responsive: false, displayModeBar: false, staticPlot: true });
+    } catch (e) { console.warn('BHM Charts: RBANS Plotly failed', containerId, e); }
   }
 
   // ═══════════════════════════════════════════
@@ -15148,8 +15174,8 @@ BHM.Charts = (function () {
       createQRISK3Infographic('chart-qrisk3', qr, tc);
     }
 
-    // ── RBANS profile line chart ──
-    createRBANSChart('chart-rbans');
+    // ── RBANS profile — Plotly ──
+    createRBANSPlotly('chart-rbans');
   }
 
   // ═══════════════════════════════════════════
@@ -15171,7 +15197,7 @@ BHM.Charts = (function () {
 
     // ── Face grid: 100 faces, coloured by risk ──
     var faceGrid = document.createElement('div');
-    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:0 auto 12px';
+    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(20,1fr);gap:2px;margin:0 auto 12px';
 
     var affectedCount = Math.round(pct);
     if (affectedCount < 1 && pct > 0) affectedCount = 1;
@@ -15184,7 +15210,7 @@ BHM.Charts = (function () {
       var face = document.createElement('i');
       var isAffected = i < affectedCount;
       face.className = isAffected ? 'bi bi-emoji-frown-fill' : 'bi bi-emoji-smile-fill';
-      face.style.cssText = 'font-size:1.4rem;color:' + (isAffected ? riskColor : safeColor) +
+      face.style.cssText = 'font-size:1.1rem;color:' + (isAffected ? riskColor : safeColor) +
         ';opacity:' + (isAffected ? '1' : '0.3');
       faceGrid.appendChild(face);
     }
@@ -15250,6 +15276,7 @@ BHM.Charts = (function () {
 
   return {
     renderReportCharts: renderReportCharts,
+    renderRBANSPlotly: createRBANSPlotly,
     _instances: _chartInstances
   };
 })();
@@ -16033,18 +16060,33 @@ BHM.DocxExport = (function () {
             var rect = canvas.getBoundingClientRect();
             var w = rect.width || canvas.offsetWidth || canvas.width;
             var h = rect.height || canvas.offsetHeight || canvas.height;
-            canvasResults.push({ label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
+            canvasResults.push({ id: allIds[i].id, label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
           }
         } catch (e) {
           console.warn('DocxExport: canvas chart capture failed', allIds[i].id, e);
         }
+      } else if (typeof Plotly !== 'undefined' && container.classList.contains('js-plotly-plot')) {
+        // Plotly chart — use Plotly.toImage for reliable SVG→PNG capture
+        domPromises.push((function (entry, el) {
+          var pw = el.offsetWidth || 700;
+          var ph = el.offsetHeight || 700;
+          return Plotly.toImage(el, { format: 'png', width: pw * 2, height: ph * 2, scale: 1 }).then(function (url) {
+            if (url && url.length > 200) {
+              return { id: entry.id, label: entry.label, dataUrl: url, width: pw, height: ph };
+            }
+            return null;
+          }).catch(function (err) {
+            console.warn('DocxExport: Plotly chart capture failed', entry.id, err);
+            return null;
+          });
+        })(allIds[i], container));
       } else if (typeof html2canvas === 'function') {
         // DOM-based chart — capture using html2canvas
         domPromises.push((function (entry, el) {
           return html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true }).then(function (cvs) {
             var url = cvs.toDataURL('image/png');
             if (url && url.length > 200) {
-              return { label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
+              return { id: entry.id, label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
             }
             return null;
           }).catch(function (err) {
@@ -16077,11 +16119,37 @@ BHM.DocxExport = (function () {
     var d = D();
     var children = [];
 
+    // ═══════════════════════════════════════════════════════════════
+    //  A4 PORTRAIT — Table-based Graphical Summary
+    // ═══════════════════════════════════════════════════════════════
+    //
+    //  Layout:
+    //   ┌──Col 0──┐ ┌──Col 1──┐ ┌──Col 2──┐ ┌───RBANS───┐
+    //   │  Title  │ │  Title  │ │  Title  │ │           │
+    //   │  Chart  │ │  Chart  │ │  Chart  │ │  Title    │
+    //   ├─────────┤ ├─────────┤ ├─────────┤ │  2:1 v:h  │  ×3 rows
+    //   │  …      │ │  …      │ │  …      │ │  chart    │
+    //   └─────────┘ └─────────┘ └─────────┘ └───────────┘
+    //   ┌───R4-0───┐ ┌───R4-1───┐ ┌───R4-2───┐ ┌───R4-3───┐
+    //   │  Title   │ │  Title   │ │  Title   │ │  Title   │  overflow
+    //   │  Chart   │ │  Chart   │ │  Chart   │ │  Chart   │
+    //   └──────────┘ └──────────┘ └──────────┘ └──────────┘
+    //
+    //  Tall charts (windroses/radars) → full cell
+    //  Short charts (bars/gauges/grids) → two stacked per cell
+    // ═══════════════════════════════════════════════════════════════
+
+    // Image sizing: A4 portrait usable width ≈ 495 pt
+    // (11906 twip – 2×1000 twip margin = 9906 twip ÷ 20 = 495 pt)
+    var PAGE_PT = 495;
+    var GROWS = 3;
+    var GCOLS = 3;
+
+    // ── Title ──
     children.push(new d.Paragraph({
       heading: d.HeadingLevel.HEADING_1,
       children: [new d.TextRun({ text: 'Graphical Summary', font: FONT_HEADING, color: '2080E5', bold: false })],
-      pageBreakBefore: true,
-      spacing: { after: 200 },
+      spacing: { after: 150 },
       border: { bottom: { style: d.BorderStyle.SINGLE, size: 6, color: '2080E5', space: 4 } }
     }));
 
@@ -16090,7 +16158,7 @@ BHM.DocxExport = (function () {
         text: 'The charts below summarise the assessment scores across each instrument.',
         size: 22, font: FONT, color: '666666', italics: true
       })],
-      spacing: { after: 200 }
+      spacing: { after: 120 }
     }));
 
     if (charts.length === 0) {
@@ -16100,55 +16168,240 @@ BHM.DocxExport = (function () {
       return children;
     }
 
-    var tableRows = [];
-    for (var i = 0; i < charts.length; i += 2) {
+    // ── Classify charts ──
+    var rbansChart = null;
+    var tallCharts = [];    // windroses / radars — full cell
+    var shortCharts = [];   // bars, gauges, infographics — stack two per cell
+    var TALL_SET = {
+      'chart-gad7': 1, 'chart-casp19': 1,
+      'chart-mbic': 1, 'chart-npiq': 1, 'chart-cdr': 1
+    };
+
+    for (var ci = 0; ci < charts.length; ci++) {
+      var ch = charts[ci];
+      if (ch.id === 'chart-rbans') { rbansChart = ch; continue; }
+      if (TALL_SET[ch.id] || (ch.height && ch.width && ch.height / ch.width >= 0.85)) {
+        tallCharts.push(ch);
+      } else {
+        shortCharts.push(ch);
+      }
+    }
+
+    // ── Column widths (%) ──
+    var hasRbans = !!rbansChart;
+    var gridPct = hasRbans ? 22 : 25;       // each grid column
+    var rbansPct = hasRbans ? (100 - 3 * gridPct) : 0; // RBANS gets remainder (34%)
+
+    // ── Image dimension helpers ──
+    // Full-cell image: fits one chart per cell
+    var FULL_MAX_H = 210;    // pt — caps tall charts
+    // Stacked image: two short charts in one cell
+    var STACK_MAX_H = 95;    // pt — caps each stacked chart
+
+    function chartImage(chart, widthPct, maxH) {
+      var imgData = dataUrlToUint8(chart.dataUrl);
+      var cellPt = Math.round(PAGE_PT * widthPct / 100);
+      var maxW = cellPt - 10;
+      var ratio = (chart.height && chart.width) ? (chart.height / chart.width) : 1;
+      var imgW = maxW;
+      var imgH = Math.round(maxW * ratio);
+      if (imgH > maxH) { imgH = maxH; imgW = Math.round(maxH / ratio); }
+      return { data: imgData, w: imgW, h: imgH };
+    }
+
+    // ── Cell builders ──
+    // Zero cell margins for all chart cells
+    var CELL_M = { top: 0, bottom: 0, left: 0, right: 0 };
+
+    function titlePara(text) {
+      return new d.Paragraph({
+        children: [new d.TextRun({ text: text, bold: true, size: 16, font: FONT, color: '1a3c6e' })],
+        alignment: d.AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 }
+      });
+    }
+
+    function imagePara(img) {
+      return new d.Paragraph({
+        children: [new d.ImageRun({ data: img.data, transformation: { width: img.w, height: img.h } })],
+        alignment: d.AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 }
+      });
+    }
+
+    // Full cell: one chart with title
+    function fullCell(chart, widthPct) {
+      var img = chartImage(chart, widthPct, FULL_MAX_H);
+      return new d.TableCell({
+        children: [titlePara(chart.label), imagePara(img)],
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        borders: cellBorders(),
+        margins: CELL_M,
+        shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' },
+        verticalAlign: d.VerticalAlign.CENTER
+      });
+    }
+
+    // Stacked cell: two short charts with titles
+    function stackedCell(chart1, chart2, widthPct) {
+      var cellChildren = [];
+      if (chart1) {
+        var img1 = chartImage(chart1, widthPct, STACK_MAX_H);
+        cellChildren.push(titlePara(chart1.label));
+        cellChildren.push(imagePara(img1));
+      }
+      if (chart2) {
+        // Thin separator line
+        cellChildren.push(new d.Paragraph({
+          children: [],
+          spacing: { before: 0, after: 0 },
+          border: { bottom: { style: d.BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 0 } }
+        }));
+        var img2 = chartImage(chart2, widthPct, STACK_MAX_H);
+        cellChildren.push(titlePara(chart2.label));
+        cellChildren.push(imagePara(img2));
+      }
+      if (cellChildren.length === 0) {
+        cellChildren.push(new d.Paragraph({ children: [] }));
+      }
+      return new d.TableCell({
+        children: cellChildren,
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        borders: cellBorders(),
+        margins: CELL_M,
+        shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' },
+        verticalAlign: d.VerticalAlign.TOP
+      });
+    }
+
+    // Empty cell
+    function emptyCell(widthPct) {
+      return new d.TableCell({
+        children: [new d.Paragraph({ children: [] })],
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        margins: CELL_M,
+        borders: {
+          top: { style: d.BorderStyle.NONE }, bottom: { style: d.BorderStyle.NONE },
+          left: { style: d.BorderStyle.NONE }, right: { style: d.BorderStyle.NONE }
+        }
+      });
+    }
+
+    // ── Build cell assignment list for the 3×3 grid ──
+    // Each grid slot is either: a tall chart (full cell) or two stacked short charts
+    var gridSlots = []; // each: { type:'full', chart } or { type:'stack', c1, c2 }
+    var tI = 0, sI = 0;
+
+    // Fill 9 grid slots (3 rows × 3 cols)
+    for (var slot = 0; slot < GROWS * GCOLS; slot++) {
+      if (tI < tallCharts.length) {
+        gridSlots.push({ type: 'full', chart: tallCharts[tI++] });
+      } else if (sI < shortCharts.length) {
+        var c1 = shortCharts[sI++];
+        var c2 = (sI < shortCharts.length) ? shortCharts[sI++] : null;
+        gridSlots.push({ type: 'stack', c1: c1, c2: c2 });
+      } else {
+        gridSlots.push({ type: 'empty' });
+      }
+    }
+
+    // ── Build main table rows ──
+    var mainRows = [];
+    for (var row = 0; row < GROWS; row++) {
       var cells = [];
-      for (var j = 0; j < 2; j++) {
-        var idx = i + j;
-        if (idx < charts.length) {
-          var chart = charts[idx];
-          var imgData = dataUrlToUint8(chart.dataUrl);
-          var maxW = 280;
-          var ratio = chart.height / chart.width;
-          var imgW = maxW;
-          var imgH = Math.round(maxW * ratio);
-          if (imgH > 260) { imgH = 260; imgW = Math.round(260 / ratio); }
+
+      // 3 grid columns
+      for (var col = 0; col < GCOLS; col++) {
+        var gs = gridSlots[row * GCOLS + col];
+        if (gs.type === 'full') {
+          cells.push(fullCell(gs.chart, gridPct));
+        } else if (gs.type === 'stack') {
+          cells.push(stackedCell(gs.c1, gs.c2, gridPct));
+        } else {
+          cells.push(emptyCell(gridPct));
+        }
+      }
+
+      // RBANS column (row 0 = merge start, row 1-2 = continue)
+      if (hasRbans) {
+        if (row === 0) {
+          // RBANS: use natural aspect ratio (now rendered at 1:2 w:h = tall)
+          var rbCellPt = Math.round(PAGE_PT * rbansPct / 100);
+          var rbMaxW = rbCellPt - 12;
+          var rbRatio = (rbansChart.height && rbansChart.width) ? (rbansChart.height / rbansChart.width) : 2;
+          var rbImgW = rbMaxW;
+          var rbImgH = Math.round(rbImgW * rbRatio);
+          // Cap to reasonable page height
+          if (rbImgH > 560) { rbImgH = 560; rbImgW = Math.round(560 / rbRatio); }
+          var rbData = dataUrlToUint8(rbansChart.dataUrl);
 
           cells.push(new d.TableCell({
             children: [
+              titlePara(rbansChart.label),
               new d.Paragraph({
-                children: [new d.TextRun({ text: chart.label, bold: true, size: 20, font: FONT, color: '1a3c6e' })],
+                children: [new d.ImageRun({ data: rbData, transformation: { width: rbImgW, height: rbImgH } })],
                 alignment: d.AlignmentType.CENTER,
-                spacing: { before: 80, after: 80 }
-              }),
-              new d.Paragraph({
-                children: [new d.ImageRun({ data: imgData, transformation: { width: imgW, height: imgH } })],
-                alignment: d.AlignmentType.CENTER,
-                spacing: { after: 80 }
+                spacing: { before: 0, after: 0 }
               })
             ],
-            width: { size: 50, type: d.WidthType.PERCENTAGE },
+            width: { size: rbansPct, type: d.WidthType.PERCENTAGE },
             borders: cellBorders(),
-            shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' }
+            margins: CELL_M,
+            shading: { fill: 'f0f4fa', type: d.ShadingType.SOLID, color: 'auto' },
+            verticalMerge: d.VerticalMergeType.RESTART,
+            verticalAlign: d.VerticalAlign.CENTER
           }));
         } else {
           cells.push(new d.TableCell({
             children: [new d.Paragraph({ children: [] })],
-            width: { size: 50, type: d.WidthType.PERCENTAGE },
-            borders: {
-              top: { style: d.BorderStyle.NONE }, bottom: { style: d.BorderStyle.NONE },
-              left: { style: d.BorderStyle.NONE }, right: { style: d.BorderStyle.NONE }
-            }
+            width: { size: rbansPct, type: d.WidthType.PERCENTAGE },
+            borders: cellBorders(),
+            margins: CELL_M,
+            verticalMerge: d.VerticalMergeType.CONTINUE
           }));
         }
       }
-      tableRows.push(new d.TableRow({ children: cells }));
+
+      mainRows.push(new d.TableRow({ children: cells }));
     }
 
+    // ── Add main table ──
     children.push(new d.Table({
-      rows: tableRows,
+      rows: mainRows,
       width: { size: 100, type: d.WidthType.PERCENTAGE }
     }));
+
+    // ── Row 4: overflow charts (full-width, 4 equal columns) ──
+    var overflow = [];
+    while (tI < tallCharts.length) overflow.push(tallCharts[tI++]);
+    while (sI < shortCharts.length) overflow.push(shortCharts[sI++]);
+
+    if (overflow.length > 0) {
+      children.push(new d.Paragraph({
+        children: [],
+        spacing: { before: 80, after: 40 }
+      }));
+
+      var R4_PCT = 25;
+      var overRows = [];
+      for (var oi = 0; oi < overflow.length; oi += 4) {
+        var overCells = [];
+        for (var oj = 0; oj < 4; oj++) {
+          var oIdx = oi + oj;
+          if (oIdx < overflow.length) {
+            overCells.push(fullCell(overflow[oIdx], R4_PCT));
+          } else {
+            overCells.push(emptyCell(R4_PCT));
+          }
+        }
+        overRows.push(new d.TableRow({ children: overCells }));
+      }
+
+      children.push(new d.Table({
+        rows: overRows,
+        width: { size: 100, type: d.WidthType.PERCENTAGE }
+      }));
+    }
 
     return children;
   }
@@ -16337,45 +16590,68 @@ BHM.DocxExport = (function () {
 
     function finishDoc(charts) {
       var summaryElements = buildGraphicalSummary(charts);
-      var allChildren = titleElements.concat(reportElements).concat(summaryElements);
 
-      return new d.Document({
-        creator: 'Manchester Brain Health Centre Assessment App',
-        title: 'Assessment Report — ' + name,
-        description: 'Generated assessment report',
-        styles: {
-          default: {
-            document: {
-              run: { font: FONT, size: 22 }
-            },
-            heading1: {
-              run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
-              paragraph: { spacing: { before: 300, after: 100 } }
-            },
-            heading2: {
-              run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
-              paragraph: { spacing: { before: 240, after: 80 } }
-            },
-            heading3: {
-              run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
-              paragraph: { spacing: { before: 200, after: 60 } }
-            },
-            heading4: {
-              run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
-              paragraph: { spacing: { before: 160, after: 40 } }
-            }
+      var sharedStyles = {
+        default: {
+          document: {
+            run: { font: FONT, size: 22 }
+          },
+          heading1: {
+            run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
+            paragraph: { spacing: { before: 300, after: 100 } }
+          },
+          heading2: {
+            run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
+            paragraph: { spacing: { before: 240, after: 80 } }
+          },
+          heading3: {
+            run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
+            paragraph: { spacing: { before: 200, after: 60 } }
+          },
+          heading4: {
+            run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
+            paragraph: { spacing: { before: 160, after: 40 } }
           }
-        },
-        sections: [{
+        }
+      };
+
+      var sharedHeader = { default: new d.Header({ children: headerChildren }) };
+      var sharedFooter = { default: new d.Footer({ children: footerChildren }) };
+
+      var sections = [
+        // Section 1: Report content — portrait
+        {
           properties: {
             page: {
               margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
             }
           },
-          headers: { default: new d.Header({ children: headerChildren }) },
-          footers: { default: new d.Footer({ children: footerChildren }) },
-          children: allChildren
-        }]
+          headers: sharedHeader,
+          footers: sharedFooter,
+          children: titleElements.concat(reportElements)
+        }
+      ];
+
+      // Section 2: Graphical summary — portrait (floating images)
+      if (summaryElements.length > 0) {
+        sections.push({
+          properties: {
+            page: {
+              margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+            }
+          },
+          headers: sharedHeader,
+          footers: sharedFooter,
+          children: summaryElements
+        });
+      }
+
+      return new d.Document({
+        creator: 'Manchester Brain Health Centre Assessment App',
+        title: 'Assessment Report — ' + name,
+        description: 'Generated assessment report',
+        styles: sharedStyles,
+        sections: sections
       });
     }
 

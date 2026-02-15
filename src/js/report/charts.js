@@ -524,68 +524,140 @@ BHM.Charts = (function () {
   }
 
   // ═══════════════════════════════════════════
-  //  10. RBANS LINE PROFILE (preserved)
+  //  10. RBANS — Plotly chart (faithful to rbanscalc.html)
   // ═══════════════════════════════════════════
-  function createRBANSChart(containerId) {
+  //  Features: domain scores (80%), total scale bar (10% right),
+  //  percentile y-axis, severity bands, dashed mean line
+  // ═══════════════════════════════════════════
+  function createRBANSPlotly(containerId, opts) {
+    if (typeof Plotly === 'undefined') { console.warn('Plotly not loaded'); return; }
     var rb = S.getScore('rbans');
     if (!rb || !rb.indices) return;
     var container = document.getElementById(containerId);
-    if (container) { container.style.maxWidth = '700px'; container.style.margin = '0 auto'; }
-    var c = ensureCanvas(containerId, 550);
-    if (!c) return;
-    var tc = themeColors();
-    var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
+    if (!container) return;
+
     var idx = rb.indices; var duff = rb.duff;
+    var domains = ['Immediate Memory', 'Visuospatial', 'Language', 'Attention', 'Delayed Memory'];
     var stdData = [idx.immediateMemory, idx.visuospatial, idx.language, idx.attention, idx.delayedMemory];
-    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex), parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
+    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex),
+      parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
+
+    // Total scale score
+    var totalStd = (rb.indices && rb.indices.totalScale) ? rb.indices.totalScale : null;
+    var totalDuff = (rb.duff && rb.duff.totalIndex) ? parseFloat(rb.duff.totalIndex) : null;
+
+    // Percentile tick mapping (index → percentile label)
+    var pctVals = [40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160];
+    var pctText = ['<0.1','<0.1','<0.1','0.1','0.4','1','2','5','9','14','25','37','50','63',
+      '75','84','91','95','98','99','99.6','99.9','>99.9','>99.9','>99.9'];
+
+    // ── Traces ──
+    // Trace 1: Standard norms (domain scores)
+    var trace1 = {
+      x: domains, y: stdData, mode: 'lines+markers', name: 'Standard Norms',
+      marker: { color: 'rgb(17, 157, 255)', size: 7, line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      line: { color: 'rgb(17, 157, 255)', width: 1.75 }
+    };
+
+    // Trace 2: invisible — just for percentile y-axis overlay
+    var trace2 = {
+      x: domains, y: stdData.map(function () { return null; }),
+      yaxis: 'y2', type: 'scatter', mode: 'none', opacity: 0, showlegend: false, hoverinfo: 'skip'
+    };
+
+    // Trace 3: Total Scale — standard
+    var trace3 = {
+      x: ['Total Scale'], y: totalStd ? [totalStd] : [], name: 'Total (Standard)',
+      xaxis: 'x2', yaxis: 'y3', mode: 'markers',
+      marker: { color: 'rgb(17, 157, 255)', size: 9, line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      showlegend: false
+    };
+
+    // Trace 4: Duff norms (domain scores)
+    var trace4 = {
+      x: domains, y: duffData, mode: 'lines+markers', name: 'Duff Adjusted',
+      marker: { color: 'rgb(255, 102, 0)', size: 7, symbol: 'diamond',
+        line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      line: { color: 'rgb(255, 102, 0)', width: 1.75, dash: 'dash' }
+    };
+
+    // Trace 5: Total Scale — Duff
+    var trace5 = {
+      x: ['Total Scale'], y: totalDuff ? [totalDuff] : [], name: 'Total (Duff)',
+      xaxis: 'x2', yaxis: 'y3', mode: 'markers',
+      marker: { color: 'rgb(255, 102, 0)', size: 9, symbol: 'diamond',
+        line: { color: 'rgb(128, 0, 128)', width: 1.5 } },
+      showlegend: false
+    };
+
+    // ── Severity band shapes ──
+    var bandOpacity = 0.15;
+    var shapes = [
+      // Normal range: 85-115
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:85,  x1:4, y1:115, fillcolor:'rgb(204,255,204)', opacity:bandOpacity, line:{width:0} },
+      // Mild: 70-85 and 115-130
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:70,  x1:4, y1:85,  fillcolor:'rgb(153,255,153)', opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:115, x1:4, y1:130, fillcolor:'rgb(153,255,153)', opacity:bandOpacity, line:{width:0} },
+      // Moderate: 55-70 and 130-145
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:55,  x1:4, y1:70,  fillcolor:'rgb(77,255,77)',   opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:130, x1:4, y1:145, fillcolor:'rgb(77,255,77)',   opacity:bandOpacity, line:{width:0} },
+      // Extreme: 40-55 and 145-160
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:40,  x1:4, y1:55,  fillcolor:'rgb(0,204,0)',     opacity:bandOpacity, line:{width:0} },
+      { type:'rect', xref:'x', yref:'y', x0:0, y0:145, x1:4, y1:160, fillcolor:'rgb(0,204,0)',     opacity:bandOpacity, line:{width:0} },
+      // Mean line at 100
+      { type:'line', xref:'x', yref:'y', x0:0, y0:100, x1:4, y1:100,
+        line:{ color:'rgb(227,63,120)', width:2, dash:'dash' }, opacity:0.9 }
+    ];
+
+    // ── Layout — main graph area at A5 proportions (148×210mm, h/w = √2) ──
+    // With margins l:75 r:75 t:70 b:100 and x-domain [0,0.78]:
+    //   plot_w = (700-150)*0.78 = 429;  plot_h = 429*(210/148) ≈ 609
+    //   container = 700 × 779
+    var ML = 75, MR = 75, MT = 70, MB = 150;
+    var XDOM = 0.78;
+    var A5_RATIO = 210 / 148;  // ≈ 1.4189
+    var LW = 700;
+    var plotW = (LW - ML - MR) * XDOM;           // 429
+    var plotH = Math.round(plotW * A5_RATIO);     // 609
+    var LH = plotH + MT + MB;                     // 779
+
+    var layout = {
+      width: LW, height: LH, autosize: false,
+      title: { text: 'RBANS Indices', font: { size: 30 }, x: 0.01, xanchor: 'left' },
+      showlegend: true,
+      legend: { orientation: 'h', y: 1.02, x: 0.35, xanchor: 'left', yanchor: 'bottom', font: { size: 10 } },
+      margin: { l: ML, r: MR, t: MT, b: MB },
+      xaxis: {
+        domain: [0, XDOM],
+        title: { text: 'Cognitive Domain', font: { size: 21, color: 'grey' }, standoff: 50 },
+        type: 'category',
+        tickfont: { size: 18 }
+      },
+      yaxis: {
+        title: { text: 'Index Score', font: { size: 21, color: 'grey' } },
+        range: [40, 160], dtick: 5, ticklen: 0, tickfont: { size: 16 }
+      },
+      yaxis2: {
+        title: { text: 'Percentile', font: { size: 21, color: 'grey' } },
+        range: [40, 160], overlaying: 'y', side: 'right',
+        tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 15 }
+      },
+      xaxis2: {
+        domain: [0.88, 1], anchor: 'y3', type: 'category', tickfont: { size: 16 }
+      },
+      yaxis3: {
+        title: { text: 'Percentile', font: { size: 21, color: 'grey' } },
+        range: [40, 160], overlaying: 'y', side: 'right', anchor: 'x2',
+        tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 15 }
+      },
+      shapes: shapes
+    };
+
+    container.innerHTML = '';
     try {
-      _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Standard Norms', data: stdData, borderColor: tc.primary, backgroundColor: hexToRGBA(tc.primary, 0.08), borderWidth: 3, pointRadius: 7, pointBackgroundColor: tc.primary, fill: false, tension: 0.1 },
-            { label: 'Duff Adjusted', data: duffData, borderColor: tc.warning, backgroundColor: hexToRGBA(tc.warning, 0.08), borderWidth: 3, borderDash: [6,3], pointRadius: 7, pointBackgroundColor: tc.warning, pointStyle: 'rectRot', fill: false, tension: 0.1 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            title: { display: true, text: 'RBANS Index Profile', font: { size: 26, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } },
-            legend: { position: 'bottom', labels: { font: { size: 22 }, color: tc.tickColor, padding: 16 } }
-          },
-          scales: {
-            y: { min: 40, max: 160, ticks: { stepSize: 10, font: { size: 20 }, color: tc.tickColor }, title: { display: true, text: 'Index Score', font: { size: 22 }, color: tc.tickColor }, grid: { color: tc.gridColor } },
-            x: { ticks: { font: { size: 20 }, color: tc.tickColor }, grid: { color: tc.gridColor } }
-          }
-        },
-        plugins: [{
-          id: 'rbans-report-bands',
-          beforeDraw: function (chart) {
-            var ctx = chart.ctx; var yScale = chart.scales.y; var area = chart.chartArea;
-            var bandAlpha = isDark() ? 0.12 : 0.07;
-            var bands = [
-              { lo: 40, hi: 70, color: hexToRGBA(tc.danger, bandAlpha) },
-              { lo: 70, hi: 85, color: hexToRGBA(tc.warning, bandAlpha) },
-              { lo: 85, hi: 115, color: hexToRGBA(tc.success, bandAlpha) },
-              { lo: 115, hi: 160, color: hexToRGBA(tc.info, bandAlpha * 0.7) }
-            ];
-            ctx.save();
-            for (var b = 0; b < bands.length; b++) {
-              var top = yScale.getPixelForValue(bands[b].hi);
-              var bottom = yScale.getPixelForValue(bands[b].lo);
-              ctx.fillStyle = bands[b].color;
-              ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
-            }
-            var meanY = yScale.getPixelForValue(100);
-            ctx.strokeStyle = isDark() ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
-            ctx.lineWidth = 1; ctx.setLineDash([4,4]);
-            ctx.beginPath(); ctx.moveTo(area.left, meanY); ctx.lineTo(area.right, meanY); ctx.stroke();
-            ctx.restore();
-          }
-        }]
-      });
-    } catch (e) { console.warn('BHM Charts: RBANS failed', containerId, e); }
+      Plotly.newPlot(container, [trace1, trace2, trace3, trace4, trace5], layout,
+        { responsive: false, displayModeBar: false, staticPlot: true });
+    } catch (e) { console.warn('BHM Charts: RBANS Plotly failed', containerId, e); }
   }
 
   // ═══════════════════════════════════════════
@@ -839,8 +911,8 @@ BHM.Charts = (function () {
       createQRISK3Infographic('chart-qrisk3', qr, tc);
     }
 
-    // ── RBANS profile line chart ──
-    createRBANSChart('chart-rbans');
+    // ── RBANS profile — Plotly ──
+    createRBANSPlotly('chart-rbans');
   }
 
   // ═══════════════════════════════════════════
@@ -862,7 +934,7 @@ BHM.Charts = (function () {
 
     // ── Face grid: 100 faces, coloured by risk ──
     var faceGrid = document.createElement('div');
-    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:0 auto 12px';
+    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(20,1fr);gap:2px;margin:0 auto 12px';
 
     var affectedCount = Math.round(pct);
     if (affectedCount < 1 && pct > 0) affectedCount = 1;
@@ -875,7 +947,7 @@ BHM.Charts = (function () {
       var face = document.createElement('i');
       var isAffected = i < affectedCount;
       face.className = isAffected ? 'bi bi-emoji-frown-fill' : 'bi bi-emoji-smile-fill';
-      face.style.cssText = 'font-size:1.4rem;color:' + (isAffected ? riskColor : safeColor) +
+      face.style.cssText = 'font-size:1.1rem;color:' + (isAffected ? riskColor : safeColor) +
         ';opacity:' + (isAffected ? '1' : '0.3');
       faceGrid.appendChild(face);
     }
@@ -941,6 +1013,7 @@ BHM.Charts = (function () {
 
   return {
     renderReportCharts: renderReportCharts,
+    renderRBANSPlotly: createRBANSPlotly,
     _instances: _chartInstances
   };
 })();

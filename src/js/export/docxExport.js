@@ -433,18 +433,33 @@ BHM.DocxExport = (function () {
             var rect = canvas.getBoundingClientRect();
             var w = rect.width || canvas.offsetWidth || canvas.width;
             var h = rect.height || canvas.offsetHeight || canvas.height;
-            canvasResults.push({ label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
+            canvasResults.push({ id: allIds[i].id, label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
           }
         } catch (e) {
           console.warn('DocxExport: canvas chart capture failed', allIds[i].id, e);
         }
+      } else if (typeof Plotly !== 'undefined' && container.classList.contains('js-plotly-plot')) {
+        // Plotly chart — use Plotly.toImage for reliable SVG→PNG capture
+        domPromises.push((function (entry, el) {
+          var pw = el.offsetWidth || 700;
+          var ph = el.offsetHeight || 700;
+          return Plotly.toImage(el, { format: 'png', width: pw * 2, height: ph * 2, scale: 1 }).then(function (url) {
+            if (url && url.length > 200) {
+              return { id: entry.id, label: entry.label, dataUrl: url, width: pw, height: ph };
+            }
+            return null;
+          }).catch(function (err) {
+            console.warn('DocxExport: Plotly chart capture failed', entry.id, err);
+            return null;
+          });
+        })(allIds[i], container));
       } else if (typeof html2canvas === 'function') {
         // DOM-based chart — capture using html2canvas
         domPromises.push((function (entry, el) {
           return html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true }).then(function (cvs) {
             var url = cvs.toDataURL('image/png');
             if (url && url.length > 200) {
-              return { label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
+              return { id: entry.id, label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
             }
             return null;
           }).catch(function (err) {
@@ -477,11 +492,37 @@ BHM.DocxExport = (function () {
     var d = D();
     var children = [];
 
+    // ═══════════════════════════════════════════════════════════════
+    //  A4 PORTRAIT — Table-based Graphical Summary
+    // ═══════════════════════════════════════════════════════════════
+    //
+    //  Layout:
+    //   ┌──Col 0──┐ ┌──Col 1──┐ ┌──Col 2──┐ ┌───RBANS───┐
+    //   │  Title  │ │  Title  │ │  Title  │ │           │
+    //   │  Chart  │ │  Chart  │ │  Chart  │ │  Title    │
+    //   ├─────────┤ ├─────────┤ ├─────────┤ │  2:1 v:h  │  ×3 rows
+    //   │  …      │ │  …      │ │  …      │ │  chart    │
+    //   └─────────┘ └─────────┘ └─────────┘ └───────────┘
+    //   ┌───R4-0───┐ ┌───R4-1───┐ ┌───R4-2───┐ ┌───R4-3───┐
+    //   │  Title   │ │  Title   │ │  Title   │ │  Title   │  overflow
+    //   │  Chart   │ │  Chart   │ │  Chart   │ │  Chart   │
+    //   └──────────┘ └──────────┘ └──────────┘ └──────────┘
+    //
+    //  Tall charts (windroses/radars) → full cell
+    //  Short charts (bars/gauges/grids) → two stacked per cell
+    // ═══════════════════════════════════════════════════════════════
+
+    // Image sizing: A4 portrait usable width ≈ 495 pt
+    // (11906 twip – 2×1000 twip margin = 9906 twip ÷ 20 = 495 pt)
+    var PAGE_PT = 495;
+    var GROWS = 3;
+    var GCOLS = 3;
+
+    // ── Title ──
     children.push(new d.Paragraph({
       heading: d.HeadingLevel.HEADING_1,
       children: [new d.TextRun({ text: 'Graphical Summary', font: FONT_HEADING, color: '2080E5', bold: false })],
-      pageBreakBefore: true,
-      spacing: { after: 200 },
+      spacing: { after: 150 },
       border: { bottom: { style: d.BorderStyle.SINGLE, size: 6, color: '2080E5', space: 4 } }
     }));
 
@@ -490,7 +531,7 @@ BHM.DocxExport = (function () {
         text: 'The charts below summarise the assessment scores across each instrument.',
         size: 22, font: FONT, color: '666666', italics: true
       })],
-      spacing: { after: 200 }
+      spacing: { after: 120 }
     }));
 
     if (charts.length === 0) {
@@ -500,55 +541,240 @@ BHM.DocxExport = (function () {
       return children;
     }
 
-    var tableRows = [];
-    for (var i = 0; i < charts.length; i += 2) {
+    // ── Classify charts ──
+    var rbansChart = null;
+    var tallCharts = [];    // windroses / radars — full cell
+    var shortCharts = [];   // bars, gauges, infographics — stack two per cell
+    var TALL_SET = {
+      'chart-gad7': 1, 'chart-casp19': 1,
+      'chart-mbic': 1, 'chart-npiq': 1, 'chart-cdr': 1
+    };
+
+    for (var ci = 0; ci < charts.length; ci++) {
+      var ch = charts[ci];
+      if (ch.id === 'chart-rbans') { rbansChart = ch; continue; }
+      if (TALL_SET[ch.id] || (ch.height && ch.width && ch.height / ch.width >= 0.85)) {
+        tallCharts.push(ch);
+      } else {
+        shortCharts.push(ch);
+      }
+    }
+
+    // ── Column widths (%) ──
+    var hasRbans = !!rbansChart;
+    var gridPct = hasRbans ? 22 : 25;       // each grid column
+    var rbansPct = hasRbans ? (100 - 3 * gridPct) : 0; // RBANS gets remainder (34%)
+
+    // ── Image dimension helpers ──
+    // Full-cell image: fits one chart per cell
+    var FULL_MAX_H = 210;    // pt — caps tall charts
+    // Stacked image: two short charts in one cell
+    var STACK_MAX_H = 95;    // pt — caps each stacked chart
+
+    function chartImage(chart, widthPct, maxH) {
+      var imgData = dataUrlToUint8(chart.dataUrl);
+      var cellPt = Math.round(PAGE_PT * widthPct / 100);
+      var maxW = cellPt - 10;
+      var ratio = (chart.height && chart.width) ? (chart.height / chart.width) : 1;
+      var imgW = maxW;
+      var imgH = Math.round(maxW * ratio);
+      if (imgH > maxH) { imgH = maxH; imgW = Math.round(maxH / ratio); }
+      return { data: imgData, w: imgW, h: imgH };
+    }
+
+    // ── Cell builders ──
+    // Zero cell margins for all chart cells
+    var CELL_M = { top: 0, bottom: 0, left: 0, right: 0 };
+
+    function titlePara(text) {
+      return new d.Paragraph({
+        children: [new d.TextRun({ text: text, bold: true, size: 16, font: FONT, color: '1a3c6e' })],
+        alignment: d.AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 }
+      });
+    }
+
+    function imagePara(img) {
+      return new d.Paragraph({
+        children: [new d.ImageRun({ data: img.data, transformation: { width: img.w, height: img.h } })],
+        alignment: d.AlignmentType.CENTER,
+        spacing: { before: 0, after: 0 }
+      });
+    }
+
+    // Full cell: one chart with title
+    function fullCell(chart, widthPct) {
+      var img = chartImage(chart, widthPct, FULL_MAX_H);
+      return new d.TableCell({
+        children: [titlePara(chart.label), imagePara(img)],
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        borders: cellBorders(),
+        margins: CELL_M,
+        shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' },
+        verticalAlign: d.VerticalAlign.CENTER
+      });
+    }
+
+    // Stacked cell: two short charts with titles
+    function stackedCell(chart1, chart2, widthPct) {
+      var cellChildren = [];
+      if (chart1) {
+        var img1 = chartImage(chart1, widthPct, STACK_MAX_H);
+        cellChildren.push(titlePara(chart1.label));
+        cellChildren.push(imagePara(img1));
+      }
+      if (chart2) {
+        // Thin separator line
+        cellChildren.push(new d.Paragraph({
+          children: [],
+          spacing: { before: 0, after: 0 },
+          border: { bottom: { style: d.BorderStyle.SINGLE, size: 1, color: 'DDDDDD', space: 0 } }
+        }));
+        var img2 = chartImage(chart2, widthPct, STACK_MAX_H);
+        cellChildren.push(titlePara(chart2.label));
+        cellChildren.push(imagePara(img2));
+      }
+      if (cellChildren.length === 0) {
+        cellChildren.push(new d.Paragraph({ children: [] }));
+      }
+      return new d.TableCell({
+        children: cellChildren,
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        borders: cellBorders(),
+        margins: CELL_M,
+        shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' },
+        verticalAlign: d.VerticalAlign.TOP
+      });
+    }
+
+    // Empty cell
+    function emptyCell(widthPct) {
+      return new d.TableCell({
+        children: [new d.Paragraph({ children: [] })],
+        width: { size: widthPct, type: d.WidthType.PERCENTAGE },
+        margins: CELL_M,
+        borders: {
+          top: { style: d.BorderStyle.NONE }, bottom: { style: d.BorderStyle.NONE },
+          left: { style: d.BorderStyle.NONE }, right: { style: d.BorderStyle.NONE }
+        }
+      });
+    }
+
+    // ── Build cell assignment list for the 3×3 grid ──
+    // Each grid slot is either: a tall chart (full cell) or two stacked short charts
+    var gridSlots = []; // each: { type:'full', chart } or { type:'stack', c1, c2 }
+    var tI = 0, sI = 0;
+
+    // Fill 9 grid slots (3 rows × 3 cols)
+    for (var slot = 0; slot < GROWS * GCOLS; slot++) {
+      if (tI < tallCharts.length) {
+        gridSlots.push({ type: 'full', chart: tallCharts[tI++] });
+      } else if (sI < shortCharts.length) {
+        var c1 = shortCharts[sI++];
+        var c2 = (sI < shortCharts.length) ? shortCharts[sI++] : null;
+        gridSlots.push({ type: 'stack', c1: c1, c2: c2 });
+      } else {
+        gridSlots.push({ type: 'empty' });
+      }
+    }
+
+    // ── Build main table rows ──
+    var mainRows = [];
+    for (var row = 0; row < GROWS; row++) {
       var cells = [];
-      for (var j = 0; j < 2; j++) {
-        var idx = i + j;
-        if (idx < charts.length) {
-          var chart = charts[idx];
-          var imgData = dataUrlToUint8(chart.dataUrl);
-          var maxW = 280;
-          var ratio = chart.height / chart.width;
-          var imgW = maxW;
-          var imgH = Math.round(maxW * ratio);
-          if (imgH > 260) { imgH = 260; imgW = Math.round(260 / ratio); }
+
+      // 3 grid columns
+      for (var col = 0; col < GCOLS; col++) {
+        var gs = gridSlots[row * GCOLS + col];
+        if (gs.type === 'full') {
+          cells.push(fullCell(gs.chart, gridPct));
+        } else if (gs.type === 'stack') {
+          cells.push(stackedCell(gs.c1, gs.c2, gridPct));
+        } else {
+          cells.push(emptyCell(gridPct));
+        }
+      }
+
+      // RBANS column (row 0 = merge start, row 1-2 = continue)
+      if (hasRbans) {
+        if (row === 0) {
+          // RBANS: use natural aspect ratio (now rendered at 1:2 w:h = tall)
+          var rbCellPt = Math.round(PAGE_PT * rbansPct / 100);
+          var rbMaxW = rbCellPt - 12;
+          var rbRatio = (rbansChart.height && rbansChart.width) ? (rbansChart.height / rbansChart.width) : 2;
+          var rbImgW = rbMaxW;
+          var rbImgH = Math.round(rbImgW * rbRatio);
+          // Cap to reasonable page height
+          if (rbImgH > 560) { rbImgH = 560; rbImgW = Math.round(560 / rbRatio); }
+          var rbData = dataUrlToUint8(rbansChart.dataUrl);
 
           cells.push(new d.TableCell({
             children: [
+              titlePara(rbansChart.label),
               new d.Paragraph({
-                children: [new d.TextRun({ text: chart.label, bold: true, size: 20, font: FONT, color: '1a3c6e' })],
+                children: [new d.ImageRun({ data: rbData, transformation: { width: rbImgW, height: rbImgH } })],
                 alignment: d.AlignmentType.CENTER,
-                spacing: { before: 80, after: 80 }
-              }),
-              new d.Paragraph({
-                children: [new d.ImageRun({ data: imgData, transformation: { width: imgW, height: imgH } })],
-                alignment: d.AlignmentType.CENTER,
-                spacing: { after: 80 }
+                spacing: { before: 0, after: 0 }
               })
             ],
-            width: { size: 50, type: d.WidthType.PERCENTAGE },
+            width: { size: rbansPct, type: d.WidthType.PERCENTAGE },
             borders: cellBorders(),
-            shading: { fill: 'fafbfd', type: d.ShadingType.SOLID, color: 'auto' }
+            margins: CELL_M,
+            shading: { fill: 'f0f4fa', type: d.ShadingType.SOLID, color: 'auto' },
+            verticalMerge: d.VerticalMergeType.RESTART,
+            verticalAlign: d.VerticalAlign.CENTER
           }));
         } else {
           cells.push(new d.TableCell({
             children: [new d.Paragraph({ children: [] })],
-            width: { size: 50, type: d.WidthType.PERCENTAGE },
-            borders: {
-              top: { style: d.BorderStyle.NONE }, bottom: { style: d.BorderStyle.NONE },
-              left: { style: d.BorderStyle.NONE }, right: { style: d.BorderStyle.NONE }
-            }
+            width: { size: rbansPct, type: d.WidthType.PERCENTAGE },
+            borders: cellBorders(),
+            margins: CELL_M,
+            verticalMerge: d.VerticalMergeType.CONTINUE
           }));
         }
       }
-      tableRows.push(new d.TableRow({ children: cells }));
+
+      mainRows.push(new d.TableRow({ children: cells }));
     }
 
+    // ── Add main table ──
     children.push(new d.Table({
-      rows: tableRows,
+      rows: mainRows,
       width: { size: 100, type: d.WidthType.PERCENTAGE }
     }));
+
+    // ── Row 4: overflow charts (full-width, 4 equal columns) ──
+    var overflow = [];
+    while (tI < tallCharts.length) overflow.push(tallCharts[tI++]);
+    while (sI < shortCharts.length) overflow.push(shortCharts[sI++]);
+
+    if (overflow.length > 0) {
+      children.push(new d.Paragraph({
+        children: [],
+        spacing: { before: 80, after: 40 }
+      }));
+
+      var R4_PCT = 25;
+      var overRows = [];
+      for (var oi = 0; oi < overflow.length; oi += 4) {
+        var overCells = [];
+        for (var oj = 0; oj < 4; oj++) {
+          var oIdx = oi + oj;
+          if (oIdx < overflow.length) {
+            overCells.push(fullCell(overflow[oIdx], R4_PCT));
+          } else {
+            overCells.push(emptyCell(R4_PCT));
+          }
+        }
+        overRows.push(new d.TableRow({ children: overCells }));
+      }
+
+      children.push(new d.Table({
+        rows: overRows,
+        width: { size: 100, type: d.WidthType.PERCENTAGE }
+      }));
+    }
 
     return children;
   }
@@ -737,45 +963,68 @@ BHM.DocxExport = (function () {
 
     function finishDoc(charts) {
       var summaryElements = buildGraphicalSummary(charts);
-      var allChildren = titleElements.concat(reportElements).concat(summaryElements);
 
-      return new d.Document({
-        creator: 'Manchester Brain Health Centre Assessment App',
-        title: 'Assessment Report — ' + name,
-        description: 'Generated assessment report',
-        styles: {
-          default: {
-            document: {
-              run: { font: FONT, size: 22 }
-            },
-            heading1: {
-              run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
-              paragraph: { spacing: { before: 300, after: 100 } }
-            },
-            heading2: {
-              run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
-              paragraph: { spacing: { before: 240, after: 80 } }
-            },
-            heading3: {
-              run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
-              paragraph: { spacing: { before: 200, after: 60 } }
-            },
-            heading4: {
-              run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
-              paragraph: { spacing: { before: 160, after: 40 } }
-            }
+      var sharedStyles = {
+        default: {
+          document: {
+            run: { font: FONT, size: 22 }
+          },
+          heading1: {
+            run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
+            paragraph: { spacing: { before: 300, after: 100 } }
+          },
+          heading2: {
+            run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
+            paragraph: { spacing: { before: 240, after: 80 } }
+          },
+          heading3: {
+            run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
+            paragraph: { spacing: { before: 200, after: 60 } }
+          },
+          heading4: {
+            run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
+            paragraph: { spacing: { before: 160, after: 40 } }
           }
-        },
-        sections: [{
+        }
+      };
+
+      var sharedHeader = { default: new d.Header({ children: headerChildren }) };
+      var sharedFooter = { default: new d.Footer({ children: footerChildren }) };
+
+      var sections = [
+        // Section 1: Report content — portrait
+        {
           properties: {
             page: {
               margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
             }
           },
-          headers: { default: new d.Header({ children: headerChildren }) },
-          footers: { default: new d.Footer({ children: footerChildren }) },
-          children: allChildren
-        }]
+          headers: sharedHeader,
+          footers: sharedFooter,
+          children: titleElements.concat(reportElements)
+        }
+      ];
+
+      // Section 2: Graphical summary — portrait (floating images)
+      if (summaryElements.length > 0) {
+        sections.push({
+          properties: {
+            page: {
+              margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+            }
+          },
+          headers: sharedHeader,
+          footers: sharedFooter,
+          children: summaryElements
+        });
+      }
+
+      return new d.Document({
+        creator: 'Manchester Brain Health Centre Assessment App',
+        title: 'Assessment Report — ' + name,
+        description: 'Generated assessment report',
+        styles: sharedStyles,
+        sections: sections
       });
     }
 

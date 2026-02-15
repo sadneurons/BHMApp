@@ -11,6 +11,12 @@
     "category": "Investigations",
     "text": "We have arranged blood tests that look for specific markers associated with brain health. These include proteins such as phosphorylated tau (p-tau) and neurofilament light chain (NfL), which can provide information about whether changes related to Alzheimer's disease or other neurological conditions may be occurring. Blood-based biomarkers are a relatively new and evolving area of clinical practice. The results are interpreted alongside all other assessment findings and are not used in isolation to make a diagnosis."
   },
+    {
+    "id": "scan-education",
+    "title": "Imaging Explanation",
+    "category": "Investigations",
+    "text": "We talked through the slides on 'Understanding Memory and your brain'. We looked at some images to demonstrate white matter and gray matter and talked about their different functions. Then we looked at white matter disease (wiring problems) and gray matter disease (cell death) and how they can contribute to memory problems. We spoke about how the 'cauliflower' of the temporal lobe and the 'swiss roll' of the hippocampus can get damaged and how this can contribute to memory problems. We spoke briefly about the different diseases underlying dementia and how they can be diagnosed."
+  },
   {
     "id": "mri-explanation",
     "title": "MRI Brain Scan Explanation",

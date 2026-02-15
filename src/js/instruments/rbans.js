@@ -11,7 +11,7 @@ BHM.Instruments.RBANS = (function () {
   var S = BHM.State;
   var N = BHM.RBANSNorms;
   var PREFIX = 'instruments.rbans';
-  var _chart = null; // Chart.js instance
+  // Chart rendering now uses Plotly (no persistent instance needed)
 
   // ── Subtest definitions ──
   var SUBTESTS = [
@@ -517,8 +517,8 @@ BHM.Instruments.RBANS = (function () {
     html += '<div class="col-lg-7">';
     html += '<div class="card mb-0" style="height:100%">';
     html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
-    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:2/1">';
-    html += '<canvas id="rbans-chart"></canvas>';
+    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;min-height:780px">';
+    html += '<div id="rbans-chart" style="width:100%;height:100%"></div>';
     html += '</div></div></div>';
     html += '</div>'; // end right col
 
@@ -637,119 +637,65 @@ BHM.Instruments.RBANS = (function () {
   }
 
   // ═══════════════════════════════════════════
-  //  CHART (Chart.js)
+  //  CHART (Plotly — mirrors report chart)
   // ═══════════════════════════════════════════
   function renderChart(r) {
-    var canvas = document.getElementById('rbans-chart');
-    if (!canvas) return;
+    if (typeof Plotly === 'undefined') return;
+    var el = document.getElementById('rbans-chart');
+    if (!el) return;
 
-    // Destroy previous chart if exists
-    if (_chart) { _chart.destroy(); _chart = null; }
+    // Re-use the report chart builder if available
+    if (BHM.Charts && BHM.Charts.renderRBANSPlotly) {
+      BHM.Charts.renderRBANSPlotly('rbans-chart');
+      return;
+    }
 
-    var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
+    // Fallback: build inline (same logic as report createRBANSPlotly)
+    var domains = ['Immediate Memory', 'Visuospatial', 'Language', 'Attention', 'Delayed Memory'];
     var stdData = [r.indices.immediateMemory, r.indices.visuospatial, r.indices.language, r.indices.attention, r.indices.delayedMemory];
     var duffData = [parseFloat(r.duff.immIndex), parseFloat(r.duff.visuoIndex), parseFloat(r.duff.langIndex),
       parseFloat(r.duff.attIndex), parseFloat(r.duff.memIndex)];
+    var totalStd = (r.indices && r.indices.totalScale) ? r.indices.totalScale : null;
+    var totalDuff = (r.duff && r.duff.totalIndex) ? parseFloat(r.duff.totalIndex) : null;
 
-    _chart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'Standard Norms',
-            data: stdData,
-            borderColor: 'rgb(17, 157, 255)',
-            backgroundColor: 'rgba(17, 157, 255, 0.1)',
-            borderWidth: 2.5,
-            pointRadius: 6,
-            pointBackgroundColor: 'rgb(17, 157, 255)',
-            tension: 0.1
-          },
-          {
-            label: 'Duff Adjusted',
-            data: duffData,
-            borderColor: 'rgb(255, 102, 0)',
-            backgroundColor: 'rgba(255, 102, 0, 0.1)',
-            borderWidth: 2.5,
-            borderDash: [6, 3],
-            pointRadius: 6,
-            pointBackgroundColor: 'rgb(255, 102, 0)',
-            pointStyle: 'rectRot',
-            tension: 0.1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: 'RBANS Index Profile',
-            font: { size: 14, weight: 'bold' }
-          },
-          legend: {
-            position: 'bottom'
-          },
-          annotation: undefined // no plugin needed
-        },
-        scales: {
-          y: {
-            min: 40,
-            max: 160,
-            ticks: {
-              stepSize: 10,
-              callback: function (val) {
-                // Show percentile on the right
-                return val;
-              }
-            },
-            title: {
-              display: true,
-              text: 'Index Score'
-            }
-          }
-        }
-      },
-      plugins: [{
-        id: 'rbans-bands',
-        beforeDraw: function (chart) {
-          var ctx = chart.ctx;
-          var yScale = chart.scales.y;
-          var area = chart.chartArea;
+    var pctVals = [40,45,50,55,60,65,70,75,80,85,90,95,100,105,110,115,120,125,130,135,140,145,150,155,160];
+    var pctText = ['<0.1','<0.1','<0.1','0.1','0.4','1','2','5','9','14','25','37','50','63',
+      '75','84','91','95','98','99','99.6','99.9','>99.9','>99.9','>99.9'];
+    var bo = 0.15;
 
-          // Severity bands
-          var bands = [
-            { lo: 40, hi: 55, color: 'rgba(255,77,77,0.10)' },    // Extremely Low
-            { lo: 55, hi: 70, color: 'rgba(255,165,0,0.10)' },    // Borderline
-            { lo: 70, hi: 85, color: 'rgba(255,255,0,0.08)' },    // Low Average
-            { lo: 85, hi: 115, color: 'rgba(204,255,204,0.12)' },  // Average
-            { lo: 115, hi: 130, color: 'rgba(153,255,153,0.10)' }, // High Average+
-            { lo: 130, hi: 160, color: 'rgba(77,255,77,0.10)' }   // Superior+
-          ];
-
-          ctx.save();
-          for (var b = 0; b < bands.length; b++) {
-            var top = yScale.getPixelForValue(bands[b].hi);
-            var bottom = yScale.getPixelForValue(bands[b].lo);
-            ctx.fillStyle = bands[b].color;
-            ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
-          }
-
-          // Mean line
-          var meanY = yScale.getPixelForValue(100);
-          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(area.left, meanY);
-          ctx.lineTo(area.right, meanY);
-          ctx.stroke();
-          ctx.restore();
-        }
-      }]
-    });
+    el.innerHTML = '';
+    Plotly.newPlot(el, [
+      { x: domains, y: stdData, mode: 'lines+markers', name: 'Standard Norms',
+        marker: { color: 'rgb(17,157,255)', size: 9, line: { color: 'rgb(128,0,128)', width: 1.5 } },
+        line: { color: 'rgb(17,157,255)', width: 2 } },
+      { x: domains, y: stdData.map(function(){return null;}), yaxis: 'y2', mode: 'none', opacity: 0, showlegend: false, hoverinfo: 'skip' },
+      { x: ['Total'], y: totalStd ? [totalStd] : [], xaxis: 'x2', yaxis: 'y3', mode: 'markers', showlegend: false,
+        marker: { color: 'rgb(17,157,255)', size: 11, line: { color: 'rgb(128,0,128)', width: 1.5 } } },
+      { x: domains, y: duffData, mode: 'lines+markers', name: 'Duff Adjusted',
+        marker: { color: 'rgb(255,102,0)', size: 9, symbol: 'diamond', line: { color: 'rgb(128,0,128)', width: 1.5 } },
+        line: { color: 'rgb(255,102,0)', width: 2, dash: 'dash' } },
+      { x: ['Total'], y: totalDuff ? [totalDuff] : [], xaxis: 'x2', yaxis: 'y3', mode: 'markers', showlegend: false,
+        marker: { color: 'rgb(255,102,0)', size: 11, symbol: 'diamond', line: { color: 'rgb(128,0,128)', width: 1.5 } } }
+    ], {
+      title: { text: 'RBANS Indices', font: { size: 16 } },
+      showlegend: true, legend: { orientation: 'h', y: -0.18, x: 0.5, xanchor: 'center', font: { size: 11 } },
+      margin: { l: 45, r: 50, t: 40, b: 70 },
+      xaxis:  { domain: [0, 0.78], type: 'category', tickfont: { size: 10 } },
+      yaxis:  { range: [40, 160], dtick: 5, ticklen: 0, tickfont: { size: 9 }, title: { text: 'Index Score', font: { size: 12, color: 'grey' } } },
+      yaxis2: { range: [40, 160], overlaying: 'y', side: 'right', tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 8 } },
+      xaxis2: { domain: [0.88, 1], anchor: 'y3', type: 'category', tickfont: { size: 10 } },
+      yaxis3: { range: [40, 160], overlaying: 'y', side: 'right', anchor: 'x2', tickmode: 'array', tickvals: pctVals, ticktext: pctText, tickfont: { size: 8 } },
+      shapes: [
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:85,  x1:4, y1:115, fillcolor:'rgb(204,255,204)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:70,  x1:4, y1:85,  fillcolor:'rgb(153,255,153)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:115, x1:4, y1:130, fillcolor:'rgb(153,255,153)', opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:55,  x1:4, y1:70,  fillcolor:'rgb(77,255,77)',   opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:130, x1:4, y1:145, fillcolor:'rgb(77,255,77)',   opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:40,  x1:4, y1:55,  fillcolor:'rgb(0,204,0)',     opacity:bo, line:{width:0} },
+        { type:'rect', xref:'x', yref:'y', x0:0, y0:145, x1:4, y1:160, fillcolor:'rgb(0,204,0)',     opacity:bo, line:{width:0} },
+        { type:'line', xref:'x', yref:'y', x0:0, y0:100, x1:4, y1:100, line:{ color:'rgb(227,63,120)', width:2, dash:'dash' }, opacity:0.9 }
+      ]
+    }, { responsive: true, displayModeBar: false, staticPlot: true });
   }
 
   return {

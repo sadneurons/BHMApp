@@ -2034,7 +2034,7 @@ BHM.Report = (function () {
     for (var d2 = 0; d2 < domainList.length; d2++) { var dm = domainList[d2]; content += '<tr>' + rptTd(dm.label, null, true) + rptTd(dm.i, 'center') + rptTd(dm.c + '%', 'center') + rptTd(classifyIndex(dm.i), 'center') + '</tr>'; }
     content += '<tr style="background:#e8edf3;font-weight:600">' + rptTd('Total Scale', null, true) + rptTd(idx.totalScale, 'center') + rptTd(cent.totalScale + '%', 'center') + rptTd(classifyIndex(idx.totalScale), 'center') + '</tr>';
     content += '</tbody></table>';
-    if (!compact) content += '<div class="chart-container" id="chart-rbans"></div>';
+    if (!compact) content += '<div class="chart-container" id="chart-rbans" style="min-height:780px;max-width:700px;margin:0 auto"></div>';
     content += '<div style="margin-top:1rem">';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Immediate Memory</h5>';
     content += '<p>You scored ' + (raw.listlearning || '--') + '/40 on the word list learning task which is a sensitive indicator of your ability to remember new words. You scored ' + (raw.storylearning || '--') + '/24 on the short story learning task which is similar. This gives an Immediate Memory Index Score of <strong>' + idx.immediateMemory + '</strong>. This means that ' + cent.immediateMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
