@@ -12,6 +12,46 @@ BHM.Charts = (function () {
   var S = BHM.State;
   var _chartInstances = {};
 
+  // ── Helper: read CSS variable from :root ──
+  function cssVar(name, fallback) {
+    var val = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return val ? val.trim() : (fallback || '');
+  }
+
+  // ── Helper: determine if current theme is dark ──
+  function isDark() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'dark';
+  }
+
+  // ── Helper: get theme-aware colour palette ──
+  function themeColors() {
+    var primary     = cssVar('--bs-primary', '#0d6efd');
+    var danger      = cssVar('--bs-danger', '#dc3545');
+    var warning     = cssVar('--bs-warning', '#ffc107');
+    var success     = cssVar('--bs-success', '#198754');
+    var info        = cssVar('--bs-info', '#0dcaf0');
+    var secondary   = cssVar('--bs-secondary', '#6c757d');
+    var bodyColor   = cssVar('--bs-body-color', '#212529');
+    var borderColor = cssVar('--bs-border-color', '#dee2e6');
+    var gridColor   = isDark() ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+    var tickColor   = isDark() ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)';
+    return {
+      primary: primary, danger: danger, warning: warning, success: success,
+      info: info, secondary: secondary, bodyColor: bodyColor,
+      borderColor: borderColor, gridColor: gridColor, tickColor: tickColor
+    };
+  }
+
+  // ── Helper: rgba from hex ──
+  function hexToRGBA(hex, alpha) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substring(0,2), 16);
+    var g = parseInt(hex.substring(2,4), 16);
+    var b = parseInt(hex.substring(4,6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
   // ── Helper: destroy previous chart ──
   function destroyChart(id) {
     if (_chartInstances[id]) {
@@ -43,12 +83,13 @@ BHM.Charts = (function () {
     var c = ensureCanvas(containerId, config.height || 220);
     if (!c) return;
 
+    var tc = themeColors();
     var colors = config.colors || config.data.map(function (val) {
       if (config.thresholdValue !== undefined) {
-        return val > config.thresholdValue ? '#dc3545'
-          : val > (config.warningValue || config.thresholdValue * 0.7) ? '#ffc107' : '#198754';
+        return val > config.thresholdValue ? tc.danger
+          : val > (config.warningValue || config.thresholdValue * 0.7) ? tc.warning : tc.success;
       }
-      return '#0d6efd';
+      return tc.primary;
     });
 
     try {
@@ -72,12 +113,12 @@ BHM.Charts = (function () {
             y: {
               beginAtZero: true,
               max: config.max || undefined,
-              grid: { color: '#e9ecef' },
-              ticks: { font: { size: 11 } }
+              grid: { color: tc.gridColor },
+              ticks: { font: { size: 11 }, color: tc.tickColor }
             },
             x: {
               grid: { display: false },
-              ticks: { font: { size: 10 }, maxRotation: 45 }
+              ticks: { font: { size: 10 }, maxRotation: 45, color: tc.tickColor }
             }
           }
         }
@@ -94,16 +135,18 @@ BHM.Charts = (function () {
     var c = ensureCanvas(containerId, config.height || 300);
     if (!c) return;
 
+    var tc = themeColors();
     var datasets = [];
     for (var i = 0; i < config.datasets.length; i++) {
       var ds = config.datasets[i];
+      var border = ds.border || tc.primary;
       datasets.push({
         label: ds.label,
         data: ds.data,
-        backgroundColor: ds.bg || 'rgba(13,110,253,0.15)',
-        borderColor: ds.border || '#0d6efd',
+        backgroundColor: ds.bg || hexToRGBA(border, 0.15),
+        borderColor: border,
         borderWidth: ds.borderWidth || 2,
-        pointBackgroundColor: ds.border || '#0d6efd',
+        pointBackgroundColor: border,
         pointRadius: 4,
         pointHoverRadius: 6
       });
@@ -120,16 +163,16 @@ BHM.Charts = (function () {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 11 } } }
+            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } }
           },
           scales: {
             r: {
               beginAtZero: true,
               max: config.max || undefined,
-              ticks: { stepSize: config.step || undefined, font: { size: 10 }, backdropColor: 'transparent' },
-              pointLabels: { font: { size: config.labelSize || 11 } },
-              grid: { color: '#dee2e6' },
-              angleLines: { color: '#dee2e6' }
+              ticks: { stepSize: config.step || undefined, font: { size: 10 }, backdropColor: 'transparent', color: tc.tickColor },
+              pointLabels: { font: { size: config.labelSize || 11 }, color: tc.tickColor },
+              grid: { color: tc.gridColor },
+              angleLines: { color: tc.gridColor }
             }
           }
         }
@@ -149,12 +192,17 @@ BHM.Charts = (function () {
     var c = ensureCanvas(containerId, 360);
     if (!c) return;
 
+    var tc = themeColors();
     var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
     var idx = rb.indices;
     var duff = rb.duff;
     var stdData = [idx.immediateMemory, idx.visuospatial, idx.language, idx.attention, idx.delayedMemory];
     var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex),
       parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
+
+    // Use theme-aware colours: primary for std norms, info/warning for duff
+    var stdColor = tc.primary;
+    var duffColor = tc.warning;
 
     try {
       _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
@@ -165,23 +213,23 @@ BHM.Charts = (function () {
             {
               label: 'Standard Norms',
               data: stdData,
-              borderColor: 'rgb(17,157,255)',
-              backgroundColor: 'rgba(17,157,255,0.08)',
+              borderColor: stdColor,
+              backgroundColor: hexToRGBA(stdColor, 0.08),
               borderWidth: 2.5,
               pointRadius: 6,
-              pointBackgroundColor: 'rgb(17,157,255)',
+              pointBackgroundColor: stdColor,
               fill: false,
               tension: 0.1
             },
             {
               label: 'Duff Adjusted',
               data: duffData,
-              borderColor: 'rgb(255,102,0)',
-              backgroundColor: 'rgba(255,102,0,0.08)',
+              borderColor: duffColor,
+              backgroundColor: hexToRGBA(duffColor, 0.08),
               borderWidth: 2.5,
               borderDash: [6, 3],
               pointRadius: 6,
-              pointBackgroundColor: 'rgb(255,102,0)',
+              pointBackgroundColor: duffColor,
               pointStyle: 'rectRot',
               fill: false,
               tension: 0.1
@@ -192,17 +240,19 @@ BHM.Charts = (function () {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: 'RBANS Index Profile', font: { size: 13, weight: 'bold' } },
-            legend: { position: 'bottom', labels: { font: { size: 11 } } }
+            title: { display: true, text: 'RBANS Index Profile', font: { size: 13, weight: 'bold' }, color: tc.bodyColor },
+            legend: { position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } }
           },
           scales: {
             y: {
               min: 40, max: 160,
-              ticks: { stepSize: 10, font: { size: 10 } },
-              title: { display: true, text: 'Index Score', font: { size: 11 } }
+              ticks: { stepSize: 10, font: { size: 10 }, color: tc.tickColor },
+              title: { display: true, text: 'Index Score', font: { size: 11 }, color: tc.tickColor },
+              grid: { color: tc.gridColor }
             },
             x: {
-              ticks: { font: { size: 10 } }
+              ticks: { font: { size: 10 }, color: tc.tickColor },
+              grid: { color: tc.gridColor }
             }
           }
         },
@@ -212,11 +262,12 @@ BHM.Charts = (function () {
             var ctx = chart.ctx;
             var yScale = chart.scales.y;
             var area = chart.chartArea;
+            var bandAlpha = isDark() ? 0.12 : 0.07;
             var bands = [
-              { lo: 40, hi: 70, color: 'rgba(255,77,77,0.07)' },
-              { lo: 70, hi: 85, color: 'rgba(255,200,0,0.07)' },
-              { lo: 85, hi: 115, color: 'rgba(0,200,83,0.07)' },
-              { lo: 115, hi: 160, color: 'rgba(0,123,255,0.05)' }
+              { lo: 40, hi: 70, color: hexToRGBA(tc.danger, bandAlpha) },
+              { lo: 70, hi: 85, color: hexToRGBA(tc.warning, bandAlpha) },
+              { lo: 85, hi: 115, color: hexToRGBA(tc.success, bandAlpha) },
+              { lo: 115, hi: 160, color: hexToRGBA(tc.info, bandAlpha * 0.7) }
             ];
             ctx.save();
             for (var b = 0; b < bands.length; b++) {
@@ -227,7 +278,7 @@ BHM.Charts = (function () {
             }
             // Mean line
             var meanY = yScale.getPixelForValue(100);
-            ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+            ctx.strokeStyle = isDark() ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -247,6 +298,7 @@ BHM.Charts = (function () {
   //  RENDER ALL REPORT CHARTS
   // ═══════════════════════════════════════════
   function renderReportCharts() {
+    var tc = themeColors();
 
     // ── PSQI 7-component bar (meaningful multi-bar) ──
     var psqi = S.getScore('psqi');
@@ -273,7 +325,7 @@ BHM.Charts = (function () {
       }
       createBarChart('chart-casp19', {
         labels: cLabels, data: cData, height: 200,
-        colors: cData.map(function () { return '#0d6efd'; })
+        colors: cData.map(function () { return tc.primary; })
       });
     }
 
@@ -297,7 +349,7 @@ BHM.Charts = (function () {
       var maxAll = Math.max.apply(null, maxPerDomain);
       createRadarChart('chart-mbic', {
         labels: mLabels,
-        datasets: [{ label: 'MBI-C Domain Scores', data: mData, bg: 'rgba(220,53,69,0.15)', border: '#dc3545' }],
+        datasets: [{ label: 'MBI-C Domain Scores', data: mData, border: tc.danger }],
         max: maxAll,
         step: Math.ceil(maxAll / 5),
         height: 320,
@@ -326,8 +378,8 @@ BHM.Charts = (function () {
       createRadarChart('chart-npiq', {
         labels: nLabels,
         datasets: [
-          { label: 'Severity', data: sevData, bg: 'rgba(255,193,7,0.15)', border: '#ffc107', borderWidth: 2 },
-          { label: 'Carer Distress', data: distData, bg: 'rgba(220,53,69,0.12)', border: '#dc3545', borderWidth: 2 }
+          { label: 'Severity', data: sevData, border: tc.warning, borderWidth: 2 },
+          { label: 'Carer Distress', data: distData, border: tc.danger, borderWidth: 2 }
         ],
         max: 5,
         step: 1,
@@ -344,7 +396,7 @@ BHM.Charts = (function () {
       var cdrData = cdrKeys.map(function (k) { return cdr.domainScores[k] || 0; });
       createRadarChart('chart-cdr', {
         labels: cdrLabels,
-        datasets: [{ label: 'CDR Domain Ratings', data: cdrData, bg: 'rgba(108,117,125,0.15)', border: '#6c757d' }],
+        datasets: [{ label: 'CDR Domain Ratings', data: cdrData, border: tc.secondary }],
         max: 3,
         step: 0.5,
         height: 300,
