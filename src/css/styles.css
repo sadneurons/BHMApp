@@ -1,0 +1,702 @@
+/* ═══════════════════════════════════════════════════════
+   BHM Assessment App — Custom Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Brand / Logo placeholder ── */
+.brand-logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.2);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}
+
+/* ── Main tab bar ── */
+.main-tabs .nav-link {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #495057;
+  border-bottom: 3px solid transparent;
+  padding: 0.6rem 1rem;
+}
+.main-tabs .nav-link.active {
+  color: #0d6efd;
+  border-bottom-color: #0d6efd;
+  background: transparent;
+}
+.main-tabs .nav-link:hover:not(.active) {
+  color: #0d6efd;
+  border-bottom-color: #dee2e6;
+}
+
+/* ── Sub-tabs (pills) ── */
+#patientSubTabs .nav-link,
+#informantSubTabs .nav-link {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.9rem;
+}
+
+/* ── Report side panel ── */
+.report-side-panel {
+  width: 420px;
+  min-width: 420px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  transition: margin-right 0.3s ease, opacity 0.3s ease;
+}
+.report-side-panel.collapsed {
+  margin-right: -420px;
+  opacity: 0;
+  pointer-events: none;
+}
+.report-preview-body {
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.report-preview-body h6 {
+  font-size: 0.9rem;
+  color: #0d6efd;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 4px;
+  margin-top: 1rem;
+}
+.report-preview-body .score-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.report-preview-body .score-good { background: #d1e7dd; color: #0f5132; }
+.report-preview-body .score-moderate { background: #fff3cd; color: #664d03; }
+.report-preview-body .score-poor { background: #f8d7da; color: #842029; }
+
+/* ── AUDIT unified table (mirrors paper form) ── */
+.audit-unified-table th {
+  background: #e8edf3;
+}
+.audit-unified-table td.cg-label {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  min-width: 280px;
+  padding: 10px 12px;
+}
+.audit-unified-table td.cg-cell {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  padding: 8px 6px;
+  vertical-align: middle;
+}
+.audit-unified-table td.audit-empty-cell {
+  border: 1px solid #dee2e6;
+  cursor: default;
+}
+.audit-unified-table td.audit-your-score {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  min-width: 60px;
+  color: #0d6efd;
+}
+.audit-unified-table .audit-total-row td {
+  background: #f0f4ff;
+  border: 2px solid #dee2e6;
+  border-top: 2px solid #0d6efd;
+  padding: 10px 12px;
+}
+
+/* ── Clickable grid (radio-table) ── */
+.clickable-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+.clickable-grid th {
+  background: #f8f9fa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 8px 6px;
+  border: 1px solid #dee2e6;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.clickable-grid td {
+  border: 1px solid #dee2e6;
+  padding: 8px 6px;
+  vertical-align: middle;
+}
+.clickable-grid td.cg-label {
+  font-size: 0.88rem;
+  min-width: 200px;
+  background: #fdfdfd;
+}
+.clickable-grid td.cg-cell {
+  text-align: center;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 0.82rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+.clickable-grid td.cg-cell:hover {
+  background: #e7f1ff;
+}
+.clickable-grid td.cg-cell.selected {
+  background: #0d6efd;
+  color: #fff;
+  font-weight: 600;
+}
+.clickable-grid td.cg-cell:focus {
+  outline: 3px solid #86b7fe;
+  outline-offset: -3px;
+}
+/* Row striping */
+.clickable-grid tbody tr:nth-child(even) td.cg-label {
+  background: #f8f9fa;
+}
+
+/* ── Section cards ── */
+.instrument-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background: #fff;
+}
+.instrument-card h5 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 0.15rem;
+}
+.instrument-card .instrument-subtitle {
+  font-size: 0.82rem;
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+/* ── Score summary bar (shown at top of each instrument) ── */
+.score-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: #f0f4ff;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+.score-summary .score-label {
+  font-weight: 600;
+  color: #495057;
+}
+.score-summary .score-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0d6efd;
+}
+.score-summary .score-interp {
+  font-size: 0.82rem;
+  color: #6c757d;
+  flex: 1;
+}
+
+/* ── Completeness indicator ── */
+.completeness-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: #e9ecef;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.completeness-bar .fill {
+  height: 100%;
+  background: #0d6efd;
+  transition: width 0.3s ease;
+}
+.completeness-text {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+/* ── Form field styles ── */
+.bhm-field-group {
+  margin-bottom: 1rem;
+}
+.bhm-field-group label {
+  font-weight: 500;
+  font-size: 0.88rem;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+.bhm-field-group .form-control,
+.bhm-field-group .form-select {
+  font-size: 0.9rem;
+}
+.bhm-field-group .form-text {
+  font-size: 0.78rem;
+}
+
+/* ── Yes/No toggle cells ── */
+.yn-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.yn-group .yn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 44px;
+  padding: 6px 14px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.yn-group .yn-btn:hover { border-color: #86b7fe; background: #e7f1ff; }
+.yn-group .yn-btn.selected-yes { background: #198754; color: #fff; border-color: #198754; }
+.yn-group .yn-btn.selected-no { background: #dc3545; color: #fff; border-color: #dc3545; }
+
+/* ── Conditional sections ── */
+.conditional-section {
+  border-left: 3px solid #0d6efd;
+  padding-left: 1rem;
+  margin-left: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ── Report full view ── */
+.report-full {
+  max-width: 800px;
+  margin: 0 auto;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.report-full h4 {
+  color: #0d6efd;
+  border-bottom: 2px solid #0d6efd;
+  padding-bottom: 6px;
+  margin-top: 2rem;
+}
+.report-full .report-header {
+  text-align: center;
+  padding: 1.5rem 0;
+  border-bottom: 2px solid #212529;
+  margin-bottom: 2rem;
+}
+.report-full .clinician-insert {
+  background: #fff9e6;
+  border: 1px dashed #ffc107;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+}
+.report-full .clinician-insert textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: vertical;
+  min-height: 60px;
+  font-size: 0.9rem;
+}
+
+/* ── Chart containers ── */
+.chart-container {
+  position: relative;
+  max-width: 500px;
+  margin: 1rem 0;
+}
+.chart-container-sm {
+  max-width: 280px;
+  max-height: 160px;
+}
+
+/* ── Audit log table ── */
+.audit-table {
+  font-size: 0.82rem;
+}
+.audit-table th {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 1;
+}
+
+/* ── Print styles ── */
+@media print {
+  .navbar, .main-tabs, .report-side-panel, #patientSubTabs, #informantSubTabs,
+  .no-print, .btn, .dropdown, #storageModeBadge {
+    display: none !important;
+  }
+  .report-full {
+    max-width: 100%;
+    font-size: 11pt;
+  }
+  .report-full h4 {
+    page-break-after: avoid;
+  }
+  .chart-container {
+    max-width: 400px;
+    page-break-inside: avoid;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+  }
+  .report-full .report-footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    font-size: 8pt;
+    color: #999;
+    border-top: 1px solid #ccc;
+    padding-top: 4px;
+  }
+}
+
+/* ── MBI-C unified table ── */
+.mbic-unified-table .mbic-domain-header td {
+  background: #e8edf3;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  border: 1px solid #dee2e6;
+  border-top: 2px solid #0d6efd;
+}
+.mbic-unified-table td.cg-label {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  min-width: 350px;
+  padding: 8px 12px;
+}
+.mbic-unified-table td.cg-cell {
+  font-size: 0.88rem;
+  min-width: 60px;
+  padding: 8px 4px;
+}
+
+/* ── NPI-Q unified inline table ── */
+.npiq-unified-table {
+  border-collapse: collapse;
+}
+.npiq-unified-table .npiq-group-header {
+  background: #e8edf3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  border-left: 2px solid #c0cfe0;
+  padding: 6px 4px;
+}
+.npiq-unified-table .npiq-sub-header th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 2px;
+  background: #f0f2f5;
+}
+.npiq-unified-table .npiq-num-header {
+  text-align: center;
+  min-width: 36px;
+}
+.npiq-unified-table .npiq-label-cell {
+  font-size: 0.84rem;
+  min-width: 200px;
+  max-width: 300px;
+  line-height: 1.35;
+  padding: 8px 10px;
+}
+.npiq-unified-table .npiq-item-desc {
+  font-size: 0.74rem;
+  color: #6c757d;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+.npiq-unified-table .npiq-yn-cell {
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-width: 40px;
+  padding: 6px 4px;
+}
+.npiq-unified-table .npiq-yes-selected {
+  background: #198754 !important;
+  color: #fff !important;
+}
+.npiq-unified-table .npiq-no-selected {
+  background: #6c757d !important;
+  color: #fff !important;
+}
+.npiq-unified-table .npiq-rating-cell {
+  font-size: 0.82rem;
+  min-width: 36px;
+  padding: 6px 3px;
+}
+.npiq-unified-table .npiq-rating-cell.npiq-disabled {
+  background: #f0f0f0;
+  color: #ccc;
+  cursor: default;
+  pointer-events: none;
+}
+.npiq-unified-table .npiq-rating-cell.npiq-disabled:hover {
+  background: #f0f0f0;
+}
+/* Severity column left border */
+.npiq-unified-table td.npiq-rating-cell[data-type="severity"]:first-of-type,
+.npiq-unified-table tbody td:nth-child(4) {
+  border-left: 2px solid #c0cfe0;
+}
+/* Distress column left border */
+.npiq-unified-table tbody td:nth-child(7) {
+  border-left: 2px solid #c0cfe0;
+}
+
+/* ── CDR Worksheet Tables (Assessment tab) ── */
+.cdr-worksheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+  font-size: 0.84rem;
+}
+.cdr-worksheet-table th {
+  background: #e8edf3;
+  text-align: center;
+  padding: 6px 8px;
+  border: 1px solid #dee2e6;
+  font-size: 0.78rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.cdr-worksheet-table th:first-child {
+  text-align: left;
+  min-width: 45%;
+}
+.cdr-worksheet-table td {
+  border: 1px solid #dee2e6;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+.cdr-worksheet-table td:first-child {
+  text-align: left;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+.cdr-worksheet-table td:not(:first-child) {
+  text-align: center;
+  width: 12%;
+  min-width: 70px;
+}
+.cdr-worksheet-table .cdr-ws-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  transition: background-color 0.12s;
+}
+.cdr-worksheet-table .cdr-ws-btn:hover {
+  background-color: #e2e6ea;
+}
+.cdr-worksheet-table .cdr-ws-btn.active {
+  background-color: #0d6efd;
+  color: #fff;
+  font-weight: 600;
+}
+.cdr-ws-section {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.cdr-ws-section h6 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0d6efd;
+  border-bottom: 2px solid #0d6efd;
+  padding-bottom: 4px;
+  margin-bottom: 0.5rem;
+}
+.cdr-ws-subsection {
+  font-weight: 600;
+  font-size: 0.82rem;
+  background: #f0f4f8;
+  padding: 4px 8px;
+}
+.cdr-ws-note-cell {
+  padding: 4px 6px !important;
+}
+.cdr-ws-note-cell textarea,
+.cdr-ws-note-cell input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+}
+.cdr-ws-note-cell textarea {
+  resize: vertical;
+  min-height: 36px;
+}
+/* Personal care Blessed table */
+.cdr-blessed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-bottom: 0.5rem;
+}
+.cdr-blessed-table th {
+  background: #e8edf3;
+  text-align: center;
+  padding: 5px 6px;
+  border: 1px solid #dee2e6;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.cdr-blessed-table td {
+  border: 1px solid #dee2e6;
+  padding: 5px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+.cdr-blessed-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  width: 22%;
+}
+.cdr-blessed-table .cdr-ws-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 3px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  transition: background-color 0.12s;
+}
+.cdr-blessed-table .cdr-ws-btn:hover {
+  background-color: #e2e6ea;
+}
+.cdr-blessed-table .cdr-ws-btn.active {
+  background-color: #0d6efd;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ── CDR Assessment Table ── */
+.cdr-assessment-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cdr-assessment-table th {
+  background: #e8edf3;
+  text-align: center;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  font-size: 0.9rem;
+  font-weight: 700;
+  width: 16%;
+}
+.cdr-assessment-table th:first-child {
+  width: 18%;
+}
+.cdr-domain-label {
+  font-weight: 700;
+  text-align: center;
+  padding: 10px 12px;
+  border: 1px solid #dee2e6;
+  background: #f8f9fa;
+  cursor: default;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+.cdr-score-cell {
+  padding: 8px 6px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  cursor: pointer;
+  vertical-align: top;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  transition: background-color 0.15s;
+  min-height: 44px;
+}
+.cdr-score-cell:hover {
+  background-color: #daf1ee;
+}
+.cdr-score-cell.selected {
+  background-color: #daf1ee;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 2px #0d6efd;
+}
+.cdr-score-cell:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: -2px;
+}
+.cdr-empty-cell {
+  background: #f0f0f0;
+  cursor: default;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .report-side-panel {
+    width: 100%;
+    min-width: 100%;
+    position: fixed;
+    right: 0;
+    top: 110px;
+    bottom: 0;
+    z-index: 1040;
+  }
+  .report-side-panel.collapsed {
+    margin-right: 0;
+    transform: translateX(100%);
+  }
+  .main-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .main-tabs .nav-item {
+    white-space: nowrap;
+  }
+  .clickable-grid td.cg-label {
+    min-width: 150px;
+  }
+}
+
+/* ── RBANS Results ── */
+.rbans-results-table th {
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: #f8f9fa;
+}
+.rbans-results-table td {
+  font-size: 0.84rem;
+  vertical-align: middle;
+}
+.rbans-input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.84rem;
+  text-align: center;
+}
+.rbans-input:focus {
+  border-color: #0d6efd;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
+}

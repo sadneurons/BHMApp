@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>brainHEALTH Manchester — Assessment App</title>
+  <!-- Bootstrap 5 CSS from CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TOP NAVBAR / HEADER
+       ═══════════════════════════════════════════════════════ -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <!-- Placeholder logo -->
+        <span class="brand-logo-placeholder me-2">BHM</span>
+        <span class="d-none d-md-inline">brainHEALTH Manchester</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-warning text-dark" id="storageModeBadge">
+          <i class="bi bi-exclamation-triangle me-1"></i>Local Mode — Not saved to server
+        </span>
+        <button class="btn btn-outline-light btn-sm" id="toggleReportPanelBtn" title="Toggle Report Panel">
+          <i class="bi bi-layout-sidebar-reverse"></i> Report
+        </button>
+        <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Export">
+          <i class="bi bi-download"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" id="exportJSON"><i class="bi bi-filetype-json me-2"></i>Export JSON</a></li>
+          <li><a class="dropdown-item" href="#" id="exportCSV"><i class="bi bi-filetype-csv me-2"></i>Export Scores CSV</a></li>
+          <li><a class="dropdown-item" href="#" id="exportAudit"><i class="bi bi-journal-text me-2"></i>Export Audit Log</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" id="printReport"><i class="bi bi-printer me-2"></i>Print Report</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN TAB NAVIGATION
+       ═══════════════════════════════════════════════════════ -->
+  <div class="container-fluid px-0">
+    <ul class="nav nav-tabs bg-light px-3 pt-2 main-tabs" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-session" data-bs-toggle="tab" data-bs-target="#panel-session" type="button" role="tab">
+          <i class="bi bi-person-badge me-1"></i>Session
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-patient" data-bs-toggle="tab" data-bs-target="#panel-patient" type="button" role="tab">
+          <i class="bi bi-journal-medical me-1"></i>Patient Booklet
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-informant" data-bs-toggle="tab" data-bs-target="#panel-informant" type="button" role="tab">
+          <i class="bi bi-people me-1"></i>Informant Booklet
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-rbans" data-bs-toggle="tab" data-bs-target="#panel-rbans" type="button" role="tab">
+          <i class="bi bi-calculator me-1"></i>RBANS
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-clinical" data-bs-toggle="tab" data-bs-target="#panel-clinical" type="button" role="tab">
+          <i class="bi bi-clipboard2-pulse me-1"></i>Clinical Interview
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-report" data-bs-toggle="tab" data-bs-target="#panel-report" type="button" role="tab">
+          <i class="bi bi-file-earmark-text me-1"></i>Report
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-audit" data-bs-toggle="tab" data-bs-target="#panel-audit" type="button" role="tab">
+          <i class="bi bi-clock-history me-1"></i>Audit
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN CONTENT AREA  (form panels + report side-panel)
+       ═══════════════════════════════════════════════════════ -->
+  <div class="d-flex" id="mainLayout">
+
+    <!-- ─── Form content (left) ─── -->
+    <div class="flex-grow-1 overflow-auto" id="formArea" style="min-height:calc(100vh - 110px)">
+      <div class="tab-content p-3" id="mainTabContent">
+
+        <!-- ══════ SESSION TAB ══════ -->
+        <div class="tab-pane fade show active" id="panel-session" role="tabpanel">
+          <div id="sessionContent"></div>
+        </div>
+
+        <!-- ══════ PATIENT BOOKLET TAB ══════ -->
+        <div class="tab-pane fade" id="panel-patient" role="tabpanel">
+          <ul class="nav nav-pills mb-3" id="patientSubTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#sub-psqi" type="button" role="tab">PSQI</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-epworth" type="button" role="tab">Epworth</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-gad7" type="button" role="tab">GAD-7</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-depression" type="button" role="tab">Depression</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-diet" type="button" role="tab">Diet</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-audit-tool" type="button" role="tab">AUDIT</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-casp19" type="button" role="tab">CASP-19</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-hearing" type="button" role="tab">Hearing</button>
+            </li>
+          </ul>
+          <div class="tab-content" id="patientSubContent">
+            <div class="tab-pane fade show active" id="sub-psqi" role="tabpanel"><div id="psqiContent"></div></div>
+            <div class="tab-pane fade" id="sub-epworth" role="tabpanel"><div id="epworthContent"></div></div>
+            <div class="tab-pane fade" id="sub-gad7" role="tabpanel"><div id="gad7Content"></div></div>
+            <div class="tab-pane fade" id="sub-depression" role="tabpanel"><div id="depressionContent"></div></div>
+            <div class="tab-pane fade" id="sub-diet" role="tabpanel"><div id="dietContent"></div></div>
+            <div class="tab-pane fade" id="sub-audit-tool" role="tabpanel"><div id="auditToolContent"></div></div>
+            <div class="tab-pane fade" id="sub-casp19" role="tabpanel"><div id="casp19Content"></div></div>
+            <div class="tab-pane fade" id="sub-hearing" role="tabpanel"><div id="hearingContent"></div></div>
+          </div>
+        </div>
+
+        <!-- ══════ INFORMANT BOOKLET TAB ══════ -->
+        <div class="tab-pane fade" id="panel-informant" role="tabpanel">
+          <ul class="nav nav-pills mb-3" id="informantSubTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#sub-mbic" type="button" role="tab">MBI-C</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-npiq" type="button" role="tab">NPI-Q</button>
+            </li>
+          </ul>
+          <div class="tab-content" id="informantSubContent">
+            <div class="tab-pane fade show active" id="sub-mbic" role="tabpanel"><div id="mbicContent"></div></div>
+            <div class="tab-pane fade" id="sub-npiq" role="tabpanel"><div id="npiqContent"></div></div>
+          </div>
+        </div>
+
+        <!-- ══════ RBANS TAB ══════ -->
+        <div class="tab-pane fade" id="panel-rbans" role="tabpanel">
+          <div id="rbansContent"></div>
+        </div>
+
+        <!-- ══════ CLINICAL INTERVIEW TAB ══════ -->
+        <div class="tab-pane fade" id="panel-clinical" role="tabpanel">
+          <ul class="nav nav-pills mb-3" id="clinicalSubTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#sub-interview" type="button" role="tab">Interview</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-cdr-assess" type="button" role="tab">CDR Assessment</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-cdr-scoring" type="button" role="tab">CDR Scoring</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-diamond-lewy" type="button" role="tab">DIAMOND Lewy</button>
+            </li>
+          </ul>
+          <div class="tab-content" id="clinicalSubContent">
+            <div class="tab-pane fade show active" id="sub-interview" role="tabpanel"><div id="clinicalContent"></div></div>
+            <div class="tab-pane fade" id="sub-cdr-assess" role="tabpanel"><div id="cdrAssessContent"></div></div>
+            <div class="tab-pane fade" id="sub-cdr-scoring" role="tabpanel"><div id="cdrScoringContent"></div></div>
+            <div class="tab-pane fade" id="sub-diamond-lewy" role="tabpanel"><div id="diamondLewyContent"></div></div>
+          </div>
+        </div>
+
+        <!-- ══════ REPORT TAB ══════ -->
+        <div class="tab-pane fade" id="panel-report" role="tabpanel">
+          <div id="reportFullContent"></div>
+        </div>
+
+        <!-- ══════ AUDIT TAB ══════ -->
+        <div class="tab-pane fade" id="panel-audit" role="tabpanel">
+          <div id="auditContent"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── Report side panel (right, toggleable) ─── -->
+    <div class="report-side-panel border-start bg-white shadow-sm" id="reportSidePanel">
+      <div class="p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0"><i class="bi bi-file-earmark-text me-1"></i>Live Report Preview</h6>
+          <button class="btn btn-sm btn-outline-secondary" id="closeSidePanel">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div id="reportSidePanelBody" class="report-preview-body">
+          <p class="text-muted fst-italic">Complete form fields to generate the report...</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════ -->
+  <!-- Bootstrap JS Bundle from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+  <!-- App modules (load order matters) -->
+  <script src="js/state.js"></script>
+  <script src="js/components/clickableGrid.js"></script>
+  <script src="js/instruments/session.js"></script>
+  <script src="js/instruments/psqi.js"></script>
+  <script src="js/instruments/epworth.js"></script>
+  <script src="js/instruments/gad7.js"></script>
+  <script src="js/instruments/depression.js"></script>
+  <script src="js/instruments/diet.js"></script>
+  <script src="js/instruments/auditTool.js"></script>
+  <script src="js/instruments/casp19.js"></script>
+  <script src="js/instruments/hearing.js"></script>
+  <script src="js/instruments/mbiC.js"></script>
+  <script src="js/instruments/npiQ.js"></script>
+  <script src="js/instruments/clinicalInterview.js"></script>
+  <script src="js/instruments/rbansNorms.js"></script>
+  <script src="js/instruments/rbans.js"></script>
+  <script src="js/instruments/cdr.js"></script>
+  <script src="js/instruments/diamondLewy.js"></script>
+  <script src="js/scoring/scoring.js"></script>
+  <script src="js/report/reportGenerator.js"></script>
+  <script src="js/report/charts.js"></script>
+  <script src="js/export/exporter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
