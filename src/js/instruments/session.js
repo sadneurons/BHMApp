@@ -90,7 +90,7 @@ BHM.Instruments.Session = (function () {
       label: 'Sex',
       statePath: 'patient.sex',
       type: 'select',
-      options: ['', 'Male', 'Female']
+      options: ['Male', 'Female']
     }), 'col-md-2'));
 
     patRow.appendChild(wrapCol(F.createField({

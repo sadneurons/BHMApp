@@ -528,6 +528,179 @@ BHM.Scoring = (function () {
     }
   }
 
+  // ═══════════════════════════════════════════
+  //  QRISK3
+  // ═══════════════════════════════════════════
+  function qrisk3() {
+    var Q = BHM.QRISK3Algorithm;
+    if (!Q) return;
+
+    var qr = function (k) { return S.get('qrisk3.' + k); };
+    var warnings = [];
+
+    // Age
+    var dob = S.get('patient.dob');
+    var age = null;
+    if (dob) {
+      var b = new Date(dob); var n = new Date();
+      age = n.getFullYear() - b.getFullYear();
+      var m = n.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && n.getDate() < b.getDate())) age--;
+    }
+    if (age === null || age < 25 || age > 84) {
+      S.setScore('qrisk3', { error: 'Age must be 25-84 (set DOB on Session tab). Current: ' + (age !== null ? age : 'not set') });
+      return;
+    }
+
+    // Sex
+    var sex = S.get('patient.sex');
+    if (!sex) {
+      S.setScore('qrisk3', { error: 'Sex not set (Session tab)' });
+      return;
+    }
+
+    // BMI
+    var bmi = parseFloat(S.get('physicalExam.bmi'));
+    if (isNaN(bmi) || bmi < 10) {
+      bmi = 25; // population average default
+      warnings.push('BMI defaulted to 25 (not recorded)');
+    }
+
+    // SBP
+    var sbp = parseFloat(S.get('physicalExam.bpSystolic'));
+    if (isNaN(sbp) || sbp < 50) {
+      sbp = 125; // population average default
+      warnings.push('Systolic BP defaulted to 125 mmHg (not recorded)');
+    }
+
+    // SBP SD
+    var sbps5 = parseFloat(qr('sbpSD'));
+    if (isNaN(sbps5)) sbps5 = 0;
+
+    // Cholesterol / HDL ratio
+    var tc = parseFloat(qr('totalChol'));
+    var hdl = parseFloat(qr('hdlChol'));
+    var rati;
+    if (tc > 0 && hdl > 0) {
+      rati = tc / hdl;
+    } else {
+      rati = sex === 'Male' ? 4.3 : 3.5;
+      warnings.push('Cholesterol/HDL ratio defaulted to ' + rati.toFixed(1) + ' (population average)');
+    }
+
+    // Townsend
+    var town = parseFloat(qr('townsend'));
+    if (isNaN(town)) town = 0;
+
+    // Ethnicity
+    var eth = parseInt(qr('ethnicity'), 10);
+    if (isNaN(eth) || eth < 0 || eth > 9) {
+      eth = 1; // White/not stated
+      warnings.push('Ethnicity defaulted to White/not stated');
+    }
+
+    // Smoking
+    var smokingOverride = qr('smokingOverride');
+    var smoke_cat;
+    if (smokingOverride !== undefined && smokingOverride !== null && smokingOverride !== '') {
+      smoke_cat = parseInt(smokingOverride, 10);
+    } else {
+      // Infer from clinical interview
+      var tob = S.get('instruments.clinical.tobacco');
+      if (tob === 'Never') smoke_cat = 0;
+      else if (tob === 'Ex-smoker') smoke_cat = 1;
+      else if (tob === 'Current') {
+        var packs = parseFloat(S.get('instruments.clinical.tobaccoPacks'));
+        if (!isNaN(packs)) {
+          var cigs = packs * 20;
+          smoke_cat = cigs < 10 ? 2 : cigs < 20 ? 3 : 4;
+        } else {
+          smoke_cat = 2;
+          warnings.push('Current smoker: intensity defaulted to light');
+        }
+      } else {
+        smoke_cat = 0;
+        warnings.push('Smoking status defaulted to non-smoker');
+      }
+    }
+
+    // Boolean conditions — merge auto-detected with QRISK3 overrides
+    function boolOr(autoPath, overrideKey) {
+      return !!(S.get(autoPath) || qr(overrideKey));
+    }
+
+    var b_AF = boolOr('medicalHistory.cvRisk.atrial_fibrillation', 'overrideAF');
+    var b_type1 = boolOr('medicalHistory.cvRisk.diabetes_t1', 'overrideDM1');
+    var b_type2 = boolOr('medicalHistory.cvRisk.diabetes_t2', 'overrideDM2');
+    var b_treatedhyp = boolOr('medicalHistory.cvRisk.hypertension', 'overrideHTN');
+    var b_migraine = boolOr('medicalHistory.neuro.migraine', 'overrideMigraine');
+    var b_semi = !!(S.get('medicalHistory.psych.bipolar') || S.get('medicalHistory.psych.psychosis') || qr('overrideSMI'));
+    var b_ra = !!qr('rheumatoidArthritis');
+    var b_renal = !!qr('ckd345');
+    var b_sle = !!qr('sle');
+
+    // Medications — auto-detect + override
+    var b_atypicalantipsy = !!qr('overrideAntipsych');
+    if (!b_atypicalantipsy) {
+      var meds = S.get('medications.list');
+      if (meds && Array.isArray(meds)) {
+        var atypicals = ['amisulpride', 'aripiprazole', 'clozapine', 'lurasidone', 'olanzapine',
+          'paliperidone', 'quetiapine', 'risperidone', 'sertindole', 'zotepine'];
+        for (var mi = 0; mi < meds.length && !b_atypicalantipsy; mi++) {
+          var mname = (meds[mi].name || '').toLowerCase();
+          for (var aj = 0; aj < atypicals.length; aj++) {
+            if (mname.indexOf(atypicals[aj]) !== -1) { b_atypicalantipsy = true; break; }
+          }
+        }
+      }
+    }
+
+    var b_corticosteroids = !!qr('overrideSteroids');
+    if (!b_corticosteroids) {
+      var meds2 = S.get('medications.list');
+      if (meds2 && Array.isArray(meds2)) {
+        var steroids = ['prednisolone', 'prednisone', 'betamethasone', 'cortisone', 'dexamethasone',
+          'deflazacort', 'hydrocortisone', 'methylprednisolone', 'triamcinolone'];
+        for (var si = 0; si < meds2.length && !b_corticosteroids; si++) {
+          var sname = (meds2[si].name || '').toLowerCase();
+          for (var sj = 0; sj < steroids.length; sj++) {
+            if (sname.indexOf(steroids[sj]) !== -1) { b_corticosteroids = true; break; }
+          }
+        }
+      }
+    }
+
+    var fh_cvd = !!qr('familyCHD');
+    var surv = 10; // 10-year survival index
+
+    var score;
+    if (sex === 'Male') {
+      var b_impotence = !!qr('erectileDysfunction');
+      score = Q.maleScore(age, b_AF ? 1 : 0, b_atypicalantipsy ? 1 : 0, b_corticosteroids ? 1 : 0,
+        b_impotence ? 1 : 0, b_migraine ? 1 : 0, b_ra ? 1 : 0, b_renal ? 1 : 0, b_semi ? 1 : 0,
+        b_sle ? 1 : 0, b_treatedhyp ? 1 : 0, b_type1 ? 1 : 0, b_type2 ? 1 : 0,
+        bmi, eth, fh_cvd ? 1 : 0, rati, sbp, sbps5, smoke_cat, surv, town);
+    } else {
+      score = Q.femaleScore(age, b_AF ? 1 : 0, b_atypicalantipsy ? 1 : 0, b_corticosteroids ? 1 : 0,
+        b_migraine ? 1 : 0, b_ra ? 1 : 0, b_renal ? 1 : 0, b_semi ? 1 : 0,
+        b_sle ? 1 : 0, b_treatedhyp ? 1 : 0, b_type1 ? 1 : 0, b_type2 ? 1 : 0,
+        bmi, eth, fh_cvd ? 1 : 0, rati, sbp, sbps5, smoke_cat, surv, town);
+    }
+
+    if (isNaN(score) || score < 0) score = 0;
+    if (score > 100) score = 100;
+
+    S.setScore('qrisk3', {
+      score: score,
+      warnings: warnings,
+      inputs: { age: age, sex: sex, bmi: bmi, sbp: sbp, sbps5: sbps5, rati: rati, town: town, eth: eth, smoke_cat: smoke_cat }
+    });
+
+    if (BHM.Instruments.QRISK3 && BHM.Instruments.QRISK3.showScore) {
+      BHM.Instruments.QRISK3.showScore();
+    }
+  }
+
   // ── Trigger report update ──
   function triggerReport() {
     if (BHM.Report && BHM.Report.update) {
@@ -554,6 +727,7 @@ BHM.Scoring = (function () {
     cdr: cdr,
     diamondLewy: diamondLewy,
     stopBang: stopBang,
+    qrisk3: qrisk3,
     triggerReport: triggerReport,
     _reportTimer: null
   };

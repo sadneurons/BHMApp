@@ -1366,6 +1366,9 @@
             <li class="nav-item" role="presentation">
               <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-physical-exam" type="button" role="tab">Physical Exam</button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-qrisk3" type="button" role="tab">QRISK3</button>
+            </li>
           </ul>
           <div class="tab-content" id="clinicalSubContent">
             <div class="tab-pane fade show active" id="sub-interview" role="tabpanel"><div id="clinicalContent"></div></div>
@@ -1376,6 +1379,7 @@
             <div class="tab-pane fade" id="sub-medical-history" role="tabpanel"><div id="medicalHistoryContent"></div></div>
             <div class="tab-pane fade" id="sub-medications" role="tabpanel"><div id="medicationsContent"></div></div>
             <div class="tab-pane fade" id="sub-physical-exam" role="tabpanel"><div id="physicalExamContent"></div></div>
+            <div class="tab-pane fade" id="sub-qrisk3" role="tabpanel"><div id="qrisk3Content"></div></div>
           </div>
         </div>
 
@@ -1706,6 +1710,7 @@ BHM.State = (function () {
       patient: {
         name: '',
         dob: '',
+        sex: '',
         nhsNumber: '',
         dateOfCompletion: '',
         clinicianName: '',
@@ -1733,6 +1738,7 @@ BHM.State = (function () {
       medications: { list: [], recentChanges: '', adherence: '' },
       medicalHistory: {},
       physicalExam: {},
+      qrisk3: {},
       neuroimaging: { scans: [] },
       scores: {},
       snippetInserts: {},
@@ -2317,16 +2323,56 @@ BHM.Instruments.Session = (function () {
       label: 'Date of Birth',
       statePath: 'patient.dob',
       type: 'date'
-    }), 'col-md-4'));
+    }), 'col-md-3'));
+
+    // Auto-calculated age display
+    var ageCol = document.createElement('div');
+    ageCol.className = 'col-md-1';
+    var ageGroup = document.createElement('div');
+    ageGroup.className = 'bhm-field-group';
+    ageGroup.innerHTML =
+      '<label class="form-label small fw-bold">Age</label>' +
+      '<div class="form-control form-control-sm text-center fw-bold" style="background:var(--bs-tertiary-bg,#f8f9fa)" id="session-age-display">—</div>';
+    ageCol.appendChild(ageGroup);
+    patRow.appendChild(ageCol);
+
+    patRow.appendChild(wrapCol(F.createField({
+      label: 'Sex',
+      statePath: 'patient.sex',
+      type: 'select',
+      options: ['Male', 'Female']
+    }), 'col-md-2'));
 
     patRow.appendChild(wrapCol(F.createField({
       label: 'EPR Number',
       statePath: 'patient.nhsNumber',
       placeholder: 'Optional',
       helpText: 'Optional — for clinical linking'
-    }), 'col-md-4'));
+    }), 'col-md-2'));
 
     patientSection.appendChild(patRow);
+
+    // ── Age auto-calculation on DOB change ──
+    function updateAge() {
+      var dob = BHM.State.get('patient.dob');
+      var el = document.getElementById('session-age-display');
+      if (!el) return;
+      if (dob) {
+        var b = new Date(dob);
+        var now = new Date();
+        var age = now.getFullYear() - b.getFullYear();
+        var m = now.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+        el.textContent = age;
+      } else {
+        el.textContent = '—';
+      }
+    }
+    BHM.State.subscribe(function (path) {
+      if (path === 'patient.dob') updateAge();
+    });
+    updateAge();
+
     card.appendChild(patientSection);
 
     // ── Clinician / Informant ──
@@ -6533,76 +6579,94 @@ BHM.Instruments.RBANS = (function () {
     container.innerHTML = '';
 
     var html = '';
-    html += '<h5 class="mb-3"><i class="bi bi-calculator me-2"></i>RBANS Calculator &amp; Supplementary Analysis</h5>';
+    html += '<h5 class="mb-2" style="font-size:1rem"><i class="bi bi-calculator me-2"></i>RBANS Calculator &amp; Supplementary Analysis</h5>';
 
-    // ── Three-column layout: demographics, subtests, results ──
-    html += '<div class="row g-3">';
+    // ── Input row: demographics + subtests side by side ──
+    html += '<div class="row g-2 mb-2">';
 
     // ═══ COL 1: Demographics ═══
-    html += '<div class="col-lg-3">';
-
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-person me-1"></i> Demographics</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="cdr-worksheet-table mb-0">';
-    html += '<colgroup><col style="width:50%"><col style="width:50%"></colgroup>';
+    html += '<div class="col-lg-4 col-xl-3">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.85rem"><i class="bi bi-person me-1"></i> Demographics</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="cdr-worksheet-table mb-0" style="font-size:0.82rem">';
+    html += '<colgroup><col style="width:45%"><col style="width:55%"></colgroup>';
     html += demoRow('topf', 'TOPF Score', 'number', '0–70');
-    html += demoRow('age', 'Age', 'number', 'Years');
-    html += demoRow('years_of_education', 'Years of Education', 'number', 'Years');
-    html += '<tr><td>Gender at Birth</td><td class="cdr-ws-note-cell">' +
-      radioGroup('gender', [{ v: 'Male', l: 'Male' }, { v: 'Female', l: 'Female' }]) + '</td></tr>';
+
+    var autoAge = getPatientAge();
+    html += '<tr><td>Age</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-age" class="fw-bold" style="font-size:0.8rem">' +
+      (autoAge !== null ? autoAge : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set DOB on Session tab</span>') +
+      '</span></td></tr>';
+
+    var autoYOE = S.get('instruments.clinical.yearsEdu');
+    html += '<tr><td>Yrs Education</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-yoe" class="fw-bold" style="font-size:0.8rem">' +
+      (autoYOE !== undefined && autoYOE !== null && autoYOE !== '' ? autoYOE : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set on Clinical Interview</span>') +
+      '</span></td></tr>';
+
+    var autoSex = S.get('patient.sex');
+    html += '<tr><td>Sex</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-sex" class="fw-bold" style="font-size:0.8rem">' +
+      (autoSex ? autoSex : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set on Session tab</span>') +
+      '</span></td></tr>';
+
     html += '<tr><td>Ethnicity</td><td class="cdr-ws-note-cell">' +
       radioGroup('ethnicity', [{ v: 'White', l: 'White' }, { v: 'Non-White', l: 'Non-White' }]) + '</td></tr>';
     html += '</table>';
     html += '</div></div>';
 
-    // -- Calculate button --
-    html += '<div class="d-grid mb-3"><button class="btn btn-primary" id="rbans-calculate-btn">' +
-      '<i class="bi bi-calculator me-1"></i>Calculate All Scores</button></div>';
+    html += '<div class="d-grid mt-2"><button class="btn btn-primary btn-sm" id="rbans-calculate-btn">' +
+      '<i class="bi bi-calculator me-1"></i>Calculate</button></div>';
 
     html += '</div>'; // end col 1
 
     // ═══ COL 2: Subtest Raw Scores ═══
-    html += '<div class="col-lg-4">';
+    html += '<div class="col-lg-8 col-xl-9">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.85rem"><i class="bi bi-pencil-square me-1"></i> Subtest Raw Scores</div>';
+    html += '<div class="card-body p-1">';
 
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-pencil-square me-1"></i> Subtest Raw Scores</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="cdr-worksheet-table mb-0">';
-    html += '<colgroup><col style="width:50%"><col style="width:30%"><col style="width:20%"></colgroup>';
-    html += '<thead><tr><th style="text-align:left">Subtest</th><th>Score</th><th>Max</th></tr></thead>';
-    html += '<tbody>';
+    // Two-column subtest grid to save vertical space
+    html += '<div class="row g-1">';
+    var leftSubs = SUBTESTS.slice(0, 6);   // Imm Memory + Visuospatial + Language
+    var rightSubs = SUBTESTS.slice(6);      // Attention + Delayed Memory
 
-    var lastDomain = '';
-    for (var i = 0; i < SUBTESTS.length; i++) {
-      var st = SUBTESTS[i];
-      if (st.domain !== lastDomain) {
-        html += '<tr class="cdr-ws-subsection"><td colspan="3">' + st.domain + '</td></tr>';
-        lastDomain = st.domain;
+    for (var half = 0; half < 2; half++) {
+      var subs = half === 0 ? leftSubs : rightSubs;
+      html += '<div class="col-6">';
+      html += '<table class="cdr-worksheet-table mb-0" style="font-size:0.82rem">';
+      html += '<colgroup><col style="width:50%"><col style="width:30%"><col style="width:20%"></colgroup>';
+      var lastDomain = '';
+      for (var i = 0; i < subs.length; i++) {
+        var st = subs[i];
+        if (st.domain !== lastDomain) {
+          html += '<tr class="cdr-ws-subsection"><td colspan="3" style="font-size:0.78rem">' + st.domain + '</td></tr>';
+          lastDomain = st.domain;
+        }
+        var savedVal = S.get(PREFIX + '.' + st.id);
+        html += '<tr><td>' + st.label + '</td>';
+        html += '<td class="cdr-ws-note-cell"><input type="number" id="rbans-' + st.id + '" ' +
+          'min="0" max="' + st.max + '" class="rbans-input" data-key="' + st.id + '" ' +
+          (savedVal !== undefined && savedVal !== null ? 'value="' + savedVal + '"' : '') +
+          ' placeholder="0–' + st.max + '"></td>';
+        html += '<td style="text-align:center;color:#6c757d;font-size:0.75rem">/' + st.max + '</td>';
+        html += '</tr>';
       }
-      var savedVal = S.get(PREFIX + '.' + st.id);
-      html += '<tr><td>' + st.label + '</td>';
-      html += '<td class="cdr-ws-note-cell"><input type="number" id="rbans-' + st.id + '" ' +
-        'min="0" max="' + st.max + '" class="rbans-input" data-key="' + st.id + '" ' +
-        (savedVal !== undefined && savedVal !== null ? 'value="' + savedVal + '"' : '') +
-        ' placeholder="0–' + st.max + '"></td>';
-      html += '<td style="text-align:center;color:#6c757d;font-size:0.8rem">/' + st.max + '</td>';
-      html += '</tr>';
+      html += '</table></div>';
     }
-    html += '</tbody></table>';
-    html += '</div></div>';
+    html += '</div>'; // end subtest row
 
+    html += '</div></div>';
     html += '</div>'; // end col 2
 
-    // ═══ COL 3: Results ═══
-    html += '<div class="col-lg-5">';
-    html += '<div id="rbans-results">';
-    html += '<div class="card mb-3"><div class="card-body text-center text-muted py-4">' +
-      '<i class="bi bi-arrow-left-circle me-1"></i>Enter demographics and subtest scores, then click Calculate</div></div>';
-    html += '</div>';
-    html += '</div>'; // end col 3
+    html += '</div>'; // end input row
 
-    html += '</div>'; // end row
+    // ═══ Results area — full width below ═══
+    html += '<div id="rbans-results">';
+    html += '<div class="card mb-2"><div class="card-body text-center text-muted py-3" style="font-size:0.85rem">' +
+      '<i class="bi bi-arrow-up-circle me-1"></i>Enter demographics and subtest scores, then click Calculate</div></div>';
+    html += '</div>';
 
     container.innerHTML = html;
 
@@ -6634,16 +6698,23 @@ BHM.Instruments.RBANS = (function () {
     }
 
     // Restore radio selections
-    var savedGender = S.get(PREFIX + '.gender');
-    if (savedGender) {
-      var gEl = container.querySelector('input.rbans-radio[data-key="gender"][value="' + savedGender + '"]');
-      if (gEl) gEl.checked = true;
-    }
     var savedEth = S.get(PREFIX + '.ethnicity');
     if (savedEth) {
       var eEl = container.querySelector('input.rbans-radio[data-key="ethnicity"][value="' + savedEth + '"]');
       if (eEl) eEl.checked = true;
     }
+  }
+
+  // ── Helper: derive age from patient.dob ──
+  function getPatientAge() {
+    var dob = S.get('patient.dob');
+    if (!dob) return null;
+    var b = new Date(dob);
+    var now = new Date();
+    var age = now.getFullYear() - b.getFullYear();
+    var m = now.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+    return age;
   }
 
   // ── Helper: demographic input row ──
@@ -6677,12 +6748,17 @@ BHM.Instruments.RBANS = (function () {
     var d = S.getSession().instruments.rbans || {};
     var SD = 15;
 
+    // Pull demographics from session / clinical interview
+    var derivedAge = getPatientAge();
+    var derivedSex = S.get('patient.sex');
+    var derivedYOE = S.get('instruments.clinical.yearsEdu');
+
     // Validate required fields
     var missing = [];
-    if (d.age === undefined || d.age === null) missing.push('Age');
-    if (!d.gender) missing.push('Gender');
+    if (derivedAge === null || derivedAge === undefined) missing.push('Age (set DOB on Session tab)');
+    if (!derivedSex) missing.push('Sex (set on Session tab)');
     if (!d.ethnicity) missing.push('Ethnicity');
-    if (d.years_of_education === undefined || d.years_of_education === null) missing.push('Years of Education');
+    if (derivedYOE === undefined || derivedYOE === null || derivedYOE === '') missing.push('Years of Education (set on Clinical Interview tab)');
     for (var i = 0; i < SUBTESTS.length; i++) {
       if (d[SUBTESTS[i].id] === undefined || d[SUBTESTS[i].id] === null) {
         missing.push(SUBTESTS[i].label);
@@ -6693,9 +6769,9 @@ BHM.Instruments.RBANS = (function () {
       return;
     }
 
-    var age = parseInt(d.age, 10);
+    var age = parseInt(derivedAge, 10);
     var topf = d.topf !== undefined && d.topf !== null ? parseInt(d.topf, 10) : null;
-    var yearsEd = parseInt(d.years_of_education, 10);
+    var yearsEd = parseInt(derivedYOE, 10);
 
     // Get raw scores
     var listlearning = parseInt(d.listlearning, 10);
@@ -6757,7 +6833,7 @@ BHM.Instruments.RBANS = (function () {
     var totalCentile = centile(totalScaledScore);
 
     // ── DUFF REGRESSION NORMS ──
-    var sexbeta = d.gender === 'Male' ? 1 : 0;
+    var sexbeta = derivedSex === 'Male' ? 1 : 0;
     var ethnicbeta = d.ethnicity === 'White' ? 0 : 1;
     var yoebeta;
     if (yearsEd < 12) yoebeta = 1;
@@ -6911,30 +6987,32 @@ BHM.Instruments.RBANS = (function () {
 
     var html = '';
 
-    // ── TOPF Card ──
+    // ── TOPF one-liner ──
     if (r.fsiq !== null) {
-      html += '<div class="card mb-3">';
-      html += '<div class="card-header bg-info text-white py-2"><i class="bi bi-book me-1"></i> Test of Premorbid Functioning (TOPF)</div>';
-      html += '<div class="card-body p-3">';
-      html += '<p class="mb-1">The TOPF is a reading/vocabulary test to estimate premorbid ability. ' +
-        'Score: <strong>' + r.topf + '/70</strong> — Estimated FSIQ: <strong>' + r.fsiq + '</strong>.</p>';
-      html += '</div></div>';
+      html += '<p class="mb-2" style="font-size:0.84rem"><i class="bi bi-book me-1 text-info"></i>' +
+        '<strong>TOPF:</strong> ' + r.topf + '/70 — Est. FSIQ: <strong>' + r.fsiq + '</strong></p>';
     }
 
-    // ── Domain Index Summary Table ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-bar-chart me-1"></i> Index Scores &amp; Centiles</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="table table-sm table-hover mb-0 rbans-results-table">';
-    html += '<thead><tr><th>Domain</th><th class="text-center">Index</th><th class="text-center">Centile</th>' +
-      '<th class="text-center">Classification</th></tr></thead><tbody>';
+    // ── Row 1: Index table (left) + Chart (right) ──
+    html += '<div class="row g-2 mb-2">';
+
+    // Left: Index table + Duff table stacked
+    html += '<div class="col-lg-5">';
+
+    // Index Scores
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-bar-chart me-1"></i> Index Scores</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="table table-sm table-hover mb-0" style="font-size:0.8rem">';
+    html += '<thead><tr><th>Domain</th><th class="text-center">Index</th><th class="text-center">%ile</th>' +
+      '<th class="text-center">Class.</th></tr></thead><tbody>';
 
     var domains = [
-      { label: 'Immediate Memory', idx: r.indices.immediateMemory, cent: r.centiles.immediateMemory },
-      { label: 'Visuospatial/Constructional', idx: r.indices.visuospatial, cent: r.centiles.visuospatial },
+      { label: 'Imm Memory', idx: r.indices.immediateMemory, cent: r.centiles.immediateMemory },
+      { label: 'Visuospatial', idx: r.indices.visuospatial, cent: r.centiles.visuospatial },
       { label: 'Language', idx: r.indices.language, cent: r.centiles.language },
       { label: 'Attention', idx: r.indices.attention, cent: r.centiles.attention },
-      { label: 'Delayed Memory', idx: r.indices.delayedMemory, cent: r.centiles.delayedMemory }
+      { label: 'Del Memory', idx: r.indices.delayedMemory, cent: r.centiles.delayedMemory }
     ];
 
     for (var i = 0; i < domains.length; i++) {
@@ -6945,39 +7023,28 @@ BHM.Instruments.RBANS = (function () {
       html += '<td class="text-center">' + d.cent + '%</td>';
       html += '<td class="text-center"><small>' + cls.label + '</small></td></tr>';
     }
-
-    // Total row
     var totalCls = classifyIndex(r.indices.totalScale);
-    html += '<tr class="table-active"><td><strong>Total Scale</strong></td>';
+    html += '<tr class="table-active"><td><strong>Total</strong></td>';
     html += '<td class="text-center"><span class="badge ' + totalCls.badge + '">' + r.indices.totalScale + '</span></td>';
     html += '<td class="text-center">' + r.centiles.totalScale + '%</td>';
     html += '<td class="text-center"><small>' + totalCls.label + '</small></td></tr>';
-
     html += '</tbody></table></div></div>';
 
-    // ── Chart ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
-    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:1/2">';
-    html += '<canvas id="rbans-chart"></canvas>';
-    html += '</div></div></div>';
-
-    // ── Duff Regression Norms ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#fd7e14;color:#fff"><i class="bi bi-graph-down me-1"></i> Duff Demographically-Corrected Norms</div>';
-    html += '<div class="card-body p-2">';
-    html += '<p class="mb-2" style="font-size:0.82rem">Regression-based norms correcting for age, education, sex, and ethnicity (Duff &amp; Ramezani, 2015).</p>';
-    html += '<table class="table table-sm table-hover mb-0 rbans-results-table">';
-    html += '<thead><tr><th>Domain</th><th class="text-center">Predicted</th><th class="text-center">Adjusted Index</th>' +
-      '<th class="text-center">Centile</th></tr></thead><tbody>';
+    // Duff Norms
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header py-1" style="background:#fd7e14;color:#fff;font-size:0.82rem"><i class="bi bi-graph-down me-1"></i> Duff Corrected</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="table table-sm table-hover mb-0" style="font-size:0.78rem">';
+    html += '<thead><tr><th>Domain</th><th class="text-center">Pred</th><th class="text-center">Adj Idx</th>' +
+      '<th class="text-center">%ile</th></tr></thead><tbody>';
 
     var duffRows = [
-      { label: 'Immediate Memory', pred: r.duff.immPred, idx: r.duff.immIndex, cent: r.duff.immCentile },
-      { label: 'Visuospatial', pred: r.duff.visuoPred, idx: r.duff.visuoIndex, cent: r.duff.visuoCentile },
+      { label: 'Imm Mem', pred: r.duff.immPred, idx: r.duff.immIndex, cent: r.duff.immCentile },
+      { label: 'Visuo', pred: r.duff.visuoPred, idx: r.duff.visuoIndex, cent: r.duff.visuoCentile },
       { label: 'Language', pred: r.duff.langPred, idx: r.duff.langIndex, cent: r.duff.langCentile },
       { label: 'Attention', pred: r.duff.attPred, idx: r.duff.attIndex, cent: r.duff.attCentile },
-      { label: 'Delayed Memory', pred: r.duff.memPred, idx: r.duff.memIndex, cent: r.duff.memCentile },
-      { label: 'Total Scale', pred: r.duff.totalPred, idx: r.duff.totalIndex, cent: r.duff.totalCentile }
+      { label: 'Del Mem', pred: r.duff.memPred, idx: r.duff.memIndex, cent: r.duff.memCentile },
+      { label: 'Total', pred: r.duff.totalPred, idx: r.duff.totalIndex, cent: r.duff.totalCentile }
     ];
     for (var j = 0; j < duffRows.length; j++) {
       var dr = duffRows[j];
@@ -6986,21 +7053,37 @@ BHM.Instruments.RBANS = (function () {
     }
     html += '</tbody></table></div></div>';
 
-    // ── Effort Indices ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#6f42c1;color:#fff"><i class="bi bi-shield-check me-1"></i> Effort Indices</div>';
-    html += '<div class="card-body p-3">';
-    html += '<p class="mb-2"><strong>Silverberg Effort Index:</strong> ' + r.silverbergEI + '</p>';
+    html += '</div>'; // end left col
 
-    // Silverberg table
-    html += '<table class="table table-sm table-bordered table-hover mb-3" style="font-size:0.8rem">';
-    html += '<thead class="table-light"><tr><th>Cut-off</th><th>MTBI</th><th>Controls</th><th>Clinical Malingerers</th>' +
+    // Right: Chart
+    html += '<div class="col-lg-7">';
+    html += '<div class="card mb-0" style="height:100%">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
+    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:2/1">';
+    html += '<canvas id="rbans-chart"></canvas>';
+    html += '</div></div></div>';
+    html += '</div>'; // end right col
+
+    html += '</div>'; // end row 1
+
+    // ── Row 2: Effort + Cortical-Subcortical side by side ──
+    html += '<div class="row g-2 mb-2">';
+
+    // Effort
+    html += '<div class="col-lg-7">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header py-1" style="background:#6f42c1;color:#fff;font-size:0.82rem"><i class="bi bi-shield-check me-1"></i> Effort Indices</div>';
+    html += '<div class="card-body p-2">';
+    html += '<p class="mb-1" style="font-size:0.82rem"><strong>Silverberg EI:</strong> ' + r.silverbergEI +
+      ' &nbsp;|&nbsp; <strong>Novitski ES:</strong> ' + r.novitskiES + '</p>';
+    html += '<table class="table table-sm table-bordered table-hover mb-0" style="font-size:0.7rem">';
+    html += '<thead class="table-light"><tr><th>Cut-off</th><th>MTBI</th><th>Controls</th><th>Clin Mal</th>' +
       '<th>Sim-naive</th><th>Sim-coached</th></tr></thead><tbody>';
     var sData = [
-      ['>0', '0.781', '0.964', '0.933', '0.958', '0.857'],
-      ['>1', '0.813', '0.964', '0.667', '0.917', '0.750'],
-      ['>2', '0.906', '0.964', '0.667', '0.792', '0.500'],
-      ['>3', '1.000', '1.000', '0.533', '0.708', '0.464']
+      ['>0', '.781', '.964', '.933', '.958', '.857'],
+      ['>1', '.813', '.964', '.667', '.917', '.750'],
+      ['>2', '.906', '.964', '.667', '.792', '.500'],
+      ['>3', '1.00', '1.00', '.533', '.708', '.464']
     ];
     for (var s = 0; s < sData.length; s++) {
       html += '<tr>';
@@ -7010,31 +7093,33 @@ BHM.Instruments.RBANS = (function () {
       html += '</tr>';
     }
     html += '</tbody></table>';
+    html += '</div></div>';
+    html += '</div>';
 
-    html += '<p class="mb-0"><strong>Novitski Effort Scale:</strong> ' + r.novitskiES + '</p>';
+    // Cortical-Subcortical + References stacked
+    html += '<div class="col-lg-5">';
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header py-1" style="background:#198754;color:#fff;font-size:0.82rem"><i class="bi bi-diagram-3 me-1"></i> Cortical–Subcortical</div>';
+    html += '<div class="card-body p-2">';
+    html += '<p class="mb-0" style="font-size:0.82rem">Index (Beatty, 2003): <strong>' + r.corticalSub.toFixed(1) + '</strong></p>';
+    html += '<p class="mb-0 text-muted" style="font-size:0.72rem">&gt;0 cortical pattern, &lt;0 subcortical</p>';
     html += '</div></div>';
 
-    // ── Cortical-Subcortical ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#198754;color:#fff"><i class="bi bi-diagram-3 me-1"></i> Cortical–Subcortical Index</div>';
-    html += '<div class="card-body p-3">';
-    html += '<p class="mb-1">The cortical–subcortical index (Beatty, 2003) is <strong>' + r.corticalSub.toFixed(1) + '</strong>.</p>';
-    html += '<p class="mb-0 text-muted" style="font-size:0.82rem">Scores above 0 predict a cortical pattern; scores below 0 predict a subcortical pattern.</p>';
-    html += '</div></div>';
-
-    // ── Domain Narrative Sections ──
-    html += renderNarrative(r);
-
-    // ── References ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-secondary text-white py-2"><i class="bi bi-journal me-1"></i> References</div>';
-    html += '<div class="card-body p-3" style="font-size:0.78rem">';
-    html += '<ol class="mb-0">';
-    html += '<li>Duff K, Ramezani A. Regression-Based Normative Formulae for the RBANS for Older Adults. Arch Clin Neuropsychol. 2015;30(7):600-4.</li>';
-    html += '<li>Duff K, Patton D, Schoenberg MR, et al. Age- and education-corrected independent normative data for the RBANS. Clin Neuropsychol. 2003;17(3):351-66.</li>';
-    html += '<li>Novitski J, et al. The RBANS Effort Scale. Arch Clin Neuropsychol. 2012;27(2):190-5.</li>';
-    html += '<li>Silverberg ND, et al. An Effort Index for the RBANS. Clin Neuropsychol. 2007;21(5):841-54.</li>';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-secondary text-white py-1" style="font-size:0.82rem"><i class="bi bi-journal me-1"></i> References</div>';
+    html += '<div class="card-body p-2" style="font-size:0.7rem">';
+    html += '<ol class="mb-0 ps-3">';
+    html += '<li>Duff &amp; Ramezani (2015) Arch Clin Neuropsychol 30(7):600-4</li>';
+    html += '<li>Duff et al. (2003) Clin Neuropsychol 17(3):351-66</li>';
+    html += '<li>Novitski et al. (2012) Arch Clin Neuropsychol 27(2):190-5</li>';
+    html += '<li>Silverberg et al. (2007) Clin Neuropsychol 21(5):841-54</li>';
     html += '</ol></div></div>';
+    html += '</div>';
+
+    html += '</div>'; // end row 2
+
+    // ── Domain Narratives — full width ──
+    html += renderNarrative(r);
 
     el.innerHTML = html;
 
@@ -7055,9 +7140,9 @@ BHM.Instruments.RBANS = (function () {
 
   // ── Domain narrative ──
   function renderNarrative(r) {
-    var html = '<div class="card mb-3">';
-    html += '<div class="card-header bg-dark text-white py-2"><i class="bi bi-chat-text me-1"></i> Domain Narratives</div>';
-    html += '<div class="card-body p-3" style="font-size:0.88rem">';
+    var html = '<div class="card mb-2">';
+    html += '<div class="card-header bg-dark text-white py-1" style="font-size:0.85rem"><i class="bi bi-chat-text me-1"></i> Domain Narratives</div>';
+    html += '<div class="card-body p-2" style="font-size:0.8rem">';
     var raw = r.rawScores;
 
     html += '<h6 class="text-primary border-bottom pb-1 mb-2">Immediate Memory</h6>';
@@ -10365,6 +10450,402 @@ BHM.Instruments.PhysicalExam = (function () {
   };
 })();
 
+/* ── qrisk3.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   BHM.Instruments.QRISK3 — QRISK3-2017 cardiovascular risk calculator
+   Auto-populates from existing app data; collects missing items
+   ═══════════════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+BHM.Instruments = BHM.Instruments || {};
+
+BHM.Instruments.QRISK3 = (function () {
+  'use strict';
+
+  var S = BHM.State;
+  var SP = 'qrisk3';
+
+  function get(key) { return S.get(SP + '.' + key); }
+  function set(key, val) {
+    S.set(SP + '.' + key, val);
+    refreshAutoValues();
+    if (BHM.Scoring && BHM.Scoring.qrisk3) BHM.Scoring.qrisk3();
+    if (BHM.Scoring && BHM.Scoring.triggerReport) BHM.Scoring.triggerReport();
+  }
+
+  // ── Age from DOB ──
+  function getAge() {
+    var dob = S.get('patient.dob');
+    if (!dob) return null;
+    var b = new Date(dob); var n = new Date();
+    var age = n.getFullYear() - b.getFullYear();
+    var m = n.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && n.getDate() < b.getDate())) age--;
+    return age;
+  }
+
+  // ── Map existing smoking data to QRISK3 categories ──
+  function inferSmokingStatus() {
+    var tob = S.get('instruments.clinical.tobacco');
+    if (!tob) return null;
+    if (tob === 'Never') return 0;
+    if (tob === 'Ex-smoker') return 1;
+    if (tob === 'Current') {
+      var packs = parseFloat(S.get('instruments.clinical.tobaccoPacks'));
+      if (!isNaN(packs)) {
+        var cigs = packs * 20;
+        if (cigs < 10) return 2;      // light
+        if (cigs < 20) return 3;      // moderate
+        return 4;                      // heavy
+      }
+      return 2; // default to light if packs unknown
+    }
+    return null;
+  }
+
+  // ── Check medications for atypical antipsychotics ──
+  function inferAtypicalAntipsychotic() {
+    var meds = S.get('medications.list');
+    if (!meds || !Array.isArray(meds)) return false;
+    var atypicals = ['amisulpride', 'aripiprazole', 'clozapine', 'lurasidone', 'olanzapine',
+      'paliperidone', 'quetiapine', 'risperidone', 'sertindole', 'zotepine'];
+    for (var i = 0; i < meds.length; i++) {
+      var name = (meds[i].name || '').toLowerCase();
+      for (var j = 0; j < atypicals.length; j++) {
+        if (name.indexOf(atypicals[j]) !== -1) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Check medications for corticosteroids ──
+  function inferCorticosteroids() {
+    var meds = S.get('medications.list');
+    if (!meds || !Array.isArray(meds)) return false;
+    var steroids = ['prednisolone', 'prednisone', 'betamethasone', 'cortisone', 'depo-medrone',
+      'dexamethasone', 'deflazacort', 'efcortesol', 'hydrocortisone', 'methylprednisolone', 'triamcinolone'];
+    for (var i = 0; i < meds.length; i++) {
+      var name = (meds[i].name || '').toLowerCase();
+      for (var j = 0; j < steroids.length; j++) {
+        if (name.indexOf(steroids[j]) !== -1) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Infer severe mental illness ──
+  function inferSMI() {
+    return !!(S.get('medicalHistory.psych.bipolar') || S.get('medicalHistory.psych.psychosis'));
+  }
+
+  // ── Refresh auto-populated values display ──
+  function refreshAutoValues() {
+    var fields = [
+      { id: 'qr-auto-age', fn: function () { var a = getAge(); return a !== null ? a + ' yrs' : null; } },
+      { id: 'qr-auto-sex', fn: function () { return S.get('patient.sex') || null; } },
+      { id: 'qr-auto-bmi', fn: function () { var b = S.get('physicalExam.bmi'); return b ? parseFloat(b).toFixed(1) : null; } },
+      { id: 'qr-auto-sbp', fn: function () { var s = S.get('physicalExam.bpSystolic'); return s ? s + ' mmHg' : null; } },
+      { id: 'qr-auto-af', fn: function () { return S.get('medicalHistory.cvRisk.atrial_fibrillation') ? 'Yes' : null; } },
+      { id: 'qr-auto-dm1', fn: function () { return S.get('medicalHistory.cvRisk.diabetes_t1') ? 'Yes' : null; } },
+      { id: 'qr-auto-dm2', fn: function () { return S.get('medicalHistory.cvRisk.diabetes_t2') ? 'Yes' : null; } },
+      { id: 'qr-auto-htn', fn: function () { return S.get('medicalHistory.cvRisk.hypertension') ? 'Yes' : null; } },
+      { id: 'qr-auto-migraine', fn: function () { return S.get('medicalHistory.neuro.migraine') ? 'Yes' : null; } },
+      { id: 'qr-auto-smi', fn: function () { return inferSMI() ? 'Yes' : null; } },
+      { id: 'qr-auto-antipsych', fn: function () { return inferAtypicalAntipsychotic() ? 'Yes' : null; } },
+      { id: 'qr-auto-steroids', fn: function () { return inferCorticosteroids() ? 'Yes' : null; } }
+    ];
+    for (var i = 0; i < fields.length; i++) {
+      var el = document.getElementById(fields[i].id);
+      if (el) {
+        var val = fields[i].fn();
+        if (val) {
+          el.innerHTML = '<span class="badge bg-success bg-opacity-75"><i class="bi bi-check-circle me-1"></i>' + val + '</span>';
+        } else {
+          el.innerHTML = '<span class="text-muted fst-italic" style="font-size:0.72rem">Not set</span>';
+        }
+      }
+    }
+    // Update smoking display
+    var smokingEl = document.getElementById('qr-auto-smoking');
+    if (smokingEl) {
+      var sm = inferSmokingStatus();
+      var labels = ['Non-smoker', 'Ex-smoker', 'Light', 'Moderate', 'Heavy'];
+      if (sm !== null) {
+        smokingEl.innerHTML = '<span class="badge bg-success bg-opacity-75"><i class="bi bi-check-circle me-1"></i>' + labels[sm] + '</span>';
+      } else {
+        smokingEl.innerHTML = '<span class="text-muted fst-italic" style="font-size:0.72rem">Not set</span>';
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════
+  function render(container) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    var html = '';
+    html += '<h5 class="mb-2" style="font-size:1rem"><i class="bi bi-heart-pulse me-2"></i>QRISK3 — 10-Year Cardiovascular Risk</h5>';
+    html += '<p class="text-muted mb-2" style="font-size:0.78rem">' +
+      'QRISK3-2017 (Hippisley-Cox et al., BMJ 2017). Fields marked <i class="bi bi-arrow-repeat text-success"></i> are auto-populated from data elsewhere in the app. ' +
+      'Override any value below if needed.</p>';
+
+    html += '<div class="row g-2">';
+
+    // ═══ COL 1: Auto-populated + demographics ═══
+    html += '<div class="col-lg-4">';
+
+    // Auto-populated card
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header bg-success text-white py-1" style="font-size:0.85rem"><i class="bi bi-arrow-repeat me-1"></i> Auto-Populated</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="table table-sm mb-0" style="font-size:0.8rem">';
+    html += autoRow('Age', 'qr-auto-age');
+    html += autoRow('Sex', 'qr-auto-sex');
+    html += autoRow('BMI', 'qr-auto-bmi');
+    html += autoRow('Systolic BP', 'qr-auto-sbp');
+    html += autoRow('Atrial fibrillation', 'qr-auto-af');
+    html += autoRow('Diabetes T1', 'qr-auto-dm1');
+    html += autoRow('Diabetes T2', 'qr-auto-dm2');
+    html += autoRow('Hypertension', 'qr-auto-htn');
+    html += autoRow('Migraine', 'qr-auto-migraine');
+    html += autoRow('Severe mental illness', 'qr-auto-smi');
+    html += autoRow('Atypical antipsychotic', 'qr-auto-antipsych');
+    html += autoRow('Corticosteroids', 'qr-auto-steroids');
+    html += autoRow('Smoking', 'qr-auto-smoking');
+    html += '</table>';
+    html += '</div></div>';
+
+    // Calculate button
+    html += '<div class="d-grid mb-2"><button class="btn btn-danger btn-sm" id="qrisk3-calculate-btn">' +
+      '<i class="bi bi-heart-pulse me-1"></i>Calculate QRISK3</button></div>';
+
+    // Score display
+    html += '<div id="qrisk3-score-display"></div>';
+
+    html += '</div>'; // end col 1
+
+    // ═══ COL 2: Additional required inputs ═══
+    html += '<div class="col-lg-4">';
+
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.85rem"><i class="bi bi-pencil-square me-1"></i> Additional Inputs</div>';
+    html += '<div class="card-body p-2">';
+
+    // Ethnicity (9-category)
+    html += '<div class="mb-2">';
+    html += '<label class="form-label small fw-bold mb-1">Ethnicity</label>';
+    html += '<select class="form-select form-select-sm qr-input" data-key="ethnicity">';
+    var ethOpts = [
+      { v: '', l: '-- Select --' },
+      { v: '1', l: 'White or not stated' },
+      { v: '2', l: 'Indian' },
+      { v: '3', l: 'Pakistani' },
+      { v: '4', l: 'Bangladeshi' },
+      { v: '5', l: 'Other Asian' },
+      { v: '6', l: 'Black Caribbean' },
+      { v: '7', l: 'Black African' },
+      { v: '8', l: 'Chinese' },
+      { v: '9', l: 'Other ethnic group' }
+    ];
+    for (var e = 0; e < ethOpts.length; e++) {
+      html += '<option value="' + ethOpts[e].v + '">' + ethOpts[e].l + '</option>';
+    }
+    html += '</select></div>';
+
+    // Cholesterol / HDL ratio
+    html += '<div class="mb-2">';
+    html += '<label class="form-label small fw-bold mb-1">Total Cholesterol / HDL Ratio</label>';
+    html += '<div class="row g-1">';
+    html += '<div class="col-5"><input type="number" step="0.1" min="0" max="20" class="form-control form-control-sm qr-input" data-key="totalChol" placeholder="Total chol"></div>';
+    html += '<div class="col-2 text-center pt-1"><small class="text-muted">/</small></div>';
+    html += '<div class="col-5"><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm qr-input" data-key="hdlChol" placeholder="HDL"></div>';
+    html += '</div>';
+    html += '<div class="mt-1" style="font-size:0.78rem">Ratio: <strong id="qr-chol-ratio">—</strong></div>';
+    html += '</div>';
+
+    // SBP Standard Deviation
+    html += '<div class="mb-2">';
+    html += '<label class="form-label small fw-bold mb-1">Systolic BP Variability (SD)</label>';
+    html += '<input type="number" step="0.1" min="0" max="50" class="form-control form-control-sm qr-input" data-key="sbpSD" placeholder="0 if single reading">';
+    html += '<div class="form-text" style="font-size:0.7rem">SD of repeated readings. Use 0 if only one reading available.</div>';
+    html += '</div>';
+
+    // Townsend score
+    html += '<div class="mb-2">';
+    html += '<label class="form-label small fw-bold mb-1">Townsend Deprivation Score</label>';
+    html += '<input type="number" step="0.01" min="-8" max="12" class="form-control form-control-sm qr-input" data-key="townsend" placeholder="0 = average">';
+    html += '<div class="form-text" style="font-size:0.7rem">Derived from postcode. 0 = average deprivation.</div>';
+    html += '</div>';
+
+    // Smoking (override)
+    html += '<div class="mb-2">';
+    html += '<label class="form-label small fw-bold mb-1">Smoking Status (override)</label>';
+    html += '<select class="form-select form-select-sm qr-input" data-key="smokingOverride">';
+    html += '<option value="">Use auto-detected</option>';
+    html += '<option value="0">Non-smoker</option>';
+    html += '<option value="1">Ex-smoker</option>';
+    html += '<option value="2">Light smoker (1-9/day)</option>';
+    html += '<option value="3">Moderate smoker (10-19/day)</option>';
+    html += '<option value="4">Heavy smoker (≥20/day)</option>';
+    html += '</select></div>';
+
+    // Family history CHD
+    html += checkRow('familyCHD', 'Family history of CHD in 1st-degree relative <60');
+
+    html += '</div></div>';
+    html += '</div>'; // end col 2
+
+    // ═══ COL 3: Clinical conditions ═══
+    html += '<div class="col-lg-4">';
+
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header bg-warning text-dark py-1" style="font-size:0.85rem"><i class="bi bi-clipboard2-pulse me-1"></i> Clinical Conditions (override)</div>';
+    html += '<div class="card-body p-2">';
+    html += '<p class="text-muted mb-2" style="font-size:0.72rem">Tick below to override auto-detected values or add conditions not captured elsewhere.</p>';
+
+    html += checkRow('overrideAF', 'Atrial fibrillation');
+    html += checkRow('overrideDM1', 'Diabetes Type 1');
+    html += checkRow('overrideDM2', 'Diabetes Type 2');
+    html += checkRow('overrideHTN', 'Treated hypertension (on BP meds)');
+    html += checkRow('overrideMigraine', 'Migraine');
+    html += checkRow('overrideSMI', 'Severe mental illness');
+    html += checkRow('overrideAntipsych', 'Atypical antipsychotic use');
+    html += checkRow('overrideSteroids', 'Regular corticosteroid use');
+    html += checkRow('rheumatoidArthritis', 'Rheumatoid arthritis');
+    html += checkRow('ckd345', 'Chronic kidney disease (stage 3-5)');
+    html += checkRow('sle', 'Systemic lupus erythematosus (SLE)');
+    html += checkRow('erectileDysfunction', 'Erectile dysfunction (males)');
+    html += checkRow('hiv', 'HIV / AIDS');
+
+    html += '</div></div>';
+    html += '</div>'; // end col 3
+
+    html += '</div>'; // end row
+
+    container.innerHTML = html;
+
+    // ── Bind events ──
+    var inputs = container.querySelectorAll('.qr-input');
+    for (var i = 0; i < inputs.length; i++) {
+      inputs[i].addEventListener('change', function () {
+        var key = this.getAttribute('data-key');
+        var val = this.type === 'checkbox' ? this.checked : this.value;
+        set(key, val);
+        updateCholRatio();
+      });
+      if (inputs[i].type === 'number') {
+        inputs[i].addEventListener('input', function () {
+          var key = this.getAttribute('data-key');
+          set(key, this.value);
+          updateCholRatio();
+        });
+      }
+    }
+
+    // Calculate button
+    var calcBtn = container.querySelector('#qrisk3-calculate-btn');
+    if (calcBtn) {
+      calcBtn.addEventListener('click', function () {
+        if (BHM.Scoring && BHM.Scoring.qrisk3) BHM.Scoring.qrisk3();
+        showScore();
+      });
+    }
+
+    // Restore saved values
+    restoreValues(container);
+    refreshAutoValues();
+    updateCholRatio();
+
+    // Subscribe to changes from other tabs
+    S.subscribe(function (path) {
+      if (path.indexOf('patient.') === 0 || path.indexOf('physicalExam.') === 0 ||
+          path.indexOf('medicalHistory.') === 0 || path.indexOf('medications.') === 0 ||
+          path.indexOf('instruments.clinical.') === 0) {
+        refreshAutoValues();
+      }
+    });
+  }
+
+  function autoRow(label, id) {
+    return '<tr><td style="width:55%">' + label + '</td><td id="' + id + '"><span class="text-muted fst-italic" style="font-size:0.72rem">Not set</span></td></tr>';
+  }
+
+  function checkRow(key, label) {
+    var checked = get(key) ? ' checked' : '';
+    return '<div class="form-check mb-1">' +
+      '<input class="form-check-input qr-input" type="checkbox" data-key="' + key + '" id="qr-' + key + '"' + checked + '>' +
+      '<label class="form-check-label" for="qr-' + key + '" style="font-size:0.82rem">' + label + '</label></div>';
+  }
+
+  function updateCholRatio() {
+    var tc = parseFloat(get('totalChol'));
+    var hdl = parseFloat(get('hdlChol'));
+    var el = document.getElementById('qr-chol-ratio');
+    if (el) {
+      if (tc > 0 && hdl > 0) {
+        el.textContent = (tc / hdl).toFixed(1);
+      } else {
+        el.textContent = '—';
+      }
+    }
+  }
+
+  function restoreValues(container) {
+    var inputs = container.querySelectorAll('.qr-input');
+    for (var i = 0; i < inputs.length; i++) {
+      var key = inputs[i].getAttribute('data-key');
+      var saved = get(key);
+      if (saved !== undefined && saved !== null && saved !== '') {
+        if (inputs[i].type === 'checkbox') {
+          inputs[i].checked = !!saved;
+        } else {
+          inputs[i].value = saved;
+        }
+      }
+    }
+  }
+
+  function showScore() {
+    var el = document.getElementById('qrisk3-score-display');
+    if (!el) return;
+    var score = S.getScore('qrisk3');
+    if (!score) {
+      el.innerHTML = '<div class="alert alert-warning py-2" style="font-size:0.82rem"><i class="bi bi-exclamation-triangle me-1"></i>Could not calculate. Check required fields.</div>';
+      return;
+    }
+    if (score.error) {
+      el.innerHTML = '<div class="alert alert-warning py-2" style="font-size:0.82rem"><i class="bi bi-exclamation-triangle me-1"></i>' + score.error + '</div>';
+      return;
+    }
+
+    var pct = score.score;
+    var riskClass = pct >= 20 ? 'danger' : pct >= 10 ? 'warning' : 'success';
+    var riskLabel = pct >= 20 ? 'High risk' : pct >= 10 ? 'Moderate risk' : 'Low risk';
+
+    var html = '<div class="card border-' + riskClass + '">';
+    html += '<div class="card-body p-2 text-center">';
+    html += '<div style="font-size:2rem;font-weight:bold" class="text-' + riskClass + '">' + pct.toFixed(1) + '%</div>';
+    html += '<div class="fw-bold text-' + riskClass + '">' + riskLabel + '</div>';
+    html += '<div class="text-muted" style="font-size:0.75rem">10-year CVD risk (QRISK3-2017)</div>';
+    if (score.warnings && score.warnings.length > 0) {
+      html += '<div class="mt-1" style="font-size:0.72rem">';
+      for (var w = 0; w < score.warnings.length; w++) {
+        html += '<div class="text-warning"><i class="bi bi-info-circle me-1"></i>' + score.warnings[w] + '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div></div>';
+    el.innerHTML = html;
+  }
+
+  return {
+    render: render,
+    showScore: showScore,
+    refreshAutoValues: refreshAutoValues
+  };
+})();
+
 /* ── diagnosis.js ── */
 /* ═══════════════════════════════════════════════════════════════
    BHM.Instruments.Diagnosis — Multi-axis diagnostic coding
@@ -10743,6 +11224,225 @@ BHM.Instruments.Diagnosis = (function () {
     findDiagnosis: findDiagnosis,
     DIAGNOSES: DIAGNOSES,
     QUALIFIERS: QUALIFIERS
+  };
+})();
+
+/* ── qrisk3Algorithm.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   BHM.QRISK3Algorithm — QRISK3-2017 scoring engine
+   Faithful port of ClinRisk Ltd. QRISK3-2017 (LGPL v3)
+   Coefficients from https://qrisk.org/src.php
+   ═══════════════════════════════════════════════════════════════
+
+   Copyright 2017 ClinRisk Ltd.
+   QRISK3-2017 is free software under GNU LGPL v3.
+
+   DISCLAIMER: The initial version of this code faithfully implements
+   QRISK3-2017. ClinRisk Ltd. stress that it is the responsibility of
+   the end user to check that the source they receive produces the same
+   results as the original code found at https://qrisk.org.
+   Inaccurate implementations of risk scores can lead to wrong patients
+   being given the wrong treatment.
+   ═══════════════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+
+BHM.QRISK3Algorithm = (function () {
+  'use strict';
+
+  // ── Female calculation ──
+  function femaleScore(age, b_AF, b_atypicalantipsy, b_corticosteroids,
+    b_migraine, b_ra, b_renal, b_semi, b_sle, b_treatedhyp,
+    b_type1, b_type2, bmi, ethrisk, fh_cvd, rati, sbp, sbps5,
+    smoke_cat, surv, town) {
+
+    var survivor = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.988876402378082, 0, 0, 0, 0, 0];
+
+    var Iethrisk = [0, 0, 0.28040314332995425, 0.56298994142075398,
+      0.29590000851116516, 0.072785379877982545, -0.17072135508857317,
+      -0.39371043314874971, -0.32632495283530272, -0.17127056883241784];
+
+    var Ismoke = [0, 0.13386833786546262, 0.56200858012438537,
+      0.66749593377502547, 0.84948177644830847];
+
+    var dage = age / 10;
+    var age_1 = Math.pow(dage, -2);
+    var age_2 = dage;
+    var dbmi = bmi / 10;
+    var bmi_1 = Math.pow(dbmi, -2);
+    var bmi_2 = Math.pow(dbmi, -2) * Math.log(dbmi);
+
+    age_1 = age_1 - 0.053274843841791;
+    age_2 = age_2 - 4.332503318786621;
+    bmi_1 = bmi_1 - 0.154946178197861;
+    bmi_2 = bmi_2 - 0.144462317228317;
+    rati = rati - 3.47632646560669;
+    sbp = sbp - 123.13001251220703;
+    sbps5 = sbps5 - 9.002537727355957;
+    town = town - 0.392308831214905;
+
+    var a = 0;
+    a += Iethrisk[ethrisk];
+    a += Ismoke[smoke_cat];
+
+    a += age_1 * -8.1388109247726188;
+    a += age_2 * 0.79733376689699098;
+    a += bmi_1 * 0.29236092275460052;
+    a += bmi_2 * -4.1513300213837665;
+    a += rati * 0.15338035820802554;
+    a += sbp * 0.013131488407103424;
+    a += sbps5 * 0.0078894541014586095;
+    a += town * 0.077223790588590108;
+
+    a += b_AF * 1.5923354969269663;
+    a += b_atypicalantipsy * 0.25237642070115557;
+    a += b_corticosteroids * 0.59520725304601851;
+    a += b_migraine * 0.301267260870345;
+    a += b_ra * 0.21364803435181942;
+    a += b_renal * 0.65194569493845833;
+    a += b_semi * 0.12555308058820178;
+    a += b_sle * 0.75880938654267693;
+    a += b_treatedhyp * 0.50931593683423004;
+    a += b_type1 * 1.7267977510537347;
+    a += b_type2 * 1.0688773244615468;
+    a += fh_cvd * 0.45445319020896213;
+
+    a += age_1 * (smoke_cat === 1 ? 1 : 0) * -4.7057161785851891;
+    a += age_1 * (smoke_cat === 2 ? 1 : 0) * -2.7430383403573337;
+    a += age_1 * (smoke_cat === 3 ? 1 : 0) * -0.86608088829392182;
+    a += age_1 * (smoke_cat === 4 ? 1 : 0) * 0.90241562369710648;
+    a += age_1 * b_AF * 19.938034889546561;
+    a += age_1 * b_corticosteroids * -0.98408045235936281;
+    a += age_1 * b_migraine * 1.7634979587872999;
+    a += age_1 * b_renal * -3.5874047731694114;
+    a += age_1 * b_sle * 19.690303738638292;
+    a += age_1 * b_treatedhyp * 11.872809733921812;
+    a += age_1 * b_type1 * -1.2444332714320747;
+    a += age_1 * b_type2 * 6.8652342000009599;
+    a += age_1 * bmi_1 * 23.802623412141742;
+    a += age_1 * bmi_2 * -71.184947692087007;
+    a += age_1 * fh_cvd * 0.99467807940435127;
+    a += age_1 * sbp * 0.034131842338615485;
+    a += age_1 * town * -1.0301180802035639;
+    a += age_2 * (smoke_cat === 1 ? 1 : 0) * -0.075589244643193026;
+    a += age_2 * (smoke_cat === 2 ? 1 : 0) * -0.11951192874867074;
+    a += age_2 * (smoke_cat === 3 ? 1 : 0) * -0.10366306397571923;
+    a += age_2 * (smoke_cat === 4 ? 1 : 0) * -0.13991853591718389;
+    a += age_2 * b_AF * -0.076182651011162505;
+    a += age_2 * b_corticosteroids * -0.12005364946742472;
+    a += age_2 * b_migraine * -0.065586917898699859;
+    a += age_2 * b_renal * -0.22688873086442507;
+    a += age_2 * b_sle * 0.077347949679016273;
+    a += age_2 * b_treatedhyp * 0.00096857823588174436;
+    a += age_2 * b_type1 * -0.28724064624488949;
+    a += age_2 * b_type2 * -0.097112252590695489;
+    a += age_2 * bmi_1 * 0.52369958933664429;
+    a += age_2 * bmi_2 * 0.045744190122323759;
+    a += age_2 * fh_cvd * -0.076885051698423038;
+    a += age_2 * sbp * -0.0015082501423272358;
+    a += age_2 * town * -0.031593414674962329;
+
+    return 100.0 * (1 - Math.pow(survivor[surv], Math.exp(a)));
+  }
+
+  // ── Male calculation ──
+  function maleScore(age, b_AF, b_atypicalantipsy, b_corticosteroids,
+    b_impotence2, b_migraine, b_ra, b_renal, b_semi, b_sle, b_treatedhyp,
+    b_type1, b_type2, bmi, ethrisk, fh_cvd, rati, sbp, sbps5,
+    smoke_cat, surv, town) {
+
+    var survivor = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.977268040180206, 0, 0, 0, 0, 0];
+
+    var Iethrisk = [0, 0, 0.27719248760308279, 0.47446360714931268,
+      0.52961729919689371, 0.035100159186299017, -0.35807899669327919,
+      -0.4005648523216514, -0.41522792889830173, -0.26321348134749967];
+
+    var Ismoke = [0, 0.19128222863388983, 0.55241588192645552,
+      0.63835053027506072, 0.78983819881858019];
+
+    var dage = age / 10;
+    var age_1 = Math.pow(dage, -1);
+    var age_2 = Math.pow(dage, 3);
+    var dbmi = bmi / 10;
+    var bmi_1 = Math.pow(dbmi, -2);
+    var bmi_2 = Math.pow(dbmi, -2) * Math.log(dbmi);
+
+    age_1 = age_1 - 0.234766781330109;
+    age_2 = age_2 - 77.284080505371094;
+    bmi_1 = bmi_1 - 0.149176135659218;
+    bmi_2 = bmi_2 - 0.141913309693336;
+    rati = rati - 4.300998687744141;
+    sbp = sbp - 128.57157897949219;
+    sbps5 = sbps5 - 8.756621360778809;
+    town = town - 0.52630490064621;
+
+    var a = 0;
+    a += Iethrisk[ethrisk];
+    a += Ismoke[smoke_cat];
+
+    a += age_1 * -17.839781666005575;
+    a += age_2 * 0.0022964880605765492;
+    a += bmi_1 * 2.4562776660536358;
+    a += bmi_2 * -8.3011122314711354;
+    a += rati * 0.17340196856327111;
+    a += sbp * 0.012910126542553305;
+    a += sbps5 * 0.010251914291290456;
+    a += town * 0.033268201277287295;
+
+    a += b_AF * 0.88209236928054657;
+    a += b_atypicalantipsy * 0.13046879855173513;
+    a += b_corticosteroids * 0.45485399750445543;
+    a += b_impotence2 * 0.22251859086705383;
+    a += b_migraine * 0.25584178074159913;
+    a += b_ra * 0.20970658013956567;
+    a += b_renal * 0.71853261288274384;
+    a += b_semi * 0.12133039882047164;
+    a += b_sle * 0.4401572174457522;
+    a += b_treatedhyp * 0.51659871082695474;
+    a += b_type1 * 1.2343425521675175;
+    a += b_type2 * 0.85942071430932221;
+    a += fh_cvd * 0.54055469009390156;
+
+    a += age_1 * (smoke_cat === 1 ? 1 : 0) * -0.21011133933516346;
+    a += age_1 * (smoke_cat === 2 ? 1 : 0) * 0.75268676447503191;
+    a += age_1 * (smoke_cat === 3 ? 1 : 0) * 0.99315887556405791;
+    a += age_1 * (smoke_cat === 4 ? 1 : 0) * 2.1331163414389076;
+    a += age_1 * b_AF * 3.4896675530623207;
+    a += age_1 * b_corticosteroids * 1.1708133653489108;
+    a += age_1 * b_impotence2 * -1.506400985745431;
+    a += age_1 * b_migraine * 2.3491159871402441;
+    a += age_1 * b_renal * -0.50656716327223694;
+    a += age_1 * b_treatedhyp * 6.5114581098532671;
+    a += age_1 * b_type1 * 5.3379864878006531;
+    a += age_1 * b_type2 * 3.6461817406221311;
+    a += age_1 * bmi_1 * 31.004952956033886;
+    a += age_1 * bmi_2 * -111.29157184391643;
+    a += age_1 * fh_cvd * 2.7808628508531887;
+    a += age_1 * sbp * 0.018858524469865853;
+    a += age_1 * town * -0.1007554870063731;
+    a += age_2 * (smoke_cat === 1 ? 1 : 0) * -0.00049854870275326121;
+    a += age_2 * (smoke_cat === 2 ? 1 : 0) * -0.00079875633317385414;
+    a += age_2 * (smoke_cat === 3 ? 1 : 0) * -0.00083706184266251296;
+    a += age_2 * (smoke_cat === 4 ? 1 : 0) * -0.00078400319155637289;
+    a += age_2 * b_AF * -0.00034995608340636049;
+    a += age_2 * b_corticosteroids * -0.0002496045095297166;
+    a += age_2 * b_impotence2 * -0.0011058218441227373;
+    a += age_2 * b_migraine * 0.00019896446041478631;
+    a += age_2 * b_renal * -0.0018325930166498813;
+    a += age_2 * b_treatedhyp * 0.00063838053104165013;
+    a += age_2 * b_type1 * 0.0006409780808752897;
+    a += age_2 * b_type2 * -0.00024695695588868315;
+    a += age_2 * bmi_1 * 0.0050380102356322029;
+    a += age_2 * bmi_2 * -0.013074483002524319;
+    a += age_2 * fh_cvd * -0.00024791809907396037;
+    a += age_2 * sbp * -0.00001271874191588457;
+    a += age_2 * town * -0.000093299642323272888;
+
+    return 100.0 * (1 - Math.pow(survivor[surv], Math.exp(a)));
+  }
+
+  return {
+    femaleScore: femaleScore,
+    maleScore: maleScore
   };
 })();
 
@@ -11248,10 +11948,10 @@ BHM.Scoring = (function () {
     }
     if (items.neck) total++;
 
-    // G — Gender: male (from RBANS demographics)
-    var gender = S.get('instruments.rbans.gender');
-    if (gender) {
-      items.gender = gender === 'Male';
+    // G — Sex: male (from patient.sex on Session tab)
+    var sex = S.get('patient.sex');
+    if (sex) {
+      items.gender = sex === 'Male';
     } else {
       items.gender = false;
       unknown.gender = true;
@@ -11274,6 +11974,179 @@ BHM.Scoring = (function () {
     // Update display on physical exam tab
     if (BHM.Instruments.PhysicalExam && BHM.Instruments.PhysicalExam.updateStopBangDisplay) {
       BHM.Instruments.PhysicalExam.updateStopBangDisplay(result);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  QRISK3
+  // ═══════════════════════════════════════════
+  function qrisk3() {
+    var Q = BHM.QRISK3Algorithm;
+    if (!Q) return;
+
+    var qr = function (k) { return S.get('qrisk3.' + k); };
+    var warnings = [];
+
+    // Age
+    var dob = S.get('patient.dob');
+    var age = null;
+    if (dob) {
+      var b = new Date(dob); var n = new Date();
+      age = n.getFullYear() - b.getFullYear();
+      var m = n.getMonth() - b.getMonth();
+      if (m < 0 || (m === 0 && n.getDate() < b.getDate())) age--;
+    }
+    if (age === null || age < 25 || age > 84) {
+      S.setScore('qrisk3', { error: 'Age must be 25-84 (set DOB on Session tab). Current: ' + (age !== null ? age : 'not set') });
+      return;
+    }
+
+    // Sex
+    var sex = S.get('patient.sex');
+    if (!sex) {
+      S.setScore('qrisk3', { error: 'Sex not set (Session tab)' });
+      return;
+    }
+
+    // BMI
+    var bmi = parseFloat(S.get('physicalExam.bmi'));
+    if (isNaN(bmi) || bmi < 10) {
+      bmi = 25; // population average default
+      warnings.push('BMI defaulted to 25 (not recorded)');
+    }
+
+    // SBP
+    var sbp = parseFloat(S.get('physicalExam.bpSystolic'));
+    if (isNaN(sbp) || sbp < 50) {
+      sbp = 125; // population average default
+      warnings.push('Systolic BP defaulted to 125 mmHg (not recorded)');
+    }
+
+    // SBP SD
+    var sbps5 = parseFloat(qr('sbpSD'));
+    if (isNaN(sbps5)) sbps5 = 0;
+
+    // Cholesterol / HDL ratio
+    var tc = parseFloat(qr('totalChol'));
+    var hdl = parseFloat(qr('hdlChol'));
+    var rati;
+    if (tc > 0 && hdl > 0) {
+      rati = tc / hdl;
+    } else {
+      rati = sex === 'Male' ? 4.3 : 3.5;
+      warnings.push('Cholesterol/HDL ratio defaulted to ' + rati.toFixed(1) + ' (population average)');
+    }
+
+    // Townsend
+    var town = parseFloat(qr('townsend'));
+    if (isNaN(town)) town = 0;
+
+    // Ethnicity
+    var eth = parseInt(qr('ethnicity'), 10);
+    if (isNaN(eth) || eth < 0 || eth > 9) {
+      eth = 1; // White/not stated
+      warnings.push('Ethnicity defaulted to White/not stated');
+    }
+
+    // Smoking
+    var smokingOverride = qr('smokingOverride');
+    var smoke_cat;
+    if (smokingOverride !== undefined && smokingOverride !== null && smokingOverride !== '') {
+      smoke_cat = parseInt(smokingOverride, 10);
+    } else {
+      // Infer from clinical interview
+      var tob = S.get('instruments.clinical.tobacco');
+      if (tob === 'Never') smoke_cat = 0;
+      else if (tob === 'Ex-smoker') smoke_cat = 1;
+      else if (tob === 'Current') {
+        var packs = parseFloat(S.get('instruments.clinical.tobaccoPacks'));
+        if (!isNaN(packs)) {
+          var cigs = packs * 20;
+          smoke_cat = cigs < 10 ? 2 : cigs < 20 ? 3 : 4;
+        } else {
+          smoke_cat = 2;
+          warnings.push('Current smoker: intensity defaulted to light');
+        }
+      } else {
+        smoke_cat = 0;
+        warnings.push('Smoking status defaulted to non-smoker');
+      }
+    }
+
+    // Boolean conditions — merge auto-detected with QRISK3 overrides
+    function boolOr(autoPath, overrideKey) {
+      return !!(S.get(autoPath) || qr(overrideKey));
+    }
+
+    var b_AF = boolOr('medicalHistory.cvRisk.atrial_fibrillation', 'overrideAF');
+    var b_type1 = boolOr('medicalHistory.cvRisk.diabetes_t1', 'overrideDM1');
+    var b_type2 = boolOr('medicalHistory.cvRisk.diabetes_t2', 'overrideDM2');
+    var b_treatedhyp = boolOr('medicalHistory.cvRisk.hypertension', 'overrideHTN');
+    var b_migraine = boolOr('medicalHistory.neuro.migraine', 'overrideMigraine');
+    var b_semi = !!(S.get('medicalHistory.psych.bipolar') || S.get('medicalHistory.psych.psychosis') || qr('overrideSMI'));
+    var b_ra = !!qr('rheumatoidArthritis');
+    var b_renal = !!qr('ckd345');
+    var b_sle = !!qr('sle');
+
+    // Medications — auto-detect + override
+    var b_atypicalantipsy = !!qr('overrideAntipsych');
+    if (!b_atypicalantipsy) {
+      var meds = S.get('medications.list');
+      if (meds && Array.isArray(meds)) {
+        var atypicals = ['amisulpride', 'aripiprazole', 'clozapine', 'lurasidone', 'olanzapine',
+          'paliperidone', 'quetiapine', 'risperidone', 'sertindole', 'zotepine'];
+        for (var mi = 0; mi < meds.length && !b_atypicalantipsy; mi++) {
+          var mname = (meds[mi].name || '').toLowerCase();
+          for (var aj = 0; aj < atypicals.length; aj++) {
+            if (mname.indexOf(atypicals[aj]) !== -1) { b_atypicalantipsy = true; break; }
+          }
+        }
+      }
+    }
+
+    var b_corticosteroids = !!qr('overrideSteroids');
+    if (!b_corticosteroids) {
+      var meds2 = S.get('medications.list');
+      if (meds2 && Array.isArray(meds2)) {
+        var steroids = ['prednisolone', 'prednisone', 'betamethasone', 'cortisone', 'dexamethasone',
+          'deflazacort', 'hydrocortisone', 'methylprednisolone', 'triamcinolone'];
+        for (var si = 0; si < meds2.length && !b_corticosteroids; si++) {
+          var sname = (meds2[si].name || '').toLowerCase();
+          for (var sj = 0; sj < steroids.length; sj++) {
+            if (sname.indexOf(steroids[sj]) !== -1) { b_corticosteroids = true; break; }
+          }
+        }
+      }
+    }
+
+    var fh_cvd = !!qr('familyCHD');
+    var surv = 10; // 10-year survival index
+
+    var score;
+    if (sex === 'Male') {
+      var b_impotence = !!qr('erectileDysfunction');
+      score = Q.maleScore(age, b_AF ? 1 : 0, b_atypicalantipsy ? 1 : 0, b_corticosteroids ? 1 : 0,
+        b_impotence ? 1 : 0, b_migraine ? 1 : 0, b_ra ? 1 : 0, b_renal ? 1 : 0, b_semi ? 1 : 0,
+        b_sle ? 1 : 0, b_treatedhyp ? 1 : 0, b_type1 ? 1 : 0, b_type2 ? 1 : 0,
+        bmi, eth, fh_cvd ? 1 : 0, rati, sbp, sbps5, smoke_cat, surv, town);
+    } else {
+      score = Q.femaleScore(age, b_AF ? 1 : 0, b_atypicalantipsy ? 1 : 0, b_corticosteroids ? 1 : 0,
+        b_migraine ? 1 : 0, b_ra ? 1 : 0, b_renal ? 1 : 0, b_semi ? 1 : 0,
+        b_sle ? 1 : 0, b_treatedhyp ? 1 : 0, b_type1 ? 1 : 0, b_type2 ? 1 : 0,
+        bmi, eth, fh_cvd ? 1 : 0, rati, sbp, sbps5, smoke_cat, surv, town);
+    }
+
+    if (isNaN(score) || score < 0) score = 0;
+    if (score > 100) score = 100;
+
+    S.setScore('qrisk3', {
+      score: score,
+      warnings: warnings,
+      inputs: { age: age, sex: sex, bmi: bmi, sbp: sbp, sbps5: sbps5, rati: rati, town: town, eth: eth, smoke_cat: smoke_cat }
+    });
+
+    if (BHM.Instruments.QRISK3 && BHM.Instruments.QRISK3.showScore) {
+      BHM.Instruments.QRISK3.showScore();
     }
   }
 
@@ -11303,6 +12176,7 @@ BHM.Scoring = (function () {
     cdr: cdr,
     diamondLewy: diamondLewy,
     stopBang: stopBang,
+    qrisk3: qrisk3,
     triggerReport: triggerReport,
     _reportTimer: null
   };
@@ -11410,6 +12284,7 @@ BHM.Report = (function () {
     html += medicationsSection(compact);
     html += medicalHistorySection(compact);
     html += physicalExamSection(compact);
+    html += qrisk3Section(compact);
 
     // ── Informant scales ──
     html += informantSection(compact);
@@ -12168,6 +13043,68 @@ BHM.Report = (function () {
     }
 
     return section('Physical Examination', content, compact, 'physicalExam');
+  }
+
+  // ═══════════════════════════════════════════
+  //  QRISK3 CARDIOVASCULAR RISK
+  // ═══════════════════════════════════════════
+  function qrisk3Section(compact) {
+    // Recalculate to ensure fresh
+    if (BHM.Scoring && BHM.Scoring.qrisk3) BHM.Scoring.qrisk3();
+
+    var qr = S.getScore('qrisk3');
+    if (!qr || qr.error || qr.score === undefined) {
+      return ''; // Don't show section if no valid score
+    }
+
+    var pct = qr.score;
+    var riskLabel = pct >= 20 ? 'high' : pct >= 10 ? 'moderate' : 'low';
+    var riskColour = pct >= 20 ? '#dc3545' : pct >= 10 ? '#ffc107' : '#198754';
+    var affectedCount = Math.round(pct);
+    if (affectedCount < 1 && pct > 0) affectedCount = 1;
+    if (affectedCount > 100) affectedCount = 100;
+
+    var content = '';
+
+    content += '<p>Your estimated 10-year cardiovascular disease risk using the QRISK3 algorithm is ' +
+      '<strong style="color:' + riskColour + '">' + pct.toFixed(1) + '%</strong> (' + riskLabel + ' risk). ' +
+      'This means that out of 100 people with similar risk factors, approximately <strong>' +
+      affectedCount + '</strong> would be expected to experience a heart attack or stroke over the next 10 years.</p>';
+
+    // Key risk factors identified
+    var inputs = qr.inputs || {};
+    var factors = [];
+    if (inputs.smoke_cat > 0) {
+      var smokeLabels = ['', 'ex-smoker', 'light smoker', 'moderate smoker', 'heavy smoker'];
+      factors.push(smokeLabels[inputs.smoke_cat]);
+    }
+    if (inputs.bmi > 30) factors.push('BMI of ' + inputs.bmi.toFixed(1));
+    if (inputs.sbp > 140) factors.push('elevated blood pressure (' + inputs.sbp + ' mmHg)');
+
+    if (factors.length > 0) {
+      content += '<p>Key modifiable risk factors identified include: ' + factors.join(', ') + '.</p>';
+    }
+
+    if (pct >= 10) {
+      content += '<p><em>NICE guidelines recommend discussing lipid-lowering therapy (e.g. atorvastatin 20 mg) ' +
+        'for adults with a 10-year CVD risk of 10% or higher (CG181).</em></p>';
+    }
+
+    // Warnings
+    if (qr.warnings && qr.warnings.length > 0) {
+      content += '<p class="text-muted" style="font-size:0.8em"><em>Note: ';
+      content += qr.warnings.join('. ') + '.</em></p>';
+    }
+
+    // Chart container
+    if (!compact) {
+      content += '<div class="chart-container" id="chart-qrisk3"></div>';
+    }
+
+    content += '<p class="text-muted" style="font-size:0.75em">QRISK3-2017 &copy; ClinRisk Ltd. ' +
+      'Hippisley-Cox J, Coupland C, Brindle P. BMJ 2017;357:j2099.</p>';
+
+    return section('Cardiovascular Risk (QRISK3)', content, compact, 'qrisk3');
   }
 
   // Helper: extract checked labels from a checklist object
@@ -14205,8 +15142,110 @@ BHM.Charts = (function () {
       createStopBangInfographic('chart-stopbang', sb, tc);
     }
 
+    // ── QRISK3 happy/sad face infographic ──
+    var qr = S.getScore('qrisk3');
+    if (qr && qr.score !== undefined && !qr.error) {
+      createQRISK3Infographic('chart-qrisk3', qr, tc);
+    }
+
     // ── RBANS profile line chart ──
     createRBANSChart('chart-rbans');
+  }
+
+  // ═══════════════════════════════════════════
+  //  QRISK3 HAPPY/SAD FACE INFOGRAPHIC
+  // ═══════════════════════════════════════════
+  function createQRISK3Infographic(containerId, qr, tc) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '16px 8px';
+
+    var pct = qr.score;
+    var isHigh = pct >= 20;
+    var isMod = pct >= 10;
+
+    // Main wrapper
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'text-align:center';
+
+    // ── Face grid: 100 faces, coloured by risk ──
+    var faceGrid = document.createElement('div');
+    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:0 auto 12px';
+
+    var affectedCount = Math.round(pct);
+    if (affectedCount < 1 && pct > 0) affectedCount = 1;
+    if (affectedCount > 100) affectedCount = 100;
+
+    var riskColor = isHigh ? tc.danger : isMod ? tc.warning : tc.success;
+    var safeColor = tc.success;
+
+    for (var i = 0; i < 100; i++) {
+      var face = document.createElement('i');
+      var isAffected = i < affectedCount;
+      face.className = isAffected ? 'bi bi-emoji-frown-fill' : 'bi bi-emoji-smile-fill';
+      face.style.cssText = 'font-size:1.4rem;color:' + (isAffected ? riskColor : safeColor) +
+        ';opacity:' + (isAffected ? '1' : '0.3');
+      faceGrid.appendChild(face);
+    }
+    wrap.appendChild(faceGrid);
+
+    // ── Score summary ──
+    var scoreDiv = document.createElement('div');
+    scoreDiv.style.cssText = 'margin-top:8px';
+
+    var scoreBig = document.createElement('span');
+    scoreBig.style.cssText = 'font-size:2rem;font-weight:800;color:' + riskColor;
+    scoreBig.textContent = pct.toFixed(1) + '%';
+    scoreDiv.appendChild(scoreBig);
+
+    var riskLabel = isHigh ? 'High risk' : isMod ? 'Moderate risk' : 'Low risk';
+    var badge = document.createElement('span');
+    badge.style.cssText = 'display:inline-block;margin-left:10px;padding:4px 14px;border-radius:20px;' +
+      'font-size:1rem;font-weight:600;color:#fff;background:' + riskColor;
+    badge.textContent = riskLabel;
+    scoreDiv.appendChild(badge);
+    wrap.appendChild(scoreDiv);
+
+    // ── Explanation ──
+    var explain = document.createElement('div');
+    explain.style.cssText = 'font-size:0.85rem;color:' + tc.tickColor + ';margin-top:8px;max-width:500px;margin-left:auto;margin-right:auto';
+    explain.innerHTML = 'Out of 100 people with the same risk factors, <strong style="color:' + riskColor + '">' +
+      affectedCount + '</strong> ' + (affectedCount === 1 ? 'is' : 'are') +
+      ' expected to have a heart attack or stroke within the next 10 years. ' +
+      '<span style="color:' + safeColor + '">' + (100 - affectedCount) + '</span> ' +
+      (100 - affectedCount === 1 ? 'is' : 'are') + ' not.';
+    wrap.appendChild(explain);
+
+    // ── NICE threshold line ──
+    if (pct >= 10) {
+      var nice = document.createElement('div');
+      nice.style.cssText = 'font-size:0.78rem;margin-top:8px;padding:6px 12px;border-radius:6px;' +
+        'background:' + (isDark() ? 'rgba(255,193,7,0.15)' : 'rgba(255,193,7,0.1)') +
+        ';color:' + tc.bodyColor;
+      nice.innerHTML = '<i class="bi bi-info-circle me-1"></i>NICE recommends discussing statin therapy when QRISK3 ≥10%.';
+      wrap.appendChild(nice);
+    }
+
+    // ── Warnings ──
+    if (qr.warnings && qr.warnings.length > 0) {
+      var warnDiv = document.createElement('div');
+      warnDiv.style.cssText = 'font-size:0.72rem;color:' + tc.tickColor + ';margin-top:6px;font-style:italic';
+      for (var w = 0; w < qr.warnings.length; w++) {
+        var wLine = document.createElement('div');
+        wLine.textContent = '⚠ ' + qr.warnings[w];
+        warnDiv.appendChild(wLine);
+      }
+      wrap.appendChild(warnDiv);
+    }
+
+    // ── Attribution ──
+    var attr = document.createElement('div');
+    attr.style.cssText = 'font-size:0.65rem;color:' + tc.tickColor + ';margin-top:8px;opacity:0.7';
+    attr.textContent = 'QRISK3-2017 © ClinRisk Ltd. Hippisley-Cox et al., BMJ 2017;357:j2099';
+    wrap.appendChild(attr);
+
+    container.appendChild(wrap);
   }
 
   return {
@@ -14419,6 +15458,14 @@ BHM.Export = (function () {
       rows.push(['STOP-BANG', 'Total', sbScore.total]);
       rows.push(['STOP-BANG', 'Interpretation', sbScore.interp]);
       rows.push(['STOP-BANG', 'Unknown Items', sbScore.unknownCount]);
+    }
+
+    // QRISK3
+    var qrScore = scores.qrisk3;
+    if (qrScore && qrScore.score !== undefined) {
+      rows.push(['QRISK3', '10-Year CVD Risk (%)', qrScore.score.toFixed(1)]);
+      var riskCat = qrScore.score >= 20 ? 'High' : qrScore.score >= 10 ? 'Moderate' : 'Low';
+      rows.push(['QRISK3', 'Risk Category', riskCat]);
     }
 
     var csv = rows.map(function (row) {
@@ -14945,6 +15992,7 @@ BHM.DocxExport = (function () {
     { id: 'chart-mbic', label: 'MBI-C Behavioural Domains' },
     { id: 'chart-npiq', label: 'NPI-Q Symptom Severity & Distress' },
     { id: 'chart-stopbang', label: 'STOP-BANG Sleep Apnoea Screen' },
+    { id: 'chart-qrisk3', label: 'QRISK3 10-Year CVD Risk' },
     { id: 'chart-cdr', label: 'CDR Domain Ratings' },
     { id: 'chart-rbans', label: 'RBANS Cognitive Index Profile' }
   ];
@@ -15165,10 +16213,21 @@ BHM.DocxExport = (function () {
     }));
 
     // Demographics table — clean two-column layout
+    var sex = pat('sex', '');
+    var dobAge = dob;
+    var rawDob = BHM.State.get('patient.dob');
+    if (rawDob) {
+      var bd = new Date(rawDob); var nd = new Date();
+      var ageY = nd.getFullYear() - bd.getFullYear();
+      var mDiff = nd.getMonth() - bd.getMonth();
+      if (mDiff < 0 || (mDiff === 0 && nd.getDate() < bd.getDate())) ageY--;
+      dobAge = dob + '  (age ' + ageY + ')';
+    }
     var demoRows = [
       ['Patient Name', name],
-      ['Date of Birth', dob]
+      ['Date of Birth', dobAge]
     ];
+    if (sex) demoRows.push(['Sex', sex]);
     if (nhs) demoRows.push(['EPR Number', nhs]);
     demoRows.push(['Date of Assessment', dateCompleted]);
     if (clinician) demoRows.push(['Clinician', clinician]);
@@ -15648,6 +16707,9 @@ BHM.App = (function () {
 
     // Physical Exam
     BHM.Instruments.PhysicalExam.render(document.getElementById('physicalExamContent'));
+
+    // QRISK3
+    BHM.Instruments.QRISK3.render(document.getElementById('qrisk3Content'));
 
     // Diagnosis
     BHM.Instruments.Diagnosis.render(document.getElementById('diagnosisContent'));

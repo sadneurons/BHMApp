@@ -833,8 +833,110 @@ BHM.Charts = (function () {
       createStopBangInfographic('chart-stopbang', sb, tc);
     }
 
+    // ── QRISK3 happy/sad face infographic ──
+    var qr = S.getScore('qrisk3');
+    if (qr && qr.score !== undefined && !qr.error) {
+      createQRISK3Infographic('chart-qrisk3', qr, tc);
+    }
+
     // ── RBANS profile line chart ──
     createRBANSChart('chart-rbans');
+  }
+
+  // ═══════════════════════════════════════════
+  //  QRISK3 HAPPY/SAD FACE INFOGRAPHIC
+  // ═══════════════════════════════════════════
+  function createQRISK3Infographic(containerId, qr, tc) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '16px 8px';
+
+    var pct = qr.score;
+    var isHigh = pct >= 20;
+    var isMod = pct >= 10;
+
+    // Main wrapper
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'text-align:center';
+
+    // ── Face grid: 100 faces, coloured by risk ──
+    var faceGrid = document.createElement('div');
+    faceGrid.style.cssText = 'display:inline-grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:0 auto 12px';
+
+    var affectedCount = Math.round(pct);
+    if (affectedCount < 1 && pct > 0) affectedCount = 1;
+    if (affectedCount > 100) affectedCount = 100;
+
+    var riskColor = isHigh ? tc.danger : isMod ? tc.warning : tc.success;
+    var safeColor = tc.success;
+
+    for (var i = 0; i < 100; i++) {
+      var face = document.createElement('i');
+      var isAffected = i < affectedCount;
+      face.className = isAffected ? 'bi bi-emoji-frown-fill' : 'bi bi-emoji-smile-fill';
+      face.style.cssText = 'font-size:1.4rem;color:' + (isAffected ? riskColor : safeColor) +
+        ';opacity:' + (isAffected ? '1' : '0.3');
+      faceGrid.appendChild(face);
+    }
+    wrap.appendChild(faceGrid);
+
+    // ── Score summary ──
+    var scoreDiv = document.createElement('div');
+    scoreDiv.style.cssText = 'margin-top:8px';
+
+    var scoreBig = document.createElement('span');
+    scoreBig.style.cssText = 'font-size:2rem;font-weight:800;color:' + riskColor;
+    scoreBig.textContent = pct.toFixed(1) + '%';
+    scoreDiv.appendChild(scoreBig);
+
+    var riskLabel = isHigh ? 'High risk' : isMod ? 'Moderate risk' : 'Low risk';
+    var badge = document.createElement('span');
+    badge.style.cssText = 'display:inline-block;margin-left:10px;padding:4px 14px;border-radius:20px;' +
+      'font-size:1rem;font-weight:600;color:#fff;background:' + riskColor;
+    badge.textContent = riskLabel;
+    scoreDiv.appendChild(badge);
+    wrap.appendChild(scoreDiv);
+
+    // ── Explanation ──
+    var explain = document.createElement('div');
+    explain.style.cssText = 'font-size:0.85rem;color:' + tc.tickColor + ';margin-top:8px;max-width:500px;margin-left:auto;margin-right:auto';
+    explain.innerHTML = 'Out of 100 people with the same risk factors, <strong style="color:' + riskColor + '">' +
+      affectedCount + '</strong> ' + (affectedCount === 1 ? 'is' : 'are') +
+      ' expected to have a heart attack or stroke within the next 10 years. ' +
+      '<span style="color:' + safeColor + '">' + (100 - affectedCount) + '</span> ' +
+      (100 - affectedCount === 1 ? 'is' : 'are') + ' not.';
+    wrap.appendChild(explain);
+
+    // ── NICE threshold line ──
+    if (pct >= 10) {
+      var nice = document.createElement('div');
+      nice.style.cssText = 'font-size:0.78rem;margin-top:8px;padding:6px 12px;border-radius:6px;' +
+        'background:' + (isDark() ? 'rgba(255,193,7,0.15)' : 'rgba(255,193,7,0.1)') +
+        ';color:' + tc.bodyColor;
+      nice.innerHTML = '<i class="bi bi-info-circle me-1"></i>NICE recommends discussing statin therapy when QRISK3 ≥10%.';
+      wrap.appendChild(nice);
+    }
+
+    // ── Warnings ──
+    if (qr.warnings && qr.warnings.length > 0) {
+      var warnDiv = document.createElement('div');
+      warnDiv.style.cssText = 'font-size:0.72rem;color:' + tc.tickColor + ';margin-top:6px;font-style:italic';
+      for (var w = 0; w < qr.warnings.length; w++) {
+        var wLine = document.createElement('div');
+        wLine.textContent = '⚠ ' + qr.warnings[w];
+        warnDiv.appendChild(wLine);
+      }
+      wrap.appendChild(warnDiv);
+    }
+
+    // ── Attribution ──
+    var attr = document.createElement('div');
+    attr.style.cssText = 'font-size:0.65rem;color:' + tc.tickColor + ';margin-top:8px;opacity:0.7';
+    attr.textContent = 'QRISK3-2017 © ClinRisk Ltd. Hippisley-Cox et al., BMJ 2017;357:j2099';
+    wrap.appendChild(attr);
+
+    container.appendChild(wrap);
   }
 
   return {

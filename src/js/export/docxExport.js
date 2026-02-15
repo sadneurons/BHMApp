@@ -392,6 +392,7 @@ BHM.DocxExport = (function () {
     { id: 'chart-mbic', label: 'MBI-C Behavioural Domains' },
     { id: 'chart-npiq', label: 'NPI-Q Symptom Severity & Distress' },
     { id: 'chart-stopbang', label: 'STOP-BANG Sleep Apnoea Screen' },
+    { id: 'chart-qrisk3', label: 'QRISK3 10-Year CVD Risk' },
     { id: 'chart-cdr', label: 'CDR Domain Ratings' },
     { id: 'chart-rbans', label: 'RBANS Cognitive Index Profile' }
   ];
@@ -612,10 +613,21 @@ BHM.DocxExport = (function () {
     }));
 
     // Demographics table — clean two-column layout
+    var sex = pat('sex', '');
+    var dobAge = dob;
+    var rawDob = BHM.State.get('patient.dob');
+    if (rawDob) {
+      var bd = new Date(rawDob); var nd = new Date();
+      var ageY = nd.getFullYear() - bd.getFullYear();
+      var mDiff = nd.getMonth() - bd.getMonth();
+      if (mDiff < 0 || (mDiff === 0 && nd.getDate() < bd.getDate())) ageY--;
+      dobAge = dob + '  (age ' + ageY + ')';
+    }
     var demoRows = [
       ['Patient Name', name],
-      ['Date of Birth', dob]
+      ['Date of Birth', dobAge]
     ];
+    if (sex) demoRows.push(['Sex', sex]);
     if (nhs) demoRows.push(['EPR Number', nhs]);
     demoRows.push(['Date of Assessment', dateCompleted]);
     if (clinician) demoRows.push(['Clinician', clinician]);

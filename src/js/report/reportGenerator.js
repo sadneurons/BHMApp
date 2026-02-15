@@ -99,6 +99,7 @@ BHM.Report = (function () {
     html += medicationsSection(compact);
     html += medicalHistorySection(compact);
     html += physicalExamSection(compact);
+    html += qrisk3Section(compact);
 
     // ── Informant scales ──
     html += informantSection(compact);
@@ -857,6 +858,68 @@ BHM.Report = (function () {
     }
 
     return section('Physical Examination', content, compact, 'physicalExam');
+  }
+
+  // ═══════════════════════════════════════════
+  //  QRISK3 CARDIOVASCULAR RISK
+  // ═══════════════════════════════════════════
+  function qrisk3Section(compact) {
+    // Recalculate to ensure fresh
+    if (BHM.Scoring && BHM.Scoring.qrisk3) BHM.Scoring.qrisk3();
+
+    var qr = S.getScore('qrisk3');
+    if (!qr || qr.error || qr.score === undefined) {
+      return ''; // Don't show section if no valid score
+    }
+
+    var pct = qr.score;
+    var riskLabel = pct >= 20 ? 'high' : pct >= 10 ? 'moderate' : 'low';
+    var riskColour = pct >= 20 ? '#dc3545' : pct >= 10 ? '#ffc107' : '#198754';
+    var affectedCount = Math.round(pct);
+    if (affectedCount < 1 && pct > 0) affectedCount = 1;
+    if (affectedCount > 100) affectedCount = 100;
+
+    var content = '';
+
+    content += '<p>Your estimated 10-year cardiovascular disease risk using the QRISK3 algorithm is ' +
+      '<strong style="color:' + riskColour + '">' + pct.toFixed(1) + '%</strong> (' + riskLabel + ' risk). ' +
+      'This means that out of 100 people with similar risk factors, approximately <strong>' +
+      affectedCount + '</strong> would be expected to experience a heart attack or stroke over the next 10 years.</p>';
+
+    // Key risk factors identified
+    var inputs = qr.inputs || {};
+    var factors = [];
+    if (inputs.smoke_cat > 0) {
+      var smokeLabels = ['', 'ex-smoker', 'light smoker', 'moderate smoker', 'heavy smoker'];
+      factors.push(smokeLabels[inputs.smoke_cat]);
+    }
+    if (inputs.bmi > 30) factors.push('BMI of ' + inputs.bmi.toFixed(1));
+    if (inputs.sbp > 140) factors.push('elevated blood pressure (' + inputs.sbp + ' mmHg)');
+
+    if (factors.length > 0) {
+      content += '<p>Key modifiable risk factors identified include: ' + factors.join(', ') + '.</p>';
+    }
+
+    if (pct >= 10) {
+      content += '<p><em>NICE guidelines recommend discussing lipid-lowering therapy (e.g. atorvastatin 20 mg) ' +
+        'for adults with a 10-year CVD risk of 10% or higher (CG181).</em></p>';
+    }
+
+    // Warnings
+    if (qr.warnings && qr.warnings.length > 0) {
+      content += '<p class="text-muted" style="font-size:0.8em"><em>Note: ';
+      content += qr.warnings.join('. ') + '.</em></p>';
+    }
+
+    // Chart container
+    if (!compact) {
+      content += '<div class="chart-container" id="chart-qrisk3"></div>';
+    }
+
+    content += '<p class="text-muted" style="font-size:0.75em">QRISK3-2017 &copy; ClinRisk Ltd. ' +
+      'Hippisley-Cox J, Coupland C, Brindle P. BMJ 2017;357:j2099.</p>';
+
+    return section('Cardiovascular Risk (QRISK3)', content, compact, 'qrisk3');
   }
 
   // Helper: extract checked labels from a checklist object

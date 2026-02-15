@@ -37,40 +37,36 @@ BHM.Instruments.RBANS = (function () {
     container.innerHTML = '';
 
     var html = '';
-    html += '<h5 class="mb-3"><i class="bi bi-calculator me-2"></i>RBANS Calculator &amp; Supplementary Analysis</h5>';
+    html += '<h5 class="mb-2" style="font-size:1rem"><i class="bi bi-calculator me-2"></i>RBANS Calculator &amp; Supplementary Analysis</h5>';
 
-    // ── Three-column layout: demographics, subtests, results ──
-    html += '<div class="row g-3">';
+    // ── Input row: demographics + subtests side by side ──
+    html += '<div class="row g-2 mb-2">';
 
     // ═══ COL 1: Demographics ═══
-    html += '<div class="col-lg-3">';
-
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-person me-1"></i> Demographics</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="cdr-worksheet-table mb-0">';
-    html += '<colgroup><col style="width:50%"><col style="width:50%"></colgroup>';
+    html += '<div class="col-lg-4 col-xl-3">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.85rem"><i class="bi bi-person me-1"></i> Demographics</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="cdr-worksheet-table mb-0" style="font-size:0.82rem">';
+    html += '<colgroup><col style="width:45%"><col style="width:55%"></colgroup>';
     html += demoRow('topf', 'TOPF Score', 'number', '0–70');
 
-    // Auto-derived: Age from patient.dob
     var autoAge = getPatientAge();
     html += '<tr><td>Age</td><td class="cdr-ws-note-cell">' +
-      '<span id="rbans-auto-age" class="fw-bold" style="font-size:0.9rem">' +
-      (autoAge !== null ? autoAge + ' yrs' : '<span class="text-muted fst-italic">Set DOB on Session tab</span>') +
+      '<span id="rbans-auto-age" class="fw-bold" style="font-size:0.8rem">' +
+      (autoAge !== null ? autoAge : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set DOB on Session tab</span>') +
       '</span></td></tr>';
 
-    // Auto-derived: Years of Education from clinical interview
     var autoYOE = S.get('instruments.clinical.yearsEdu');
-    html += '<tr><td>Years of Education</td><td class="cdr-ws-note-cell">' +
-      '<span id="rbans-auto-yoe" class="fw-bold" style="font-size:0.9rem">' +
-      (autoYOE !== undefined && autoYOE !== null && autoYOE !== '' ? autoYOE + ' yrs' : '<span class="text-muted fst-italic">Set on Clinical Interview tab</span>') +
+    html += '<tr><td>Yrs Education</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-yoe" class="fw-bold" style="font-size:0.8rem">' +
+      (autoYOE !== undefined && autoYOE !== null && autoYOE !== '' ? autoYOE : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set on Clinical Interview</span>') +
       '</span></td></tr>';
 
-    // Auto-derived: Sex from patient.sex
     var autoSex = S.get('patient.sex');
     html += '<tr><td>Sex</td><td class="cdr-ws-note-cell">' +
-      '<span id="rbans-auto-sex" class="fw-bold" style="font-size:0.9rem">' +
-      (autoSex ? autoSex : '<span class="text-muted fst-italic">Set on Session tab</span>') +
+      '<span id="rbans-auto-sex" class="fw-bold" style="font-size:0.8rem">' +
+      (autoSex ? autoSex : '<span class="text-muted fst-italic" style="font-size:0.72rem">Set on Session tab</span>') +
       '</span></td></tr>';
 
     html += '<tr><td>Ethnicity</td><td class="cdr-ws-note-cell">' +
@@ -78,53 +74,57 @@ BHM.Instruments.RBANS = (function () {
     html += '</table>';
     html += '</div></div>';
 
-    // -- Calculate button --
-    html += '<div class="d-grid mb-3"><button class="btn btn-primary" id="rbans-calculate-btn">' +
-      '<i class="bi bi-calculator me-1"></i>Calculate All Scores</button></div>';
+    html += '<div class="d-grid mt-2"><button class="btn btn-primary btn-sm" id="rbans-calculate-btn">' +
+      '<i class="bi bi-calculator me-1"></i>Calculate</button></div>';
 
     html += '</div>'; // end col 1
 
     // ═══ COL 2: Subtest Raw Scores ═══
-    html += '<div class="col-lg-4">';
+    html += '<div class="col-lg-8 col-xl-9">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.85rem"><i class="bi bi-pencil-square me-1"></i> Subtest Raw Scores</div>';
+    html += '<div class="card-body p-1">';
 
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-pencil-square me-1"></i> Subtest Raw Scores</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="cdr-worksheet-table mb-0">';
-    html += '<colgroup><col style="width:50%"><col style="width:30%"><col style="width:20%"></colgroup>';
-    html += '<thead><tr><th style="text-align:left">Subtest</th><th>Score</th><th>Max</th></tr></thead>';
-    html += '<tbody>';
+    // Two-column subtest grid to save vertical space
+    html += '<div class="row g-1">';
+    var leftSubs = SUBTESTS.slice(0, 6);   // Imm Memory + Visuospatial + Language
+    var rightSubs = SUBTESTS.slice(6);      // Attention + Delayed Memory
 
-    var lastDomain = '';
-    for (var i = 0; i < SUBTESTS.length; i++) {
-      var st = SUBTESTS[i];
-      if (st.domain !== lastDomain) {
-        html += '<tr class="cdr-ws-subsection"><td colspan="3">' + st.domain + '</td></tr>';
-        lastDomain = st.domain;
+    for (var half = 0; half < 2; half++) {
+      var subs = half === 0 ? leftSubs : rightSubs;
+      html += '<div class="col-6">';
+      html += '<table class="cdr-worksheet-table mb-0" style="font-size:0.82rem">';
+      html += '<colgroup><col style="width:50%"><col style="width:30%"><col style="width:20%"></colgroup>';
+      var lastDomain = '';
+      for (var i = 0; i < subs.length; i++) {
+        var st = subs[i];
+        if (st.domain !== lastDomain) {
+          html += '<tr class="cdr-ws-subsection"><td colspan="3" style="font-size:0.78rem">' + st.domain + '</td></tr>';
+          lastDomain = st.domain;
+        }
+        var savedVal = S.get(PREFIX + '.' + st.id);
+        html += '<tr><td>' + st.label + '</td>';
+        html += '<td class="cdr-ws-note-cell"><input type="number" id="rbans-' + st.id + '" ' +
+          'min="0" max="' + st.max + '" class="rbans-input" data-key="' + st.id + '" ' +
+          (savedVal !== undefined && savedVal !== null ? 'value="' + savedVal + '"' : '') +
+          ' placeholder="0–' + st.max + '"></td>';
+        html += '<td style="text-align:center;color:#6c757d;font-size:0.75rem">/' + st.max + '</td>';
+        html += '</tr>';
       }
-      var savedVal = S.get(PREFIX + '.' + st.id);
-      html += '<tr><td>' + st.label + '</td>';
-      html += '<td class="cdr-ws-note-cell"><input type="number" id="rbans-' + st.id + '" ' +
-        'min="0" max="' + st.max + '" class="rbans-input" data-key="' + st.id + '" ' +
-        (savedVal !== undefined && savedVal !== null ? 'value="' + savedVal + '"' : '') +
-        ' placeholder="0–' + st.max + '"></td>';
-      html += '<td style="text-align:center;color:#6c757d;font-size:0.8rem">/' + st.max + '</td>';
-      html += '</tr>';
+      html += '</table></div>';
     }
-    html += '</tbody></table>';
-    html += '</div></div>';
+    html += '</div>'; // end subtest row
 
+    html += '</div></div>';
     html += '</div>'; // end col 2
 
-    // ═══ COL 3: Results ═══
-    html += '<div class="col-lg-5">';
-    html += '<div id="rbans-results">';
-    html += '<div class="card mb-3"><div class="card-body text-center text-muted py-4">' +
-      '<i class="bi bi-arrow-left-circle me-1"></i>Enter demographics and subtest scores, then click Calculate</div></div>';
-    html += '</div>';
-    html += '</div>'; // end col 3
+    html += '</div>'; // end input row
 
-    html += '</div>'; // end row
+    // ═══ Results area — full width below ═══
+    html += '<div id="rbans-results">';
+    html += '<div class="card mb-2"><div class="card-body text-center text-muted py-3" style="font-size:0.85rem">' +
+      '<i class="bi bi-arrow-up-circle me-1"></i>Enter demographics and subtest scores, then click Calculate</div></div>';
+    html += '</div>';
 
     container.innerHTML = html;
 
@@ -445,30 +445,32 @@ BHM.Instruments.RBANS = (function () {
 
     var html = '';
 
-    // ── TOPF Card ──
+    // ── TOPF one-liner ──
     if (r.fsiq !== null) {
-      html += '<div class="card mb-3">';
-      html += '<div class="card-header bg-info text-white py-2"><i class="bi bi-book me-1"></i> Test of Premorbid Functioning (TOPF)</div>';
-      html += '<div class="card-body p-3">';
-      html += '<p class="mb-1">The TOPF is a reading/vocabulary test to estimate premorbid ability. ' +
-        'Score: <strong>' + r.topf + '/70</strong> — Estimated FSIQ: <strong>' + r.fsiq + '</strong>.</p>';
-      html += '</div></div>';
+      html += '<p class="mb-2" style="font-size:0.84rem"><i class="bi bi-book me-1 text-info"></i>' +
+        '<strong>TOPF:</strong> ' + r.topf + '/70 — Est. FSIQ: <strong>' + r.fsiq + '</strong></p>';
     }
 
-    // ── Domain Index Summary Table ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-bar-chart me-1"></i> Index Scores &amp; Centiles</div>';
-    html += '<div class="card-body p-2">';
-    html += '<table class="table table-sm table-hover mb-0 rbans-results-table">';
-    html += '<thead><tr><th>Domain</th><th class="text-center">Index</th><th class="text-center">Centile</th>' +
-      '<th class="text-center">Classification</th></tr></thead><tbody>';
+    // ── Row 1: Index table (left) + Chart (right) ──
+    html += '<div class="row g-2 mb-2">';
+
+    // Left: Index table + Duff table stacked
+    html += '<div class="col-lg-5">';
+
+    // Index Scores
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-bar-chart me-1"></i> Index Scores</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="table table-sm table-hover mb-0" style="font-size:0.8rem">';
+    html += '<thead><tr><th>Domain</th><th class="text-center">Index</th><th class="text-center">%ile</th>' +
+      '<th class="text-center">Class.</th></tr></thead><tbody>';
 
     var domains = [
-      { label: 'Immediate Memory', idx: r.indices.immediateMemory, cent: r.centiles.immediateMemory },
-      { label: 'Visuospatial/Constructional', idx: r.indices.visuospatial, cent: r.centiles.visuospatial },
+      { label: 'Imm Memory', idx: r.indices.immediateMemory, cent: r.centiles.immediateMemory },
+      { label: 'Visuospatial', idx: r.indices.visuospatial, cent: r.centiles.visuospatial },
       { label: 'Language', idx: r.indices.language, cent: r.centiles.language },
       { label: 'Attention', idx: r.indices.attention, cent: r.centiles.attention },
-      { label: 'Delayed Memory', idx: r.indices.delayedMemory, cent: r.centiles.delayedMemory }
+      { label: 'Del Memory', idx: r.indices.delayedMemory, cent: r.centiles.delayedMemory }
     ];
 
     for (var i = 0; i < domains.length; i++) {
@@ -479,39 +481,28 @@ BHM.Instruments.RBANS = (function () {
       html += '<td class="text-center">' + d.cent + '%</td>';
       html += '<td class="text-center"><small>' + cls.label + '</small></td></tr>';
     }
-
-    // Total row
     var totalCls = classifyIndex(r.indices.totalScale);
-    html += '<tr class="table-active"><td><strong>Total Scale</strong></td>';
+    html += '<tr class="table-active"><td><strong>Total</strong></td>';
     html += '<td class="text-center"><span class="badge ' + totalCls.badge + '">' + r.indices.totalScale + '</span></td>';
     html += '<td class="text-center">' + r.centiles.totalScale + '%</td>';
     html += '<td class="text-center"><small>' + totalCls.label + '</small></td></tr>';
-
     html += '</tbody></table></div></div>';
 
-    // ── Chart ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-primary text-white py-2"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
-    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:1/2">';
-    html += '<canvas id="rbans-chart"></canvas>';
-    html += '</div></div></div>';
-
-    // ── Duff Regression Norms ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#fd7e14;color:#fff"><i class="bi bi-graph-down me-1"></i> Duff Demographically-Corrected Norms</div>';
-    html += '<div class="card-body p-2">';
-    html += '<p class="mb-2" style="font-size:0.82rem">Regression-based norms correcting for age, education, sex, and ethnicity (Duff &amp; Ramezani, 2015).</p>';
-    html += '<table class="table table-sm table-hover mb-0 rbans-results-table">';
-    html += '<thead><tr><th>Domain</th><th class="text-center">Predicted</th><th class="text-center">Adjusted Index</th>' +
-      '<th class="text-center">Centile</th></tr></thead><tbody>';
+    // Duff Norms
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header py-1" style="background:#fd7e14;color:#fff;font-size:0.82rem"><i class="bi bi-graph-down me-1"></i> Duff Corrected</div>';
+    html += '<div class="card-body p-1">';
+    html += '<table class="table table-sm table-hover mb-0" style="font-size:0.78rem">';
+    html += '<thead><tr><th>Domain</th><th class="text-center">Pred</th><th class="text-center">Adj Idx</th>' +
+      '<th class="text-center">%ile</th></tr></thead><tbody>';
 
     var duffRows = [
-      { label: 'Immediate Memory', pred: r.duff.immPred, idx: r.duff.immIndex, cent: r.duff.immCentile },
-      { label: 'Visuospatial', pred: r.duff.visuoPred, idx: r.duff.visuoIndex, cent: r.duff.visuoCentile },
+      { label: 'Imm Mem', pred: r.duff.immPred, idx: r.duff.immIndex, cent: r.duff.immCentile },
+      { label: 'Visuo', pred: r.duff.visuoPred, idx: r.duff.visuoIndex, cent: r.duff.visuoCentile },
       { label: 'Language', pred: r.duff.langPred, idx: r.duff.langIndex, cent: r.duff.langCentile },
       { label: 'Attention', pred: r.duff.attPred, idx: r.duff.attIndex, cent: r.duff.attCentile },
-      { label: 'Delayed Memory', pred: r.duff.memPred, idx: r.duff.memIndex, cent: r.duff.memCentile },
-      { label: 'Total Scale', pred: r.duff.totalPred, idx: r.duff.totalIndex, cent: r.duff.totalCentile }
+      { label: 'Del Mem', pred: r.duff.memPred, idx: r.duff.memIndex, cent: r.duff.memCentile },
+      { label: 'Total', pred: r.duff.totalPred, idx: r.duff.totalIndex, cent: r.duff.totalCentile }
     ];
     for (var j = 0; j < duffRows.length; j++) {
       var dr = duffRows[j];
@@ -520,21 +511,37 @@ BHM.Instruments.RBANS = (function () {
     }
     html += '</tbody></table></div></div>';
 
-    // ── Effort Indices ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#6f42c1;color:#fff"><i class="bi bi-shield-check me-1"></i> Effort Indices</div>';
-    html += '<div class="card-body p-3">';
-    html += '<p class="mb-2"><strong>Silverberg Effort Index:</strong> ' + r.silverbergEI + '</p>';
+    html += '</div>'; // end left col
 
-    // Silverberg table
-    html += '<table class="table table-sm table-bordered table-hover mb-3" style="font-size:0.8rem">';
-    html += '<thead class="table-light"><tr><th>Cut-off</th><th>MTBI</th><th>Controls</th><th>Clinical Malingerers</th>' +
+    // Right: Chart
+    html += '<div class="col-lg-7">';
+    html += '<div class="card mb-0" style="height:100%">';
+    html += '<div class="card-header bg-primary text-white py-1" style="font-size:0.82rem"><i class="bi bi-graph-up me-1"></i> RBANS Profile</div>';
+    html += '<div class="card-body p-2"><div id="rbans-chart-wrap" style="position:relative;width:100%;aspect-ratio:2/1">';
+    html += '<canvas id="rbans-chart"></canvas>';
+    html += '</div></div></div>';
+    html += '</div>'; // end right col
+
+    html += '</div>'; // end row 1
+
+    // ── Row 2: Effort + Cortical-Subcortical side by side ──
+    html += '<div class="row g-2 mb-2">';
+
+    // Effort
+    html += '<div class="col-lg-7">';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header py-1" style="background:#6f42c1;color:#fff;font-size:0.82rem"><i class="bi bi-shield-check me-1"></i> Effort Indices</div>';
+    html += '<div class="card-body p-2">';
+    html += '<p class="mb-1" style="font-size:0.82rem"><strong>Silverberg EI:</strong> ' + r.silverbergEI +
+      ' &nbsp;|&nbsp; <strong>Novitski ES:</strong> ' + r.novitskiES + '</p>';
+    html += '<table class="table table-sm table-bordered table-hover mb-0" style="font-size:0.7rem">';
+    html += '<thead class="table-light"><tr><th>Cut-off</th><th>MTBI</th><th>Controls</th><th>Clin Mal</th>' +
       '<th>Sim-naive</th><th>Sim-coached</th></tr></thead><tbody>';
     var sData = [
-      ['>0', '0.781', '0.964', '0.933', '0.958', '0.857'],
-      ['>1', '0.813', '0.964', '0.667', '0.917', '0.750'],
-      ['>2', '0.906', '0.964', '0.667', '0.792', '0.500'],
-      ['>3', '1.000', '1.000', '0.533', '0.708', '0.464']
+      ['>0', '.781', '.964', '.933', '.958', '.857'],
+      ['>1', '.813', '.964', '.667', '.917', '.750'],
+      ['>2', '.906', '.964', '.667', '.792', '.500'],
+      ['>3', '1.00', '1.00', '.533', '.708', '.464']
     ];
     for (var s = 0; s < sData.length; s++) {
       html += '<tr>';
@@ -544,31 +551,33 @@ BHM.Instruments.RBANS = (function () {
       html += '</tr>';
     }
     html += '</tbody></table>';
+    html += '</div></div>';
+    html += '</div>';
 
-    html += '<p class="mb-0"><strong>Novitski Effort Scale:</strong> ' + r.novitskiES + '</p>';
+    // Cortical-Subcortical + References stacked
+    html += '<div class="col-lg-5">';
+    html += '<div class="card mb-2">';
+    html += '<div class="card-header py-1" style="background:#198754;color:#fff;font-size:0.82rem"><i class="bi bi-diagram-3 me-1"></i> Cortical–Subcortical</div>';
+    html += '<div class="card-body p-2">';
+    html += '<p class="mb-0" style="font-size:0.82rem">Index (Beatty, 2003): <strong>' + r.corticalSub.toFixed(1) + '</strong></p>';
+    html += '<p class="mb-0 text-muted" style="font-size:0.72rem">&gt;0 cortical pattern, &lt;0 subcortical</p>';
     html += '</div></div>';
 
-    // ── Cortical-Subcortical ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header py-2" style="background:#198754;color:#fff"><i class="bi bi-diagram-3 me-1"></i> Cortical–Subcortical Index</div>';
-    html += '<div class="card-body p-3">';
-    html += '<p class="mb-1">The cortical–subcortical index (Beatty, 2003) is <strong>' + r.corticalSub.toFixed(1) + '</strong>.</p>';
-    html += '<p class="mb-0 text-muted" style="font-size:0.82rem">Scores above 0 predict a cortical pattern; scores below 0 predict a subcortical pattern.</p>';
-    html += '</div></div>';
-
-    // ── Domain Narrative Sections ──
-    html += renderNarrative(r);
-
-    // ── References ──
-    html += '<div class="card mb-3">';
-    html += '<div class="card-header bg-secondary text-white py-2"><i class="bi bi-journal me-1"></i> References</div>';
-    html += '<div class="card-body p-3" style="font-size:0.78rem">';
-    html += '<ol class="mb-0">';
-    html += '<li>Duff K, Ramezani A. Regression-Based Normative Formulae for the RBANS for Older Adults. Arch Clin Neuropsychol. 2015;30(7):600-4.</li>';
-    html += '<li>Duff K, Patton D, Schoenberg MR, et al. Age- and education-corrected independent normative data for the RBANS. Clin Neuropsychol. 2003;17(3):351-66.</li>';
-    html += '<li>Novitski J, et al. The RBANS Effort Scale. Arch Clin Neuropsychol. 2012;27(2):190-5.</li>';
-    html += '<li>Silverberg ND, et al. An Effort Index for the RBANS. Clin Neuropsychol. 2007;21(5):841-54.</li>';
+    html += '<div class="card mb-0">';
+    html += '<div class="card-header bg-secondary text-white py-1" style="font-size:0.82rem"><i class="bi bi-journal me-1"></i> References</div>';
+    html += '<div class="card-body p-2" style="font-size:0.7rem">';
+    html += '<ol class="mb-0 ps-3">';
+    html += '<li>Duff &amp; Ramezani (2015) Arch Clin Neuropsychol 30(7):600-4</li>';
+    html += '<li>Duff et al. (2003) Clin Neuropsychol 17(3):351-66</li>';
+    html += '<li>Novitski et al. (2012) Arch Clin Neuropsychol 27(2):190-5</li>';
+    html += '<li>Silverberg et al. (2007) Clin Neuropsychol 21(5):841-54</li>';
     html += '</ol></div></div>';
+    html += '</div>';
+
+    html += '</div>'; // end row 2
+
+    // ── Domain Narratives — full width ──
+    html += renderNarrative(r);
 
     el.innerHTML = html;
 
@@ -589,9 +598,9 @@ BHM.Instruments.RBANS = (function () {
 
   // ── Domain narrative ──
   function renderNarrative(r) {
-    var html = '<div class="card mb-3">';
-    html += '<div class="card-header bg-dark text-white py-2"><i class="bi bi-chat-text me-1"></i> Domain Narratives</div>';
-    html += '<div class="card-body p-3" style="font-size:0.88rem">';
+    var html = '<div class="card mb-2">';
+    html += '<div class="card-header bg-dark text-white py-1" style="font-size:0.85rem"><i class="bi bi-chat-text me-1"></i> Domain Narratives</div>';
+    html += '<div class="card-body p-2" style="font-size:0.8rem">';
     var raw = r.rawScores;
 
     html += '<h6 class="text-primary border-bottom pb-1 mb-2">Immediate Memory</h6>';

@@ -50,6 +50,7 @@ BHM.State = (function () {
       medications: { list: [], recentChanges: '', adherence: '' },
       medicalHistory: {},
       physicalExam: {},
+      qrisk3: {},
       neuroimaging: { scans: [] },
       scores: {},
       snippetInserts: {},

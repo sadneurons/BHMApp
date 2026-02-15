@@ -93,6 +93,9 @@ BHM.App = (function () {
     // Physical Exam
     BHM.Instruments.PhysicalExam.render(document.getElementById('physicalExamContent'));
 
+    // QRISK3
+    BHM.Instruments.QRISK3.render(document.getElementById('qrisk3Content'));
+
     // Diagnosis
     BHM.Instruments.Diagnosis.render(document.getElementById('diagnosisContent'));
 

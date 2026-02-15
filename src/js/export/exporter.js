@@ -203,6 +203,14 @@ BHM.Export = (function () {
       rows.push(['STOP-BANG', 'Unknown Items', sbScore.unknownCount]);
     }
 
+    // QRISK3
+    var qrScore = scores.qrisk3;
+    if (qrScore && qrScore.score !== undefined) {
+      rows.push(['QRISK3', '10-Year CVD Risk (%)', qrScore.score.toFixed(1)]);
+      var riskCat = qrScore.score >= 20 ? 'High' : qrScore.score >= 10 ? 'Moderate' : 'Low';
+      rows.push(['QRISK3', 'Risk Category', riskCat]);
+    }
+
     var csv = rows.map(function (row) {
       return row.map(function (cell) {
         return '"' + String(cell === null || cell === undefined ? '' : cell).replace(/"/g, '""') + '"';
