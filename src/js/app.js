@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    BHM.App — Main application controller
+   Async init: PIN unlock → decrypt → render
    ═══════════════════════════════════════════════════════ */
 var BHM = window.BHM || {};
 
@@ -9,45 +10,56 @@ BHM.App = (function () {
   function init() {
     console.log('BHM Assessment App v' + BHM.State.VERSION + ' initialising...');
 
-    // ── Load saved session ──
-    var loaded = BHM.State.load();
-    if (loaded) {
-      console.log('BHM: Restored session from localStorage');
-    }
+    // ── Step 1: Unlock crypto (shows PIN modal if needed) ──
+    var unlockPromise = (BHM.Crypto && BHM.Crypto.unlock)
+      ? BHM.Crypto.unlock()
+      : Promise.resolve();
 
-    // ── Initialise theme picker ──
-    if (BHM.Themes && BHM.Themes.init) BHM.Themes.init();
+    unlockPromise.then(function () {
+      // ── Step 2: Load encrypted session ──
+      return BHM.State.load();
+    }).then(function (loaded) {
+      if (loaded) {
+        console.log('BHM: Restored session from localStorage');
+      }
 
-    // ── Initialise snippet library ──
-    if (BHM.Snippets && BHM.Snippets.init) BHM.Snippets.init();
+      // ── Step 3: Initialise theme picker ──
+      if (BHM.Themes && BHM.Themes.init) BHM.Themes.init();
 
-    // ── Render all instrument forms ──
-    renderAll();
+      // ── Step 4: Initialise snippet library (async — decrypts) ──
+      var snippetPromise = (BHM.Snippets && BHM.Snippets.init)
+        ? BHM.Snippets.init()
+        : Promise.resolve();
 
-    // ── Bind UI controls ──
-    bindResetSession();
-    bindReportPanel();
-    bindSnippetPanel();
-    bindExportButtons();
-    bindTabEvents();
+      return snippetPromise;
+    }).then(function () {
+      // ── Step 5: Render all instrument forms ──
+      renderAll();
 
-    // ── Subscribe to state changes for live report updates ──
-    // Skip full report rebuild when the change is just a clinician‐notes
-    // textarea (those don't affect computed content, and rebuilding would
-    // destroy the textarea the user is actively typing in).
-    BHM.State.subscribe(function (changedPath) {
-      if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
-      if (changedPath && changedPath.indexOf('snippetInserts.') === 0) return;
+      // ── Step 6: Bind UI controls ──
+      bindResetSession();
+      bindReportPanel();
+      bindSnippetPanel();
+      bindExportButtons();
+      bindTabEvents();
+
+      // ── Step 7: Subscribe to state changes for live report updates ──
+      BHM.State.subscribe(function (changedPath) {
+        if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
+        if (changedPath && changedPath.indexOf('snippetInserts.') === 0) return;
+        BHM.Report.update();
+      });
+
+      // ── Step 8: Initial report generation ──
       BHM.Report.update();
+
+      // ── Step 9: Show disclaimer splash on every fresh page load ──
+      showDisclaimer();
+
+      console.log('BHM: App ready');
+    }).catch(function (err) {
+      console.error('BHM: Initialisation failed', err);
     });
-
-    // ── Initial report generation ──
-    BHM.Report.update();
-
-    // ── Show disclaimer splash on every fresh page load ──
-    showDisclaimer();
-
-    console.log('BHM: App ready');
   }
 
   function renderAll() {
@@ -124,12 +136,13 @@ BHM.App = (function () {
     if (!btn) return;
     btn.addEventListener('click', function () {
       if (!confirm('Start a new session?\n\nThis will clear ALL entered data, scores, clinical notes, and snippet customisations.\n\nMake sure you have exported anything you need first.')) return;
-      // Double-confirm for safety
       if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
-      // Preserve theme preference across session reset
+      // Preserve theme and PIN check marker across reset
       var savedTheme = localStorage.getItem('bhm-theme');
+      var savedPin = localStorage.getItem('bhm_pin_check');
       localStorage.clear();
       if (savedTheme) localStorage.setItem('bhm-theme', savedTheme);
+      if (savedPin) localStorage.setItem('bhm_pin_check', savedPin);
       location.reload();
     });
   }
@@ -166,7 +179,6 @@ BHM.App = (function () {
 
     toggleBtn.addEventListener('click', function () {
       panel.classList.toggle('collapsed');
-      // Adjust toggle icon
       var icon = toggleBtn.querySelector('i');
       if (panel.classList.contains('collapsed')) {
         icon.className = 'bi bi-bookmarks';
@@ -194,7 +206,6 @@ BHM.App = (function () {
 
   // ── Tab events ──
   function bindTabEvents() {
-    // Re-render audit log when switching to audit tab
     var auditTab = document.getElementById('tab-audit');
     if (auditTab) {
       auditTab.addEventListener('shown.bs.tab', function () {
@@ -202,7 +213,6 @@ BHM.App = (function () {
       });
     }
 
-    // Re-render report + snippet panel when switching to report tab
     var reportTab = document.getElementById('tab-report');
     if (reportTab) {
       reportTab.addEventListener('shown.bs.tab', function () {
@@ -212,7 +222,6 @@ BHM.App = (function () {
       });
     }
 
-    // Re-render CDR scoring when switching to CDR scoring sub-tab
     var cdrScoringPill = document.querySelector('[data-bs-target="#sub-cdr-scoring"]');
     if (cdrScoringPill) {
       cdrScoringPill.addEventListener('shown.bs.tab', function () {

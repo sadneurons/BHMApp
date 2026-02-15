@@ -15,23 +15,44 @@ BHM.Snippets = (function () {
   var LS_KEY = 'bhm_snippets_v1';
   var _snippets = [];  // current working set
 
-  // ── Initialise ──
+  // ── Initialise (async — decrypts snippet storage) ──
   function init() {
-    var stored = null;
-    try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) stored = JSON.parse(raw);
-    } catch (e) { /* ignore */ }
-
-    if (stored && Array.isArray(stored) && stored.length > 0) {
-      _snippets = stored;
-    } else {
+    var raw = localStorage.getItem(LS_KEY);
+    if (!raw) {
       _snippets = JSON.parse(JSON.stringify(BHM_DEFAULT_SNIPPETS));
+      return Promise.resolve();
     }
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      return BHM.Crypto.decrypt(raw).then(function (plain) {
+        _loadFromPlain(plain);
+      }).catch(function () {
+        _snippets = JSON.parse(JSON.stringify(BHM_DEFAULT_SNIPPETS));
+      });
+    }
+    _loadFromPlain(raw);
+    return Promise.resolve();
+  }
+
+  function _loadFromPlain(str) {
+    try {
+      var stored = JSON.parse(str);
+      if (Array.isArray(stored) && stored.length > 0) {
+        _snippets = stored;
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    _snippets = JSON.parse(JSON.stringify(BHM_DEFAULT_SNIPPETS));
   }
 
   function save() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(_snippets)); } catch (e) { /* ignore */ }
+    var json = JSON.stringify(_snippets);
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      BHM.Crypto.encrypt(json).then(function (enc) {
+        try { localStorage.setItem(LS_KEY, enc); } catch (e) { /* ignore */ }
+      }).catch(function () { /* ignore */ });
+    } else {
+      try { localStorage.setItem(LS_KEY, json); } catch (e) { /* ignore */ }
+    }
   }
 
   // ── CRUD ──
@@ -89,22 +110,41 @@ BHM.Snippets = (function () {
   }
 
   function importJSON(file, cb) {
+    if (file.size > 512000) {
+      if (cb) cb('File too large (max 500 KB).');
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function (e) {
       try {
         var data = JSON.parse(e.target.result);
-        if (Array.isArray(data)) {
-          _snippets = data;
-          save();
-          if (cb) cb(null, _snippets.length);
-        } else {
+        if (!Array.isArray(data)) {
           if (cb) cb('File does not contain a valid snippet array.');
+          return;
         }
+        var sanitized = [];
+        for (var i = 0; i < data.length; i++) {
+          var s = data[i];
+          if (typeof s !== 'object' || s === null) continue;
+          sanitized.push({
+            id: typeof s.id === 'string' ? stripHtml(s.id) : 'snip_' + Date.now() + '_' + i,
+            title: stripHtml(typeof s.title === 'string' ? s.title : ''),
+            category: stripHtml(typeof s.category === 'string' ? s.category : 'Uncategorised'),
+            text: stripHtml(typeof s.text === 'string' ? s.text : '')
+          });
+        }
+        _snippets = sanitized;
+        save();
+        if (cb) cb(null, _snippets.length);
       } catch (err) {
         if (cb) cb('Invalid JSON: ' + err.message);
       }
     };
     reader.readAsText(file);
+  }
+
+  function stripHtml(str) {
+    return str.replace(/<[^>]*>/g, '');
   }
 
   // ═══════════════════════════════════════════

@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    BHM.State — Centralised State Store & Audit Log
+   Encrypted persistence via BHM.Crypto (AES-256-GCM)
    ═══════════════════════════════════════════════════════ */
 var BHM = window.BHM || {};
 
@@ -65,30 +66,67 @@ BHM.State = (function () {
 
   var _session = createEmptySession();
   var _listeners = [];
+  var _saveInFlight = false;
+  var _savePending = false;
 
-  // ── Persistence ──
+  // ── Async encrypted persistence ──
   function save() {
-    try {
-      _session.meta.lastEdited = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(_session));
-    } catch (e) {
-      console.warn('BHM: localStorage save failed', e);
+    _session.meta.lastEdited = new Date().toISOString();
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      _scheduleEncryptedSave();
+    } else {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_session)); }
+      catch (e) { console.warn('BHM: localStorage save failed', e); }
     }
   }
 
+  function _scheduleEncryptedSave() {
+    if (_saveInFlight) { _savePending = true; return; }
+    _saveInFlight = true;
+    var json = JSON.stringify(_session);
+    BHM.Crypto.encrypt(json).then(function (enc) {
+      try { localStorage.setItem(STORAGE_KEY, enc); } catch (e) { console.warn('BHM: save failed', e); }
+      _saveInFlight = false;
+      if (_savePending) { _savePending = false; _scheduleEncryptedSave(); }
+    }).catch(function (e) {
+      console.warn('BHM: encrypted save failed', e);
+      _saveInFlight = false;
+      if (_savePending) { _savePending = false; _scheduleEncryptedSave(); }
+    });
+  }
+
+  // ── Async load (decrypts if encrypted, handles legacy plaintext) ──
   function load() {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return Promise.resolve(false);
+
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      return BHM.Crypto.decrypt(raw).then(function (plaintext) {
+        try {
+          var parsed = JSON.parse(plaintext);
+          _session = deepMerge(createEmptySession(), parsed);
+          return true;
+        } catch (e) {
+          console.warn('BHM: parse failed after decrypt', e);
+          return false;
+        }
+      }).catch(function (e) {
+        console.warn('BHM: decrypt/load failed', e);
+        return false;
+      });
+    }
+
+    // Fallback: no crypto available, try plain JSON
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        // Merge into default to handle missing keys on upgrade
+      var parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !parsed.v) {
         _session = deepMerge(createEmptySession(), parsed);
-        return true;
+        return Promise.resolve(true);
       }
     } catch (e) {
       console.warn('BHM: localStorage load failed', e);
     }
-    return false;
+    return Promise.resolve(false);
   }
 
   function clearSession() {
@@ -137,12 +175,10 @@ BHM.State = (function () {
     var lastKey = parts[parts.length - 1];
     var oldValue = obj[lastKey];
 
-    // Don't log if no actual change (skip for objects/arrays — reference may be same after mutation)
     if (oldValue === value && typeof value !== 'object') return;
 
     obj[lastKey] = value;
 
-    // Audit log entry — for objects/arrays, store a compact summary to avoid log bloat
     var logOld = (oldValue !== null && typeof oldValue === 'object') ? '[object]' : (oldValue === undefined ? null : oldValue);
     var logNew = (value !== null && typeof value === 'object') ? '[object]' : value;
     _session.auditLog.push({
@@ -154,7 +190,6 @@ BHM.State = (function () {
       sourceMode: _session.meta.sourceMode
     });
 
-    // Cap audit log to prevent localStorage overflow
     if (_session.auditLog.length > 2000) {
       _session.auditLog = _session.auditLog.slice(-1500);
     }
