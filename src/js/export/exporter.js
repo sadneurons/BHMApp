@@ -181,6 +181,28 @@ BHM.Export = (function () {
     var cvCount = Object.keys(cvRisk).length;
     if (cvCount > 0) rows.push(['Medical History', 'CV Risk Factors', cvCount]);
 
+    // Physical examination
+    var pe = S.getSession().physicalExam || {};
+    if (pe.heightCm) rows.push(['Physical Exam', 'Height (cm)', pe.heightCm]);
+    if (pe.weightKg) rows.push(['Physical Exam', 'Weight (kg)', pe.weightKg]);
+    if (pe.bmi) rows.push(['Physical Exam', 'BMI', pe.bmi]);
+    if (pe.neckCircCm) rows.push(['Physical Exam', 'Neck Circumference (cm)', pe.neckCircCm]);
+    if (pe.bpSystolic) rows.push(['Physical Exam', 'BP Systolic', pe.bpSystolic]);
+    if (pe.bpDiastolic) rows.push(['Physical Exam', 'BP Diastolic', pe.bpDiastolic]);
+    if (pe.heartRate) rows.push(['Physical Exam', 'Heart Rate', pe.heartRate]);
+    if (pe.o2Sat) rows.push(['Physical Exam', 'O2 Sat (%)', pe.o2Sat]);
+    if (pe.gait) rows.push(['Physical Exam', 'Gait', pe.gait]);
+    if (pe.tremor) rows.push(['Physical Exam', 'Tremor', pe.tremor]);
+    if (pe.rigidity) rows.push(['Physical Exam', 'Rigidity', pe.rigidity]);
+
+    // STOP-BANG
+    var sbScore = scores.stopBang;
+    if (sbScore) {
+      rows.push(['STOP-BANG', 'Total', sbScore.total]);
+      rows.push(['STOP-BANG', 'Interpretation', sbScore.interp]);
+      rows.push(['STOP-BANG', 'Unknown Items', sbScore.unknownCount]);
+    }
+
     var csv = rows.map(function (row) {
       return row.map(function (cell) {
         return '"' + String(cell === null || cell === undefined ? '' : cell).replace(/"/g, '""') + '"';

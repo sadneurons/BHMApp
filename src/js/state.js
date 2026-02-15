@@ -22,6 +22,7 @@ BHM.State = (function () {
       patient: {
         name: '',
         dob: '',
+        sex: '',
         nhsNumber: '',
         dateOfCompletion: '',
         clinicianName: '',
@@ -48,6 +49,7 @@ BHM.State = (function () {
       diagnoses: [],
       medications: { list: [], recentChanges: '', adherence: '' },
       medicalHistory: {},
+      physicalExam: {},
       neuroimaging: { scans: [] },
       scores: {},
       snippetInserts: {},

@@ -418,6 +418,116 @@ BHM.Scoring = (function () {
     }
   }
 
+  // ═══════════════════════════════════════════
+  // STOP-BANG (auto-derived from multi-instrument data)
+  // ═══════════════════════════════════════════
+  function stopBang() {
+    var items = {};
+    var unknown = {};
+    var total = 0;
+
+    // S — Snoring: PSQI q5e >= 1 (at least once a week) OR partner q10a >= 1
+    var q5e = S.get('instruments.psqi.q5e');
+    var q10a = S.get('instruments.psqi.q10a');
+    if (q5e !== undefined && q5e !== null && q5e !== '') {
+      items.snoring = Number(q5e) >= 1;
+    } else if (q10a !== undefined && q10a !== null && q10a !== '') {
+      items.snoring = Number(q10a) >= 1;
+    } else {
+      items.snoring = false;
+      unknown.snoring = true;
+    }
+    if (items.snoring) total++;
+
+    // T — Tired: Epworth total > 10
+    var epworthScore = S.getScore('epworth');
+    if (epworthScore && epworthScore.total !== null) {
+      items.tired = epworthScore.total > 10;
+    } else {
+      items.tired = false;
+      unknown.tired = true;
+    }
+    if (items.tired) total++;
+
+    // O — Observed apnea: PSQI partner q10b >= 1
+    var q10b = S.get('instruments.psqi.q10b');
+    if (q10b !== undefined && q10b !== null && q10b !== '') {
+      items.observed = Number(q10b) >= 1;
+    } else {
+      items.observed = false;
+      unknown.observed = true;
+    }
+    if (items.observed) total++;
+
+    // P — Blood Pressure: medical history hypertension checkbox
+    var cvRisk = S.get('medicalHistory.cvRisk') || {};
+    items.pressure = !!cvRisk.hypertension;
+    if (items.pressure) total++;
+
+    // B — BMI > 35
+    var bmi = parseFloat(S.get('physicalExam.bmi'));
+    if (!isNaN(bmi) && bmi > 0) {
+      items.bmi = bmi > 35;
+    } else {
+      items.bmi = false;
+      unknown.bmi = true;
+    }
+    if (items.bmi) total++;
+
+    // A — Age > 50 (from DOB)
+    var dob = S.get('patient.dob');
+    if (dob) {
+      var birthDate = new Date(dob);
+      var today = new Date();
+      var age = today.getFullYear() - birthDate.getFullYear();
+      var m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      items.age = age > 50;
+    } else {
+      items.age = false;
+      unknown.age = true;
+    }
+    if (items.age) total++;
+
+    // N — Neck circumference > 40 cm
+    var neck = parseFloat(S.get('physicalExam.neckCircCm'));
+    if (!isNaN(neck) && neck > 0) {
+      items.neck = neck > 40;
+    } else {
+      items.neck = false;
+      unknown.neck = true;
+    }
+    if (items.neck) total++;
+
+    // G — Sex: male (from patient.sex on Session tab)
+    var sex = S.get('patient.sex');
+    if (sex) {
+      items.gender = sex === 'Male';
+    } else {
+      items.gender = false;
+      unknown.gender = true;
+    }
+    if (items.gender) total++;
+
+    var unknownCount = Object.keys(unknown).length;
+    var interp = total >= 5 ? 'High risk' : total >= 3 ? 'Intermediate risk' : 'Low risk';
+
+    var result = {
+      total: total,
+      items: items,
+      unknown: unknown,
+      unknownCount: unknownCount,
+      interp: interp
+    };
+
+    S.setScore('stopBang', result);
+
+    // Update display on physical exam tab
+    if (BHM.Instruments.PhysicalExam && BHM.Instruments.PhysicalExam.updateStopBangDisplay) {
+      BHM.Instruments.PhysicalExam.updateStopBangDisplay(result);
+    }
+  }
+
   // ── Trigger report update ──
   function triggerReport() {
     if (BHM.Report && BHM.Report.update) {
@@ -443,6 +553,7 @@ BHM.Scoring = (function () {
     rbans: rbans,
     cdr: cdr,
     diamondLewy: diamondLewy,
+    stopBang: stopBang,
     triggerReport: triggerReport,
     _reportTimer: null
   };

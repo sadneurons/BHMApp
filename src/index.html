@@ -267,6 +267,9 @@
             <li class="nav-item" role="presentation">
               <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-medications" type="button" role="tab">Medications</button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-physical-exam" type="button" role="tab">Physical Exam</button>
+            </li>
           </ul>
           <div class="tab-content" id="clinicalSubContent">
             <div class="tab-pane fade show active" id="sub-interview" role="tabpanel"><div id="clinicalContent"></div></div>
@@ -276,6 +279,7 @@
             <div class="tab-pane fade" id="sub-neuroimaging" role="tabpanel"><div id="neuroimagingContent"></div></div>
             <div class="tab-pane fade" id="sub-medical-history" role="tabpanel"><div id="medicalHistoryContent"></div></div>
             <div class="tab-pane fade" id="sub-medications" role="tabpanel"><div id="medicationsContent"></div></div>
+            <div class="tab-pane fade" id="sub-physical-exam" role="tabpanel"><div id="physicalExamContent"></div></div>
           </div>
         </div>
 
@@ -334,6 +338,8 @@
   <script src="https://cdn.jsdelivr.net/npm/docx@9.5.2/dist/index.iife.js"></script>
   <!-- JSZip for font embedding in DOCX -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- html2canvas for DOM-based chart capture -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <!-- App modules (load order matters) -->
   <script src="js/themes.js"></script>

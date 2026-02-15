@@ -1363,6 +1363,9 @@
             <li class="nav-item" role="presentation">
               <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-medications" type="button" role="tab">Medications</button>
             </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#sub-physical-exam" type="button" role="tab">Physical Exam</button>
+            </li>
           </ul>
           <div class="tab-content" id="clinicalSubContent">
             <div class="tab-pane fade show active" id="sub-interview" role="tabpanel"><div id="clinicalContent"></div></div>
@@ -1372,6 +1375,7 @@
             <div class="tab-pane fade" id="sub-neuroimaging" role="tabpanel"><div id="neuroimagingContent"></div></div>
             <div class="tab-pane fade" id="sub-medical-history" role="tabpanel"><div id="medicalHistoryContent"></div></div>
             <div class="tab-pane fade" id="sub-medications" role="tabpanel"><div id="medicationsContent"></div></div>
+            <div class="tab-pane fade" id="sub-physical-exam" role="tabpanel"><div id="physicalExamContent"></div></div>
           </div>
         </div>
 
@@ -1430,6 +1434,8 @@
   <script src="https://cdn.jsdelivr.net/npm/docx@9.5.2/dist/index.iife.js"></script>
   <!-- JSZip for font embedding in DOCX -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- html2canvas for DOM-based chart capture -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <!-- App modules (load order matters) -->
   <script>
@@ -1726,6 +1732,7 @@ BHM.State = (function () {
       diagnoses: [],
       medications: { list: [], recentChanges: '', adherence: '' },
       medicalHistory: {},
+      physicalExam: {},
       neuroimaging: { scans: [] },
       scores: {},
       snippetInserts: {},
@@ -9996,6 +10003,368 @@ BHM.Instruments.Medications = (function () {
   };
 })();
 
+/* ── physicalExam.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   BHM.Instruments.PhysicalExam — Physical examination findings
+   Height, weight, BMI, neck circumference, BP, HR, O2 sat,
+   general observations
+   ═══════════════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+BHM.Instruments = BHM.Instruments || {};
+
+BHM.Instruments.PhysicalExam = (function () {
+  'use strict';
+
+  var S = BHM.State;
+  var SP = 'physicalExam';
+
+  function get(key) { return S.get(SP + '.' + key); }
+  function set(key, val) { S.set(SP + '.' + key, val); recalcBMI(); triggerScoring(); }
+  function triggerScoring() {
+    if (BHM.Scoring && BHM.Scoring.stopBang) BHM.Scoring.stopBang();
+    if (BHM.Scoring && BHM.Scoring.triggerReport) BHM.Scoring.triggerReport();
+    else if (BHM.Report && BHM.Report.update) BHM.Report.update();
+  }
+
+  // ── Auto-calculate BMI ──
+  function recalcBMI() {
+    var h = parseFloat(get('heightCm'));
+    var w = parseFloat(get('weightKg'));
+    if (h > 0 && w > 0) {
+      var hm = h / 100;
+      var bmi = (w / (hm * hm)).toFixed(1);
+      // Silently set BMI without re-triggering (avoid loop)
+      S.set(SP + '.bmi', bmi);
+      var bmiEl = document.getElementById('pe-bmi-display');
+      if (bmiEl) {
+        bmiEl.textContent = bmi;
+        bmiEl.className = 'fw-bold ' + bmiClass(parseFloat(bmi));
+      }
+    }
+  }
+
+  function bmiClass(bmi) {
+    if (bmi < 18.5) return 'text-info';
+    if (bmi < 25) return 'text-success';
+    if (bmi < 30) return 'text-warning';
+    return 'text-danger';
+  }
+
+  function bmiLabel(bmi) {
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal';
+    if (bmi < 30) return 'Overweight';
+    if (bmi < 35) return 'Obese (Class I)';
+    if (bmi < 40) return 'Obese (Class II)';
+    return 'Obese (Class III)';
+  }
+
+  // ═══════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════
+  function render(container) {
+    container.innerHTML = '';
+    var card = document.createElement('div');
+    card.className = 'instrument-card';
+
+    card.innerHTML =
+      '<h5><i class="bi bi-clipboard2-check me-2"></i>Physical Examination</h5>' +
+      '<p class="instrument-subtitle">Record basic physical examination findings. ' +
+      'BMI is calculated automatically from height and weight. These data also contribute to the STOP-BANG sleep apnoea screening score.</p>';
+
+    // ── Anthropometrics ──
+    var anthroH = document.createElement('h6');
+    anthroH.className = 'mt-3 mb-2'; anthroH.style.fontSize = '0.9rem';
+    anthroH.innerHTML = '<i class="bi bi-rulers me-1"></i>Anthropometrics';
+    card.appendChild(anthroH);
+
+    var anthroRow = document.createElement('div');
+    anthroRow.className = 'row g-3 mb-3';
+
+    anthroRow.appendChild(fieldCol('Height (cm)', 'heightCm', 'number', 'e.g. 172', 'col-md-2'));
+    anthroRow.appendChild(fieldCol('Weight (kg)', 'weightKg', 'number', 'e.g. 78', 'col-md-2'));
+
+    // BMI display
+    var bmiCol = document.createElement('div');
+    bmiCol.className = 'col-md-2';
+    var bmiGroup = document.createElement('div');
+    bmiGroup.className = 'bhm-field-group';
+    bmiGroup.innerHTML =
+      '<label class="form-label small fw-bold">BMI (auto)</label>' +
+      '<div class="form-control form-control-sm" style="background:var(--bs-tertiary-bg,#f8f9fa)">' +
+      '<span id="pe-bmi-display" class="fw-bold">—</span>' +
+      ' <small id="pe-bmi-label" class="text-muted"></small></div>';
+    bmiCol.appendChild(bmiGroup);
+    anthroRow.appendChild(bmiCol);
+
+    anthroRow.appendChild(fieldCol('Neck circumference (cm)', 'neckCircCm', 'number', 'e.g. 42', 'col-md-3'));
+    anthroRow.appendChild(fieldCol('Waist circumference (cm)', 'waistCircCm', 'number', 'Optional', 'col-md-3'));
+
+    card.appendChild(anthroRow);
+
+    // ── Vital Signs ──
+    var vitalsH = document.createElement('h6');
+    vitalsH.className = 'mt-3 mb-2'; vitalsH.style.fontSize = '0.9rem';
+    vitalsH.innerHTML = '<i class="bi bi-heart-pulse me-1"></i>Vital Signs';
+    card.appendChild(vitalsH);
+
+    var vitalsRow = document.createElement('div');
+    vitalsRow.className = 'row g-3 mb-3';
+
+    vitalsRow.appendChild(fieldCol('Systolic BP (mmHg)', 'bpSystolic', 'number', 'e.g. 134', 'col-md-2'));
+    vitalsRow.appendChild(fieldCol('Diastolic BP (mmHg)', 'bpDiastolic', 'number', 'e.g. 82', 'col-md-2'));
+    vitalsRow.appendChild(fieldCol('Heart rate (bpm)', 'heartRate', 'number', 'e.g. 72', 'col-md-2'));
+    vitalsRow.appendChild(fieldCol('O₂ saturation (%)', 'o2Sat', 'number', 'e.g. 97', 'col-md-2'));
+    vitalsRow.appendChild(fieldCol('Temperature (°C)', 'temperature', 'number', 'e.g. 36.6', 'col-md-2'));
+    vitalsRow.appendChild(fieldCol('Respiratory rate', 'respRate', 'number', 'e.g. 16', 'col-md-2'));
+
+    card.appendChild(vitalsRow);
+
+    // ── Postural BP (lying → standing) ──
+    var posturalH = document.createElement('h6');
+    posturalH.className = 'mt-3 mb-2'; posturalH.style.fontSize = '0.9rem';
+    posturalH.innerHTML = '<i class="bi bi-arrow-up-circle me-1"></i>Postural Blood Pressure (optional)';
+    card.appendChild(posturalH);
+
+    var posturalRow = document.createElement('div');
+    posturalRow.className = 'row g-3 mb-3';
+
+    posturalRow.appendChild(fieldCol('Lying systolic', 'bpLyingSys', 'number', '', 'col-md-2'));
+    posturalRow.appendChild(fieldCol('Lying diastolic', 'bpLyingDia', 'number', '', 'col-md-2'));
+    posturalRow.appendChild(fieldCol('Standing systolic', 'bpStandingSys', 'number', '', 'col-md-2'));
+    posturalRow.appendChild(fieldCol('Standing diastolic', 'bpStandingDia', 'number', '', 'col-md-2'));
+
+    // Postural drop display
+    var dropCol = document.createElement('div');
+    dropCol.className = 'col-md-4';
+    var dropGroup = document.createElement('div');
+    dropGroup.className = 'bhm-field-group';
+    dropGroup.innerHTML =
+      '<label class="form-label small fw-bold">Postural drop</label>' +
+      '<div class="form-control form-control-sm" style="background:var(--bs-tertiary-bg,#f8f9fa)">' +
+      '<span id="pe-postural-drop">—</span></div>';
+    dropCol.appendChild(dropGroup);
+    posturalRow.appendChild(dropCol);
+
+    card.appendChild(posturalRow);
+
+    // ── General Observations ──
+    var obsH = document.createElement('h6');
+    obsH.className = 'mt-3 mb-2'; obsH.style.fontSize = '0.9rem';
+    obsH.innerHTML = '<i class="bi bi-eye me-1"></i>General Observations';
+    card.appendChild(obsH);
+
+    var obsRow = document.createElement('div');
+    obsRow.className = 'row g-3 mb-3';
+
+    obsRow.appendChild(selectCol('Gait', 'gait', ['', 'Normal', 'Broad-based', 'Shuffling', 'Ataxic', 'Antalgic', 'Unsteady', 'Wheelchair / immobile', 'Other'], 'col-md-3'));
+    obsRow.appendChild(selectCol('Tremor', 'tremor', ['', 'None', 'Resting tremor', 'Action/postural tremor', 'Intention tremor', 'Mixed'], 'col-md-3'));
+    obsRow.appendChild(selectCol('Rigidity', 'rigidity', ['', 'None', 'Mild', 'Moderate', 'Severe — cogwheel', 'Severe — lead-pipe'], 'col-md-3'));
+    obsRow.appendChild(selectCol('Nutritional status', 'nutritional', ['', 'Well nourished', 'Malnourished', 'Overweight', 'Obese', 'Cachectic'], 'col-md-3'));
+
+    card.appendChild(obsRow);
+
+    // ── Focal neurology ──
+    var focalTA = buildTextarea('focalNeurology', 'Focal neurological signs',
+      'e.g. Upper motor neuron signs R side, Babinski positive L, visual field defect...');
+    card.appendChild(focalTA);
+
+    // ── Other examination findings ──
+    var otherTA = buildTextarea('otherFindings', 'Other examination findings',
+      'e.g. Peripheral oedema, carotid bruit, skin changes, lymphadenopathy...');
+    card.appendChild(otherTA);
+
+    // ── STOP-BANG summary ──
+    var sbCard = document.createElement('div');
+    sbCard.className = 'card mt-3';
+    sbCard.innerHTML =
+      '<div class="card-header py-2"><h6 class="mb-0" style="font-size:0.9rem">' +
+      '<i class="bi bi-moon-stars me-1"></i>STOP-BANG Score (auto-calculated)</h6></div>' +
+      '<div class="card-body py-2">' +
+      '<p class="small text-muted mb-2">Derived from data entered across the assessment. Items in <strong>bold</strong> are positive.</p>' +
+      '<div id="pe-stopbang-items" class="small"></div>' +
+      '<div class="mt-2 fw-bold">Total: <span id="pe-stopbang-total">—</span>/8 &nbsp; ' +
+      '<span id="pe-stopbang-interp" class="badge bg-secondary">—</span></div>' +
+      '</div>';
+    card.appendChild(sbCard);
+
+    container.appendChild(card);
+
+    // Restore values & recalculate
+    restoreInputs(container);
+    recalcBMI();
+    updatePosturalDrop();
+  }
+
+  // ═══════════════════════════════════════════
+  //  FIELD BUILDERS
+  // ═══════════════════════════════════════════
+
+  function fieldCol(label, key, type, placeholder, colClass) {
+    var col = document.createElement('div');
+    col.className = colClass || 'col-md-3';
+    var group = document.createElement('div');
+    group.className = 'bhm-field-group';
+    group.innerHTML = '<label class="form-label small fw-bold">' + label + '</label>';
+    var input = document.createElement('input');
+    input.type = type || 'text';
+    input.className = 'form-control form-control-sm';
+    input.placeholder = placeholder || '';
+    input.dataset.peKey = key;
+    if (type === 'number') { input.step = 'any'; input.min = '0'; }
+    input.addEventListener('input', function () {
+      set(key, type === 'number' ? (input.value !== '' ? parseFloat(input.value) : null) : input.value);
+      if (key === 'bpLyingSys' || key === 'bpLyingDia' || key === 'bpStandingSys' || key === 'bpStandingDia') {
+        updatePosturalDrop();
+      }
+    });
+    group.appendChild(input);
+    col.appendChild(group);
+    return col;
+  }
+
+  function selectCol(label, key, options, colClass) {
+    var col = document.createElement('div');
+    col.className = colClass || 'col-md-3';
+    var group = document.createElement('div');
+    group.className = 'bhm-field-group';
+    group.innerHTML = '<label class="form-label small fw-bold">' + label + '</label>';
+    var sel = document.createElement('select');
+    sel.className = 'form-select form-select-sm';
+    sel.dataset.peKey = key;
+    for (var i = 0; i < options.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = options[i];
+      opt.textContent = options[i] || '— Select —';
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', function () { set(key, sel.value); });
+    group.appendChild(sel);
+    col.appendChild(group);
+    return col;
+  }
+
+  function buildTextarea(stateKey, label, placeholder) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'mb-3';
+    if (label) {
+      var lbl = document.createElement('label');
+      lbl.className = 'form-label small fw-bold';
+      lbl.textContent = label;
+      wrapper.appendChild(lbl);
+    }
+    var ta = document.createElement('textarea');
+    ta.className = 'form-control form-control-sm';
+    ta.rows = 2;
+    ta.placeholder = placeholder || '';
+    ta.dataset.peKey = stateKey;
+    ta.addEventListener('input', function () { set(stateKey, ta.value); });
+    wrapper.appendChild(ta);
+    return wrapper;
+  }
+
+  // ═══════════════════════════════════════════
+  //  RESTORE SAVED VALUES
+  // ═══════════════════════════════════════════
+
+  function restoreInputs(container) {
+    var inputs = container.querySelectorAll('[data-pe-key]');
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var key = el.dataset.peKey;
+      var val = get(key);
+      if (val !== undefined && val !== null && val !== '') {
+        if (el.tagName === 'SELECT') el.value = val;
+        else el.value = val;
+      }
+    }
+    // Update BMI display
+    var bmi = get('bmi');
+    if (bmi) {
+      var bmiEl = document.getElementById('pe-bmi-display');
+      var bmiLbl = document.getElementById('pe-bmi-label');
+      if (bmiEl) {
+        bmiEl.textContent = bmi;
+        bmiEl.className = 'fw-bold ' + bmiClass(parseFloat(bmi));
+      }
+      if (bmiLbl) bmiLbl.textContent = bmiLabel(parseFloat(bmi));
+    }
+  }
+
+  function updatePosturalDrop() {
+    var ls = parseFloat(get('bpLyingSys'));
+    var ss = parseFloat(get('bpStandingSys'));
+    var el = document.getElementById('pe-postural-drop');
+    if (!el) return;
+    if (ls > 0 && ss > 0) {
+      var drop = ls - ss;
+      var significant = drop >= 20;
+      el.innerHTML = 'Systolic drop: <strong class="' + (significant ? 'text-danger' : 'text-success') + '">' +
+        drop + ' mmHg</strong>' + (significant ? ' — <em>significant postural hypotension</em>' : ' — within normal range');
+    } else {
+      el.textContent = '—';
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  STOP-BANG display update (called by scoring)
+  // ═══════════════════════════════════════════
+  function updateStopBangDisplay(result) {
+    var itemsEl = document.getElementById('pe-stopbang-items');
+    var totalEl = document.getElementById('pe-stopbang-total');
+    var interpEl = document.getElementById('pe-stopbang-interp');
+    if (!itemsEl || !totalEl || !interpEl) return;
+
+    var labels = [
+      { key: 'snoring', letter: 'S', label: 'Snoring — loud snoring reported' },
+      { key: 'tired', letter: 'T', label: 'Tired — excessive daytime sleepiness (Epworth > 10)' },
+      { key: 'observed', letter: 'O', label: 'Observed — breathing pauses observed during sleep' },
+      { key: 'pressure', letter: 'P', label: 'Pressure — treated for high blood pressure' },
+      { key: 'bmi', letter: 'B', label: 'BMI > 35' },
+      { key: 'age', letter: 'A', label: 'Age > 50' },
+      { key: 'neck', letter: 'N', label: 'Neck circumference > 40 cm' },
+      { key: 'gender', letter: 'G', label: 'Gender — male' }
+    ];
+
+    var html = '<div class="row g-1">';
+    for (var i = 0; i < labels.length; i++) {
+      var pos = result.items[labels[i].key];
+      var unknown = result.unknown && result.unknown[labels[i].key];
+      html += '<div class="col-md-6">';
+      if (unknown) {
+        html += '<span class="text-muted"><i class="bi bi-question-circle me-1"></i>';
+        html += '<strong>' + labels[i].letter + '</strong> — ' + labels[i].label + ' <em>(not assessed)</em></span>';
+      } else if (pos) {
+        html += '<span class="text-danger"><i class="bi bi-check-circle-fill me-1"></i>';
+        html += '<strong>' + labels[i].letter + '</strong> — ' + labels[i].label + '</span>';
+      } else {
+        html += '<span class="text-success"><i class="bi bi-x-circle me-1"></i>';
+        html += labels[i].letter + ' — ' + labels[i].label + '</span>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    itemsEl.innerHTML = html;
+
+    totalEl.textContent = result.total;
+    if (result.total >= 5) {
+      interpEl.textContent = 'High risk of OSA';
+      interpEl.className = 'badge bg-danger';
+    } else if (result.total >= 3) {
+      interpEl.textContent = 'Intermediate risk of OSA';
+      interpEl.className = 'badge bg-warning text-dark';
+    } else {
+      interpEl.textContent = 'Low risk of OSA';
+      interpEl.className = 'badge bg-success';
+    }
+  }
+
+  return {
+    render: render,
+    updateStopBangDisplay: updateStopBangDisplay
+  };
+})();
+
 /* ── diagnosis.js ── */
 /* ═══════════════════════════════════════════════════════════════
    BHM.Instruments.Diagnosis — Multi-axis diagnostic coding
@@ -10798,6 +11167,116 @@ BHM.Scoring = (function () {
     }
   }
 
+  // ═══════════════════════════════════════════
+  // STOP-BANG (auto-derived from multi-instrument data)
+  // ═══════════════════════════════════════════
+  function stopBang() {
+    var items = {};
+    var unknown = {};
+    var total = 0;
+
+    // S — Snoring: PSQI q5e >= 1 (at least once a week) OR partner q10a >= 1
+    var q5e = S.get('instruments.psqi.q5e');
+    var q10a = S.get('instruments.psqi.q10a');
+    if (q5e !== undefined && q5e !== null && q5e !== '') {
+      items.snoring = Number(q5e) >= 1;
+    } else if (q10a !== undefined && q10a !== null && q10a !== '') {
+      items.snoring = Number(q10a) >= 1;
+    } else {
+      items.snoring = false;
+      unknown.snoring = true;
+    }
+    if (items.snoring) total++;
+
+    // T — Tired: Epworth total > 10
+    var epworthScore = S.getScore('epworth');
+    if (epworthScore && epworthScore.total !== null) {
+      items.tired = epworthScore.total > 10;
+    } else {
+      items.tired = false;
+      unknown.tired = true;
+    }
+    if (items.tired) total++;
+
+    // O — Observed apnea: PSQI partner q10b >= 1
+    var q10b = S.get('instruments.psqi.q10b');
+    if (q10b !== undefined && q10b !== null && q10b !== '') {
+      items.observed = Number(q10b) >= 1;
+    } else {
+      items.observed = false;
+      unknown.observed = true;
+    }
+    if (items.observed) total++;
+
+    // P — Blood Pressure: medical history hypertension checkbox
+    var cvRisk = S.get('medicalHistory.cvRisk') || {};
+    items.pressure = !!cvRisk.hypertension;
+    if (items.pressure) total++;
+
+    // B — BMI > 35
+    var bmi = parseFloat(S.get('physicalExam.bmi'));
+    if (!isNaN(bmi) && bmi > 0) {
+      items.bmi = bmi > 35;
+    } else {
+      items.bmi = false;
+      unknown.bmi = true;
+    }
+    if (items.bmi) total++;
+
+    // A — Age > 50 (from DOB)
+    var dob = S.get('patient.dob');
+    if (dob) {
+      var birthDate = new Date(dob);
+      var today = new Date();
+      var age = today.getFullYear() - birthDate.getFullYear();
+      var m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+      items.age = age > 50;
+    } else {
+      items.age = false;
+      unknown.age = true;
+    }
+    if (items.age) total++;
+
+    // N — Neck circumference > 40 cm
+    var neck = parseFloat(S.get('physicalExam.neckCircCm'));
+    if (!isNaN(neck) && neck > 0) {
+      items.neck = neck > 40;
+    } else {
+      items.neck = false;
+      unknown.neck = true;
+    }
+    if (items.neck) total++;
+
+    // G — Gender: male (from RBANS demographics)
+    var gender = S.get('instruments.rbans.gender');
+    if (gender) {
+      items.gender = gender === 'Male';
+    } else {
+      items.gender = false;
+      unknown.gender = true;
+    }
+    if (items.gender) total++;
+
+    var unknownCount = Object.keys(unknown).length;
+    var interp = total >= 5 ? 'High risk' : total >= 3 ? 'Intermediate risk' : 'Low risk';
+
+    var result = {
+      total: total,
+      items: items,
+      unknown: unknown,
+      unknownCount: unknownCount,
+      interp: interp
+    };
+
+    S.setScore('stopBang', result);
+
+    // Update display on physical exam tab
+    if (BHM.Instruments.PhysicalExam && BHM.Instruments.PhysicalExam.updateStopBangDisplay) {
+      BHM.Instruments.PhysicalExam.updateStopBangDisplay(result);
+    }
+  }
+
   // ── Trigger report update ──
   function triggerReport() {
     if (BHM.Report && BHM.Report.update) {
@@ -10823,6 +11302,7 @@ BHM.Scoring = (function () {
     rbans: rbans,
     cdr: cdr,
     diamondLewy: diamondLewy,
+    stopBang: stopBang,
     triggerReport: triggerReport,
     _reportTimer: null
   };
@@ -10843,6 +11323,8 @@ BHM.Report = (function () {
   var TEMPLATE_VERSION = '2.1.0';
 
   function update() {
+    // Recalculate derived scores that pull from multiple instruments
+    if (BHM.Scoring && BHM.Scoring.stopBang) BHM.Scoring.stopBang();
     updateSidePanel();
     updateFullReport();
   }
@@ -10924,9 +11406,10 @@ BHM.Report = (function () {
     html += neuroimagingSection(compact);
     html += rbansSection(compact);
 
-    // ── Medications & Medical History (placeholders) ──
+    // ── Medications, Medical History, Physical Exam ──
     html += medicationsSection(compact);
     html += medicalHistorySection(compact);
+    html += physicalExamSection(compact);
 
     // ── Informant scales ──
     html += informantSection(compact);
@@ -11159,6 +11642,9 @@ BHM.Report = (function () {
 
       // ── Scores table (MRI / CT only) ──
       content += niScoresTable(scan, mod);
+
+      // ── Visual rating scale chart ──
+      if (!compact) content += '<div class="chart-container" id="chart-neuro-' + i + '"></div>';
 
       // Clinician interpretation
       if (scan.clinicianInterpretation && scan.clinicianInterpretation.trim()) {
@@ -11571,6 +12057,119 @@ BHM.Report = (function () {
     return section('Medical History', content, compact, 'medicalHistory');
   }
 
+  // ═══════════════════════════════════════════
+  //  PHYSICAL EXAMINATION
+  // ═══════════════════════════════════════════
+  function physicalExamSection(compact) {
+    var PE = 'physicalExam.';
+    var hasAny = S.get(PE + 'heightCm') || S.get(PE + 'weightKg') || S.get(PE + 'bpSystolic') ||
+                 S.get(PE + 'heartRate') || S.get(PE + 'gait') || S.get(PE + 'focalNeurology') ||
+                 S.get(PE + 'neckCircCm');
+    var sbScore = S.getScore('stopBang');
+    var hasSB = sbScore && sbScore.unknownCount < 8;
+    if (!hasAny && !hasSB) {
+      return section('Physical Examination', '<p class="text-muted">No physical examination findings have been recorded.</p>', compact, 'physicalExam');
+    }
+
+    var content = '';
+
+    // ── Anthropometrics ──
+    var h = S.get(PE + 'heightCm');
+    var w = S.get(PE + 'weightKg');
+    var bmi = parseFloat(S.get(PE + 'bmi'));
+    var neck = S.get(PE + 'neckCircCm');
+    var waist = S.get(PE + 'waistCircCm');
+
+    if (h || w || !isNaN(bmi)) {
+      var anthro = [];
+      if (h) anthro.push('height ' + esc(String(h)) + ' cm');
+      if (w) anthro.push('weight ' + esc(String(w)) + ' kg');
+      if (!isNaN(bmi)) {
+        var bmiLabel = bmi < 18.5 ? 'underweight' : bmi < 25 ? 'normal' : bmi < 30 ? 'overweight' : bmi < 35 ? 'obese (Class I)' : bmi < 40 ? 'obese (Class II)' : 'obese (Class III)';
+        anthro.push('BMI <strong>' + bmi + '</strong> (' + bmiLabel + ')');
+      }
+      if (neck) anthro.push('neck circumference ' + esc(String(neck)) + ' cm');
+      if (waist) anthro.push('waist circumference ' + esc(String(waist)) + ' cm');
+      content += '<p><strong>Anthropometrics:</strong> ' + anthro.join(', ') + '.</p>';
+    }
+
+    // ── Vital signs ──
+    var sys = S.get(PE + 'bpSystolic');
+    var dia = S.get(PE + 'bpDiastolic');
+    var hr = S.get(PE + 'heartRate');
+    var o2 = S.get(PE + 'o2Sat');
+    var temp = S.get(PE + 'temperature');
+    var rr = S.get(PE + 'respRate');
+
+    if (sys || hr || o2) {
+      var vitals = [];
+      if (sys && dia) vitals.push('blood pressure ' + esc(String(sys)) + '/' + esc(String(dia)) + ' mmHg');
+      else if (sys) vitals.push('systolic BP ' + esc(String(sys)) + ' mmHg');
+      if (hr) vitals.push('heart rate ' + esc(String(hr)) + ' bpm');
+      if (o2) vitals.push('O\u2082 saturation ' + esc(String(o2)) + '%');
+      if (temp) vitals.push('temperature ' + esc(String(temp)) + ' \u00B0C');
+      if (rr) vitals.push('respiratory rate ' + esc(String(rr)));
+      content += '<p><strong>Vital signs:</strong> ' + vitals.join(', ') + '.</p>';
+    }
+
+    // ── Postural BP ──
+    var ls = parseFloat(S.get(PE + 'bpLyingSys'));
+    var ss = parseFloat(S.get(PE + 'bpStandingSys'));
+    if (!isNaN(ls) && !isNaN(ss)) {
+      var drop = ls - ss;
+      var significant = drop >= 20;
+      content += '<p><strong>Postural blood pressure:</strong> Lying ' + ls + '/' + (S.get(PE + 'bpLyingDia') || '?') +
+        ', standing ' + ss + '/' + (S.get(PE + 'bpStandingDia') || '?') +
+        ' mmHg (systolic drop ' + drop + ' mmHg' +
+        (significant ? ' — <em>significant postural hypotension</em>' : ' — within normal range') + ').</p>';
+    }
+
+    // ── Observations ──
+    var gait = S.get(PE + 'gait');
+    var tremor = S.get(PE + 'tremor');
+    var rigidity = S.get(PE + 'rigidity');
+    var nutritional = S.get(PE + 'nutritional');
+    if (gait || tremor || rigidity || nutritional) {
+      var obs = [];
+      if (gait && gait !== '') obs.push('gait was ' + esc(gait).toLowerCase());
+      if (tremor && tremor !== '' && tremor !== 'None') obs.push(esc(tremor).toLowerCase() + ' was noted');
+      else if (tremor === 'None') obs.push('no tremor');
+      if (rigidity && rigidity !== '' && rigidity !== 'None') obs.push('rigidity was ' + esc(rigidity).toLowerCase());
+      else if (rigidity === 'None') obs.push('no rigidity');
+      if (nutritional && nutritional !== '') obs.push('nutritional status: ' + esc(nutritional).toLowerCase());
+      content += '<p><strong>General observations:</strong> ' + obs.join('; ') + '.</p>';
+    }
+
+    // ── Focal neurology ──
+    var focal = S.get(PE + 'focalNeurology');
+    if (focal && focal.trim()) {
+      content += '<p><strong>Focal neurological signs:</strong> ' + esc(focal) + '</p>';
+    } else {
+      content += '<p><strong>Focal neurological signs:</strong> none elicited.</p>';
+    }
+
+    // ── Other findings ──
+    var other = S.get(PE + 'otherFindings');
+    if (other && other.trim()) {
+      content += '<p><strong>Other findings:</strong> ' + esc(other) + '</p>';
+    }
+
+    // ── STOP-BANG ──
+    var sb = S.getScore('stopBang');
+    if (sb && sb.unknownCount < 8) {
+      content += '<p><strong>STOP-BANG sleep apnoea screen:</strong> ' +
+        scoreBadge(sb.total, 8, { moderate: 3, poor: 5 }) +
+        ' (' + sb.interp + ')';
+      if (sb.unknownCount > 0) {
+        content += ' <em>(' + sb.unknownCount + ' item' + (sb.unknownCount > 1 ? 's' : '') + ' not yet assessed)</em>';
+      }
+      content += '</p>';
+      if (!compact) content += '<div class="chart-container" id="chart-stopbang"></div>';
+    }
+
+    return section('Physical Examination', content, compact, 'physicalExam');
+  }
+
   // Helper: extract checked labels from a checklist object
   function checkedLabels(obj, defs) {
     var labels = [];
@@ -11832,6 +12431,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>You mentioned feeling sleepier during the day than might be expected. This is worth exploring further, as addressing the underlying cause can make a real difference to how you feel day-to-day.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-epworth"></div>';
     } else {
       content += '<p class="text-muted">Epworth not yet completed.</p>';
     }
@@ -11895,6 +12495,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>It sounds like anxiety has been having a noticeable impact on your life. There are effective approaches that can help, and it is worth exploring what kind of support might be most beneficial for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-gad7"></div>';
     } else {
       content += '<p class="text-muted">GAD-7 not yet completed.</p>';
     }
@@ -11946,6 +12547,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>It sounds like you have been going through a difficult time emotionally. Please know that support is available, and there are effective ways to help with these feelings.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-gds"></div>';
     } else {
       content += '<p class="text-muted">Depression screen not yet completed.</p>';
     }
@@ -12011,6 +12613,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>Your responses suggest that alcohol may be having a significant impact on your life. There are effective support options available, and it is worth discussing what might be most helpful for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-audit"></div>';
     } else {
       content += '<p class="text-muted">AUDIT not yet completed.</p>';
     }
@@ -12067,6 +12670,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>There may be some straightforward changes you could consider to move your diet closer to a Mediterranean pattern, which is associated with better brain health outcomes. A dietitian or other specialist can help think about what would work best for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-diet"></div>';
     } else {
       content += '<p class="text-muted">Diet questionnaire not yet completed.</p>';
     }
@@ -12232,6 +12836,7 @@ BHM.Report = (function () {
         }
 
         content += '<p><em>Hearing plays an important role in communication, social connection, and overall wellbeing. Addressing hearing difficulties can have a positive impact on many areas of life, and there are good options available.</em></p>';
+        if (!compact) content += '<div class="chart-container" id="chart-hearing"></div>';
       } else {
         content += '<p><em>You did not report significant hearing difficulties, which is positive.</em></p>';
       }
@@ -12574,6 +13179,7 @@ BHM.Report = (function () {
         content += '. ' + edSentences[es].charAt(0).toUpperCase() + edSentences[es].slice(1);
       }
       content += '.</p>';
+      if (!compact) content += '<div class="chart-container" id="chart-education"></div>';
     }
 
     // ── H. Substance use ──
@@ -12766,9 +13372,8 @@ BHM.Report = (function () {
 /* ── charts.js ── */
 /* ═══════════════════════════════════════════════════════
    BHM.Charts — Report chart rendering (Chart.js)
-   Reworked: removed pointless single-bar charts;
-   added radar for MBI-C & NPI-Q; RBANS line profile;
-   CDR domain radar
+   Full suite: radar, line, bar, doughnut, gauge, mosaic,
+   bullet, traffic-light — stylistically harmonised
    ═══════════════════════════════════════════════════════ */
 var BHM = window.BHM || {};
 
@@ -12778,62 +13383,46 @@ BHM.Charts = (function () {
   var S = BHM.State;
   var _chartInstances = {};
 
-  // ── Helper: read CSS variable from :root ──
-  function cssVar(name, fallback) {
-    var val = getComputedStyle(document.documentElement).getPropertyValue(name);
-    return val ? val.trim() : (fallback || '');
-  }
-
-  // ── Helper: determine if current theme is dark ──
-  function isDark() {
-    return document.documentElement.getAttribute('data-bs-theme') === 'dark';
-  }
-
-  // ── Helper: get theme-aware colour palette ──
-  function themeColors() {
-    var primary     = cssVar('--bs-primary', '#0d6efd');
-    var danger      = cssVar('--bs-danger', '#dc3545');
-    var warning     = cssVar('--bs-warning', '#ffc107');
-    var success     = cssVar('--bs-success', '#198754');
-    var info        = cssVar('--bs-info', '#0dcaf0');
-    var secondary   = cssVar('--bs-secondary', '#6c757d');
-    var bodyColor   = cssVar('--bs-body-color', '#212529');
-    var borderColor = cssVar('--bs-border-color', '#dee2e6');
-    var gridColor   = isDark() ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
-    var tickColor   = isDark() ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)';
-    return {
-      primary: primary, danger: danger, warning: warning, success: success,
-      info: info, secondary: secondary, bodyColor: bodyColor,
-      borderColor: borderColor, gridColor: gridColor, tickColor: tickColor
-    };
-  }
-
-  // ── Helper: rgba from hex ──
+  // ═══════════════════════════════════════════
+  //  THEME HELPERS
+  // ═══════════════════════════════════════════
+  function cssVar(name, fb) { var v = getComputedStyle(document.documentElement).getPropertyValue(name); return v ? v.trim() : (fb || ''); }
+  function isDark() { return document.documentElement.getAttribute('data-bs-theme') === 'dark'; }
   function hexToRGBA(hex, alpha) {
     hex = hex.replace('#', '');
     if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    var r = parseInt(hex.substring(0,2), 16);
-    var g = parseInt(hex.substring(2,4), 16);
-    var b = parseInt(hex.substring(4,6), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    return 'rgba(' + parseInt(hex.substring(0,2),16) + ',' + parseInt(hex.substring(2,4),16) + ',' + parseInt(hex.substring(4,6),16) + ',' + alpha + ')';
+  }
+  function themeColors() {
+    return {
+      primary:   cssVar('--bs-primary',   '#0d6efd'),
+      danger:    cssVar('--bs-danger',    '#dc3545'),
+      warning:   cssVar('--bs-warning',   '#ffc107'),
+      success:   cssVar('--bs-success',   '#198754'),
+      info:      cssVar('--bs-info',      '#0dcaf0'),
+      secondary: cssVar('--bs-secondary', '#6c757d'),
+      bodyColor: cssVar('--bs-body-color','#212529'),
+      borderColor: cssVar('--bs-border-color','#dee2e6'),
+      gridColor: isDark() ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+      tickColor: isDark() ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)',
+      bgColor:   isDark() ? '#222' : '#fff'
+    };
   }
 
-  // ── Helper: destroy previous chart ──
-  function destroyChart(id) {
-    if (_chartInstances[id]) {
-      _chartInstances[id].destroy();
-      delete _chartInstances[id];
-    }
-  }
+  // ═══════════════════════════════════════════
+  //  CANVAS HELPERS
+  // ═══════════════════════════════════════════
+  function destroyChart(id) { if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; } }
 
-  // ── Helper: ensure canvas inside container ──
-  function ensureCanvas(containerId, height) {
+  function ensureCanvas(containerId, height, opts) {
     var container = document.getElementById(containerId);
     if (!container) return null;
     var canvasId = containerId + '-canvas';
     var canvas = document.getElementById(canvasId);
     if (!canvas) {
       container.style.height = (height || 220) + 'px';
+      if (opts && opts.maxWidth) container.style.maxWidth = opts.maxWidth + 'px';
+      if (opts && opts.center) container.style.margin = '0 auto';
       canvas = document.createElement('canvas');
       canvas.id = canvasId;
       container.appendChild(canvas);
@@ -12842,13 +13431,21 @@ BHM.Charts = (function () {
     return { canvas: canvas, canvasId: canvasId };
   }
 
+  // Colour-stop helper for severity (green → yellow → orange → red)
+  function sevColor(val, max, tc) {
+    var ratio = val / max;
+    if (ratio <= 0.25) return tc.success;
+    if (ratio <= 0.5) return tc.warning;
+    if (ratio <= 0.75) return '#fd7e14'; // orange
+    return tc.danger;
+  }
+
   // ═══════════════════════════════════════════
-  //  BAR CHART (for multi-category data only)
+  //  1. BAR CHART (generic)
   // ═══════════════════════════════════════════
   function createBarChart(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 220);
+    var c = ensureCanvas(containerId, config.height || 280);
     if (!c) return;
-
     var tc = themeColors();
     var colors = config.colors || config.data.map(function (val) {
       if (config.thresholdValue !== undefined) {
@@ -12857,182 +13454,487 @@ BHM.Charts = (function () {
       }
       return tc.primary;
     });
-
     try {
       _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
         type: 'bar',
-        data: {
-          labels: config.labels,
-          datasets: [{
-            data: config.data,
-            backgroundColor: colors,
-            borderColor: colors,
-            borderWidth: 1,
-            borderRadius: 4
-          }]
-        },
+        data: { labels: config.labels, datasets: [{ data: config.data, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 4 }] },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { enabled: true } },
+          responsive: true, maintainAspectRatio: false, indexAxis: config.horizontal ? 'y' : 'x',
+          plugins: {
+            legend: { display: false },
+            title: config.title ? { display: true, text: config.title, font: { size: 24, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } } : { display: false }
+          },
           scales: {
-            y: {
-              beginAtZero: true,
-              max: config.max || undefined,
-              grid: { color: tc.gridColor },
-              ticks: { font: { size: 11 }, color: tc.tickColor }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 10 }, maxRotation: 45, color: tc.tickColor }
-            }
+            y: { beginAtZero: true, max: config.max || undefined, grid: { color: tc.gridColor }, ticks: { font: { size: 20 }, color: tc.tickColor } },
+            x: { grid: { display: config.horizontal ? true : false, color: tc.gridColor }, ticks: { font: { size: 20 }, maxRotation: 45, color: tc.tickColor }, max: config.horizontal ? (config.max || undefined) : undefined }
           }
         }
       });
-    } catch (e) {
-      console.warn('BHM Charts: bar failed', containerId, e);
-    }
+    } catch (e) { console.warn('BHM Charts: bar failed', containerId, e); }
   }
 
   // ═══════════════════════════════════════════
-  //  RADAR / WINDROSE CHART
+  //  2. RADAR / WINDROSE
   // ═══════════════════════════════════════════
   function createRadarChart(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 300);
+    var c = ensureCanvas(containerId, config.height || 400);
     if (!c) return;
-
     var tc = themeColors();
     var datasets = [];
     for (var i = 0; i < config.datasets.length; i++) {
       var ds = config.datasets[i];
       var border = ds.border || tc.primary;
       datasets.push({
-        label: ds.label,
-        data: ds.data,
-        backgroundColor: ds.bg || hexToRGBA(border, 0.15),
-        borderColor: border,
-        borderWidth: ds.borderWidth || 2,
-        pointBackgroundColor: border,
-        pointRadius: 4,
-        pointHoverRadius: 6
+        label: ds.label, data: ds.data,
+        backgroundColor: ds.bg || hexToRGBA(border, 0.15), borderColor: border,
+        borderWidth: ds.borderWidth || 2, pointBackgroundColor: border, pointRadius: 5, pointHoverRadius: 7
       });
     }
-
     try {
       _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
         type: 'radar',
-        data: {
-          labels: config.labels,
-          datasets: datasets
-        },
+        data: { labels: config.labels, datasets: datasets },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } }
+            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 16 }, color: tc.tickColor, padding: 12 } },
+            title: config.title ? { display: true, text: config.title, font: { size: 18, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 8 } } : { display: false }
           },
           scales: {
             r: {
-              beginAtZero: true,
-              max: config.max || undefined,
-              ticks: { stepSize: config.step || undefined, font: { size: 10 }, backdropColor: 'transparent', color: tc.tickColor },
-              pointLabels: { font: { size: config.labelSize || 11 }, color: tc.tickColor },
-              grid: { color: tc.gridColor },
-              angleLines: { color: tc.gridColor }
+              beginAtZero: true, max: config.max || undefined,
+              ticks: { stepSize: config.step || undefined, font: { size: 15 }, backdropColor: 'transparent', color: tc.tickColor },
+              pointLabels: { font: { size: config.labelSize || 16 }, color: tc.tickColor },
+              grid: { color: tc.gridColor }, angleLines: { color: tc.gridColor }
             }
           }
         }
       });
-    } catch (e) {
-      console.warn('BHM Charts: radar failed', containerId, e);
+    } catch (e) { console.warn('BHM Charts: radar failed', containerId, e); }
+  }
+
+  // ═══════════════════════════════════════════
+  //  3. DOUGHNUT / PROGRESS RING
+  // ═══════════════════════════════════════════
+  function createProgressRing(containerId, config) {
+    var c = ensureCanvas(containerId, config.height || 260, { maxWidth: 300, center: true });
+    if (!c) return;
+    var tc = themeColors();
+    var val = config.value;
+    var max = config.max;
+    var remainder = max - val;
+    var color = config.color || tc.success;
+    try {
+      _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: [config.label || 'Score', 'Remaining'],
+          datasets: [{ data: [val, remainder], backgroundColor: [color, isDark() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'], borderWidth: 0, cutout: '72%' }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          }
+        },
+        plugins: [{
+          id: 'center-text',
+          afterDraw: function (chart) {
+            var ctx = chart.ctx;
+            var area = chart.chartArea;
+            var cx = (area.left + area.right) / 2;
+            var cy = (area.top + area.bottom) / 2;
+            ctx.save();
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = 'bold 48px sans-serif'; ctx.fillStyle = tc.bodyColor;
+            ctx.fillText(val + '/' + max, cx, cy - 10);
+            ctx.font = '22px sans-serif'; ctx.fillStyle = tc.tickColor;
+            ctx.fillText(config.sublabel || '', cx, cy + 26);
+            ctx.restore();
+          }
+        }]
+      });
+    } catch (e) { console.warn('BHM Charts: ring failed', containerId, e); }
+  }
+
+  // ═══════════════════════════════════════════
+  //  4. SEMICIRCULAR GAUGE (Epworth-style)
+  // ═══════════════════════════════════════════
+  function createGaugeChart(containerId, config) {
+    var c = ensureCanvas(containerId, config.height || 300, { maxWidth: 400, center: true });
+    if (!c) return;
+    var tc = themeColors();
+    var zones = config.zones; // [{max, color, label}]
+    var zoneData = zones.map(function (z, i) { return z.max - (i > 0 ? zones[i - 1].max : 0); });
+    var zoneColors = zones.map(function (z) { return z.color; });
+    try {
+      _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: zones.map(function (z) { return z.label; }),
+          datasets: [{ data: zoneData, backgroundColor: zoneColors, borderWidth: 0, cutout: '65%' }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          rotation: -90, circumference: 180,
+          layout: { padding: { bottom: 60 } },
+          plugins: { legend: { display: false }, tooltip: { enabled: true } }
+        },
+        plugins: [{
+          id: 'gauge-needle',
+          afterDraw: function (chart) {
+            var ctx = chart.ctx;
+            var area = chart.chartArea;
+            var cx = (area.left + area.right) / 2;
+            var cy = area.bottom - 10;
+            var totalMax = zones[zones.length - 1].max;
+            var angle = Math.PI + (config.value / totalMax) * Math.PI;
+            var needleLen = (area.right - area.left) / 2 * 0.7;
+            // Draw needle
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, -4); ctx.lineTo(needleLen, 0); ctx.lineTo(0, 4);
+            ctx.fillStyle = tc.bodyColor; ctx.fill();
+            ctx.restore();
+            // Center dot
+            ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.fillStyle = tc.bodyColor; ctx.fill();
+            // Score text
+            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            ctx.font = 'bold 40px sans-serif'; ctx.fillStyle = tc.bodyColor;
+            ctx.fillText(config.value + '/' + totalMax, cx, cy - 14);
+            ctx.font = '22px sans-serif'; ctx.fillStyle = tc.tickColor;
+            ctx.fillText(config.sublabel || '', cx, cy + 30);
+          }
+        }]
+      });
+    } catch (e) { console.warn('BHM Charts: gauge failed', containerId, e); }
+  }
+
+  // ═══════════════════════════════════════════
+  //  5. BULLET / HORIZONTAL SCORE BAR
+  // ═══════════════════════════════════════════
+  function createBulletChart(containerId, config) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '14px 0';
+    var tc = themeColors();
+    var zones = config.zones; // [{max, color, label}]
+    var totalMax = zones[zones.length - 1].max;
+    var val = config.value;
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;height:40px;border-radius:6px;overflow:hidden;background:' + (isDark() ? 'rgba(255,255,255,0.06)' : '#f0f0f0');
+
+    // Zone backgrounds
+    var prevPct = 0;
+    for (var z = 0; z < zones.length; z++) {
+      var pct = (zones[z].max / totalMax) * 100;
+      var seg = document.createElement('div');
+      seg.style.cssText = 'position:absolute;top:0;bottom:0;left:' + prevPct + '%;width:' + (pct - prevPct) + '%;background:' + hexToRGBA(zones[z].color, 0.25);
+      seg.title = zones[z].label + ' (0–' + zones[z].max + ')';
+      wrap.appendChild(seg);
+      prevPct = pct;
+    }
+
+    // Marker
+    var markerPct = Math.min((val / totalMax) * 100, 100);
+    var marker = document.createElement('div');
+    marker.style.cssText = 'position:absolute;top:2px;bottom:2px;left:' + markerPct + '%;width:5px;border-radius:2px;background:' + tc.bodyColor + ';transform:translateX(-2px)';
+    wrap.appendChild(marker);
+
+    container.appendChild(wrap);
+
+    // Labels row
+    var labels = document.createElement('div');
+    labels.style.cssText = 'display:flex;justify-content:space-between;font-size:1.1rem;color:' + tc.tickColor + ';margin-top:6px';
+    for (var l = 0; l < zones.length; l++) {
+      var sp = document.createElement('span');
+      sp.textContent = zones[l].label;
+      labels.appendChild(sp);
+    }
+    container.appendChild(labels);
+
+    // Score label
+    var scoreLabel = document.createElement('div');
+    scoreLabel.style.cssText = 'text-align:center;font-weight:bold;font-size:1.5rem;margin-top:4px;color:' + tc.bodyColor;
+    scoreLabel.textContent = 'Score: ' + val + '/' + totalMax;
+    container.appendChild(scoreLabel);
+  }
+
+  // ═══════════════════════════════════════════
+  //  6. TRAFFIC LIGHT (Education)
+  // ═══════════════════════════════════════════
+  function createTrafficLight(containerId, config) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '10px 0';
+    var tc = themeColors();
+    var levels = config.levels; // [{label, color}]
+    var activeIdx = config.activeIndex;
+
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;justify-content:center;align-items:center';
+
+    for (var i = 0; i < levels.length; i++) {
+      var light = document.createElement('div');
+      var isActive = i === activeIdx;
+      light.style.cssText = 'flex:1;text-align:center;padding:14px 8px;border-radius:8px;font-size:1.3rem;font-weight:' +
+        (isActive ? '700' : '400') + ';color:' + (isActive ? '#fff' : tc.tickColor) +
+        ';background:' + (isActive ? levels[i].color : hexToRGBA(levels[i].color, 0.15)) +
+        ';border:2px solid ' + (isActive ? levels[i].color : 'transparent') +
+        ';transition:all 0.2s';
+      light.textContent = levels[i].label;
+      row.appendChild(light);
+    }
+    container.appendChild(row);
+  }
+
+  // ═══════════════════════════════════════════
+  //  7. MOSAIC GRID (GDS-15 black/white)
+  // ═══════════════════════════════════════════
+  function createMosaic(containerId, config) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '10px 0';
+    var tc = themeColors();
+    var items = config.items; // [{label, endorsed}]
+    var cols = config.cols || 5;
+
+    var title = document.createElement('div');
+    title.style.cssText = 'text-align:center;font-size:1.3rem;font-weight:600;margin-bottom:8px;color:' + tc.bodyColor;
+    title.textContent = config.title || '';
+    container.appendChild(title);
+
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(' + cols + ',1fr);gap:4px;max-width:480px;margin:0 auto';
+
+    for (var i = 0; i < items.length; i++) {
+      var cell = document.createElement('div');
+      var endorsed = items[i].endorsed;
+      cell.style.cssText = 'aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;' +
+        'font-size:0.95rem;text-align:center;padding:4px;line-height:1.15;' +
+        'background:' + (endorsed ? (config.endorsedColor || tc.danger) : (isDark() ? 'rgba(255,255,255,0.08)' : '#f5f5f5')) +
+        ';color:' + (endorsed ? '#fff' : tc.tickColor) +
+        ';font-weight:' + (endorsed ? '600' : '400');
+      cell.textContent = items[i].label;
+      cell.title = items[i].label + (endorsed ? ' (endorsed)' : '');
+      grid.appendChild(cell);
+    }
+    container.appendChild(grid);
+
+    var countLabel = document.createElement('div');
+    var endorsedCount = items.filter(function (it) { return it.endorsed; }).length;
+    countLabel.style.cssText = 'text-align:center;font-size:1.4rem;font-weight:bold;margin-top:8px;color:' + tc.bodyColor;
+    countLabel.textContent = endorsedCount + '/' + items.length + ' endorsed';
+    container.appendChild(countLabel);
+  }
+
+  // ═══════════════════════════════════════════
+  //  8. HORIZONTAL SEVERITY BARS (Neuroimaging)
+  // ═══════════════════════════════════════════
+  function createSeverityBars(containerId, config) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '10px 0';
+    var tc = themeColors();
+    var items = config.items; // [{label, value, max}]
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;margin-bottom:8px;font-size:1.2rem';
+
+      var label = document.createElement('span');
+      label.style.cssText = 'width:160px;flex-shrink:0;color:' + tc.bodyColor + ';font-weight:500';
+      label.textContent = item.label;
+      row.appendChild(label);
+
+      var barWrap = document.createElement('div');
+      barWrap.style.cssText = 'flex:1;height:22px;border-radius:4px;background:' + (isDark() ? 'rgba(255,255,255,0.08)' : '#eee') + ';position:relative;overflow:hidden';
+
+      var fillPct = (item.value / item.max) * 100;
+      var fill = document.createElement('div');
+      fill.style.cssText = 'height:100%;border-radius:4px;width:' + fillPct + '%;background:' + sevColor(item.value, item.max, tc) + ';transition:width 0.3s';
+      barWrap.appendChild(fill);
+      row.appendChild(barWrap);
+
+      var valLabel = document.createElement('span');
+      valLabel.style.cssText = 'width:60px;text-align:right;font-weight:600;margin-left:8px;color:' + tc.bodyColor;
+      valLabel.textContent = item.value + '/' + item.max;
+      row.appendChild(valLabel);
+
+      container.appendChild(row);
     }
   }
 
   // ═══════════════════════════════════════════
-  //  RBANS LINE PROFILE CHART
+  //  9. STOP-BANG INFOGRAPHIC (icon grid)
+  // ═══════════════════════════════════════════
+  function createStopBangInfographic(containerId, sb, tc) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '12px 0';
+
+    var ITEMS = [
+      { key: 'snoring',  letter: 'S', label: 'Snoring',  icon: 'bi-volume-up-fill' },
+      { key: 'tired',    letter: 'T', label: 'Tired',    icon: 'bi-emoji-dizzy-fill' },
+      { key: 'observed', letter: 'O', label: 'Observed', icon: 'bi-eye-fill' },
+      { key: 'pressure', letter: 'P', label: 'Pressure', icon: 'bi-heart-pulse-fill' },
+      { key: 'bmi',      letter: 'B', label: 'BMI > 35', icon: 'bi-person-fill' },
+      { key: 'age',      letter: 'A', label: 'Age > 50', icon: 'bi-calendar-event-fill' },
+      { key: 'neck',     letter: 'N', label: 'Neck > 40cm', icon: 'bi-record-circle-fill' },
+      { key: 'gender',   letter: 'G', label: 'Male',     icon: 'bi-gender-male' }
+    ];
+
+    // Title
+    var title = document.createElement('div');
+    title.style.cssText = 'text-align:center;font-size:1.3rem;font-weight:700;margin-bottom:10px;color:' + tc.bodyColor;
+    title.textContent = 'STOP-BANG — Sleep Apnoea Screen';
+    container.appendChild(title);
+
+    // 4×2 grid
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:520px;margin:0 auto';
+
+    for (var i = 0; i < ITEMS.length; i++) {
+      var item = ITEMS[i];
+      var pos = sb.items[item.key];
+      var unknown = sb.unknown && sb.unknown[item.key];
+
+      var cell = document.createElement('div');
+      var bgColor, fgColor, borderCol;
+      if (unknown) {
+        bgColor = isDark() ? 'rgba(255,255,255,0.06)' : '#f5f5f5';
+        fgColor = tc.tickColor;
+        borderCol = isDark() ? 'rgba(255,255,255,0.1)' : '#ddd';
+      } else if (pos) {
+        bgColor = hexToRGBA(tc.danger, 0.15);
+        fgColor = tc.danger;
+        borderCol = tc.danger;
+      } else {
+        bgColor = hexToRGBA(tc.success, 0.12);
+        fgColor = tc.success;
+        borderCol = hexToRGBA(tc.success, 0.4);
+      }
+
+      cell.style.cssText = 'border-radius:8px;padding:10px 6px;text-align:center;' +
+        'background:' + bgColor + ';border:2px solid ' + borderCol + ';' +
+        'display:flex;flex-direction:column;align-items:center;gap:2px';
+
+      // Icon
+      var iconEl = document.createElement('i');
+      iconEl.className = 'bi ' + item.icon;
+      iconEl.style.cssText = 'font-size:1.8rem;color:' + fgColor;
+      cell.appendChild(iconEl);
+
+      // Letter badge
+      var badge = document.createElement('div');
+      badge.style.cssText = 'font-size:1.4rem;font-weight:800;line-height:1;color:' + fgColor;
+      badge.textContent = item.letter;
+      cell.appendChild(badge);
+
+      // Label
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:0.78rem;line-height:1.1;color:' + (unknown ? tc.tickColor : fgColor) +
+        ';font-weight:500';
+      lbl.textContent = item.label;
+      cell.appendChild(lbl);
+
+      // Status
+      var status = document.createElement('div');
+      status.style.cssText = 'font-size:0.7rem;margin-top:2px;font-weight:600';
+      if (unknown) {
+        status.style.color = tc.tickColor;
+        status.textContent = 'Not assessed';
+      } else if (pos) {
+        status.style.color = tc.danger;
+        status.textContent = '● YES';
+      } else {
+        status.style.color = tc.success;
+        status.textContent = '○ No';
+      }
+      cell.appendChild(status);
+
+      grid.appendChild(cell);
+    }
+    container.appendChild(grid);
+
+    // Score summary bar
+    var summary = document.createElement('div');
+    summary.style.cssText = 'text-align:center;margin-top:10px';
+
+    var scoreBig = document.createElement('span');
+    scoreBig.style.cssText = 'font-size:1.6rem;font-weight:800;color:' + tc.bodyColor;
+    scoreBig.textContent = sb.total + '/8';
+    summary.appendChild(scoreBig);
+
+    var interpBadge = document.createElement('span');
+    var interpColor = sb.total >= 5 ? tc.danger : sb.total >= 3 ? tc.warning : tc.success;
+    var interpText = sb.total >= 5 ? 'High risk of OSA' : sb.total >= 3 ? 'Intermediate risk' : 'Low risk of OSA';
+    interpBadge.style.cssText = 'display:inline-block;margin-left:10px;padding:3px 12px;border-radius:20px;' +
+      'font-size:0.95rem;font-weight:600;color:#fff;background:' + interpColor;
+    interpBadge.textContent = interpText;
+    summary.appendChild(interpBadge);
+
+    if (sb.unknownCount > 0) {
+      var unknownNote = document.createElement('div');
+      unknownNote.style.cssText = 'font-size:0.8rem;color:' + tc.tickColor + ';margin-top:4px;font-style:italic';
+      unknownNote.textContent = sb.unknownCount + ' item' + (sb.unknownCount > 1 ? 's' : '') + ' not yet assessed';
+      summary.appendChild(unknownNote);
+    }
+
+    container.appendChild(summary);
+  }
+
+  // ═══════════════════════════════════════════
+  //  10. RBANS LINE PROFILE (preserved)
   // ═══════════════════════════════════════════
   function createRBANSChart(containerId) {
     var rb = S.getScore('rbans');
     if (!rb || !rb.indices) return;
-
     var container = document.getElementById(containerId);
-    if (container) {
-      container.style.maxWidth = '600px';
-      container.style.margin = '0 auto';
-    }
-    var c = ensureCanvas(containerId, 500);
+    if (container) { container.style.maxWidth = '700px'; container.style.margin = '0 auto'; }
+    var c = ensureCanvas(containerId, 550);
     if (!c) return;
-
     var tc = themeColors();
     var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
-    var idx = rb.indices;
-    var duff = rb.duff;
+    var idx = rb.indices; var duff = rb.duff;
     var stdData = [idx.immediateMemory, idx.visuospatial, idx.language, idx.attention, idx.delayedMemory];
-    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex),
-      parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
-
-    // Use theme-aware colours: primary for std norms, info/warning for duff
-    var stdColor = tc.primary;
-    var duffColor = tc.warning;
-
+    var duffData = [parseFloat(duff.immIndex), parseFloat(duff.visuoIndex), parseFloat(duff.langIndex), parseFloat(duff.attIndex), parseFloat(duff.memIndex)];
     try {
       _chartInstances[c.canvasId] = new Chart(c.canvas.getContext('2d'), {
         type: 'line',
         data: {
           labels: labels,
           datasets: [
-            {
-              label: 'Standard Norms',
-              data: stdData,
-              borderColor: stdColor,
-              backgroundColor: hexToRGBA(stdColor, 0.08),
-              borderWidth: 2.5,
-              pointRadius: 6,
-              pointBackgroundColor: stdColor,
-              fill: false,
-              tension: 0.1
-            },
-            {
-              label: 'Duff Adjusted',
-              data: duffData,
-              borderColor: duffColor,
-              backgroundColor: hexToRGBA(duffColor, 0.08),
-              borderWidth: 2.5,
-              borderDash: [6, 3],
-              pointRadius: 6,
-              pointBackgroundColor: duffColor,
-              pointStyle: 'rectRot',
-              fill: false,
-              tension: 0.1
-            }
+            { label: 'Standard Norms', data: stdData, borderColor: tc.primary, backgroundColor: hexToRGBA(tc.primary, 0.08), borderWidth: 3, pointRadius: 7, pointBackgroundColor: tc.primary, fill: false, tension: 0.1 },
+            { label: 'Duff Adjusted', data: duffData, borderColor: tc.warning, backgroundColor: hexToRGBA(tc.warning, 0.08), borderWidth: 3, borderDash: [6,3], pointRadius: 7, pointBackgroundColor: tc.warning, pointStyle: 'rectRot', fill: false, tension: 0.1 }
           ]
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: 'RBANS Index Profile', font: { size: 13, weight: 'bold' }, color: tc.bodyColor },
-            legend: { position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } }
+            title: { display: true, text: 'RBANS Index Profile', font: { size: 26, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } },
+            legend: { position: 'bottom', labels: { font: { size: 22 }, color: tc.tickColor, padding: 16 } }
           },
           scales: {
-            y: {
-              min: 40, max: 160,
-              ticks: { stepSize: 10, font: { size: 10 }, color: tc.tickColor },
-              title: { display: true, text: 'Index Score', font: { size: 11 }, color: tc.tickColor },
-              grid: { color: tc.gridColor }
-            },
-            x: {
-              ticks: { font: { size: 10 }, color: tc.tickColor },
-              grid: { color: tc.gridColor }
-            }
+            y: { min: 40, max: 160, ticks: { stepSize: 10, font: { size: 20 }, color: tc.tickColor }, title: { display: true, text: 'Index Score', font: { size: 22 }, color: tc.tickColor }, grid: { color: tc.gridColor } },
+            x: { ticks: { font: { size: 20 }, color: tc.tickColor }, grid: { color: tc.gridColor } }
           }
         },
         plugins: [{
           id: 'rbans-report-bands',
           beforeDraw: function (chart) {
-            var ctx = chart.ctx;
-            var yScale = chart.scales.y;
-            var area = chart.chartArea;
+            var ctx = chart.ctx; var yScale = chart.scales.y; var area = chart.chartArea;
             var bandAlpha = isDark() ? 0.12 : 0.07;
             var bands = [
               { lo: 40, hi: 70, color: hexToRGBA(tc.danger, bandAlpha) },
@@ -13047,22 +13949,15 @@ BHM.Charts = (function () {
               ctx.fillStyle = bands[b].color;
               ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
             }
-            // Mean line
             var meanY = yScale.getPixelForValue(100);
             ctx.strokeStyle = isDark() ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(area.left, meanY);
-            ctx.lineTo(area.right, meanY);
-            ctx.stroke();
+            ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+            ctx.beginPath(); ctx.moveTo(area.left, meanY); ctx.lineTo(area.right, meanY); ctx.stroke();
             ctx.restore();
           }
         }]
       });
-    } catch (e) {
-      console.warn('BHM Charts: RBANS failed', containerId, e);
-    }
+    } catch (e) { console.warn('BHM Charts: RBANS failed', containerId, e); }
   }
 
   // ═══════════════════════════════════════════
@@ -13071,36 +13966,163 @@ BHM.Charts = (function () {
   function renderReportCharts() {
     var tc = themeColors();
 
-    // ── PSQI 7-component bar (meaningful multi-bar) ──
-    var psqi = S.getScore('psqi');
-    if (psqi && psqi.globalTotal !== null) {
-      var compLabels = ['Quality', 'Latency', 'Duration', 'Efficiency', 'Disturbance', 'Medication', 'Day Dysfunction'];
-      var compKeys = ['subjectiveQuality', 'sleepLatency', 'sleepDuration', 'sleepEfficiency',
-        'sleepDisturbance', 'sleepMedication', 'daytimeDysfunction'];
-      var compData = compKeys.map(function (k) { return psqi.components[k] || 0; });
-      createBarChart('chart-psqi', {
-        labels: compLabels, data: compData, max: 3, height: 220,
-        thresholdValue: 2, warningValue: 1
+    // ── Education traffic light ──
+    var qual = S.get('instruments.clinical.highestQual');
+    if (qual) {
+      var qualMap = { 'None': 0, 'GCSE/O-level': 1, 'A-level': 1, 'Degree': 2, 'Postgrad': 2, 'Other': 1 };
+      var activeIdx = qualMap[qual] !== undefined ? qualMap[qual] : -1;
+      createTrafficLight('chart-education', {
+        levels: [
+          { label: 'Primary / None', color: tc.danger },
+          { label: 'Secondary', color: tc.warning },
+          { label: 'Tertiary', color: tc.success }
+        ],
+        activeIndex: activeIdx
       });
     }
 
-    // ── CASP-19 4-domain bar (meaningful multi-bar) ──
+    // ── GDS-15 mosaic ──
+    var gds = S.getScore('depression');
+    if (gds && gds.total !== null) {
+      var GDS_ITEMS = [
+        { key: 'd1', label: 'Satisfied', dep: 'no' }, { key: 'd2', label: 'Dropped activities', dep: 'yes' },
+        { key: 'd3', label: 'Life empty', dep: 'yes' }, { key: 'd4', label: 'Often bored', dep: 'yes' },
+        { key: 'd5', label: 'Good spirits', dep: 'no' }, { key: 'd6', label: 'Afraid', dep: 'yes' },
+        { key: 'd7', label: 'Happy', dep: 'no' }, { key: 'd8', label: 'Helpless', dep: 'yes' },
+        { key: 'd9', label: 'Stay home', dep: 'yes' }, { key: 'd10', label: 'Memory worse', dep: 'yes' },
+        { key: 'd11', label: 'Wonderful alive', dep: 'no' }, { key: 'd12', label: 'Worthless', dep: 'yes' },
+        { key: 'd13', label: 'Full of energy', dep: 'no' }, { key: 'd14', label: 'Hopeless', dep: 'yes' },
+        { key: 'd15', label: 'Others better', dep: 'yes' }
+      ];
+      var mosaicItems = GDS_ITEMS.map(function (item) {
+        var val = S.get('instruments.depression.' + item.key);
+        var endorsed = (val === item.dep);
+        return { label: item.label, endorsed: endorsed };
+      });
+      createMosaic('chart-gds', {
+        title: 'GDS-15 — Depressive Items',
+        items: mosaicItems,
+        cols: 5,
+        endorsedColor: isDark() ? '#555' : '#222'
+      });
+    }
+
+    // ── GAD-7 radar ──
+    var gad = S.getScore('gad7');
+    if (gad && gad.total !== null) {
+      var GAD_LABELS = ['Nervous /\nAnxious', 'Uncontrollable\nWorry', 'Excessive\nWorry', 'Trouble\nRelaxing', 'Restless-\nness', 'Irritable', 'Feeling\nAfraid'];
+      var gadKeys = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7'];
+      var gadData = gadKeys.map(function (k) { var v = S.get('instruments.gad7.' + k); return v !== undefined && v !== null ? Number(v) : 0; });
+      createRadarChart('chart-gad7', {
+        labels: GAD_LABELS,
+        datasets: [{ label: 'GAD-7', data: gadData, border: tc.info }],
+        max: 3, step: 1, height: 380, labelSize: 15,
+        title: 'GAD-7 — Anxiety Profile'
+      });
+    }
+
+    // ── PSQI horizontal bar (7 components) ──
+    var psqi = S.getScore('psqi');
+    if (psqi && psqi.globalTotal !== null) {
+      var compLabels = ['Quality', 'Latency', 'Duration', 'Efficiency', 'Disturbance', 'Medication', 'Day Dysfunction'];
+      var compKeys = ['subjectiveQuality', 'sleepLatency', 'sleepDuration', 'sleepEfficiency', 'sleepDisturbance', 'sleepMedication', 'daytimeDysfunction'];
+      var compData = compKeys.map(function (k) { return psqi.components[k] || 0; });
+      var compColors = compData.map(function (v) { return sevColor(v, 3, tc); });
+      createBarChart('chart-psqi', {
+        labels: compLabels, data: compData, max: 3, height: 320,
+        colors: compColors, horizontal: true,
+        title: 'PSQI Components (0–3 each)'
+      });
+    }
+
+    // ── Epworth gauge ──
+    var epworth = S.getScore('epworth');
+    if (epworth && epworth.total !== null) {
+      createGaugeChart('chart-epworth', {
+        value: epworth.total,
+        zones: [
+          { max: 5, color: tc.success, label: 'Lower normal' },
+          { max: 10, color: '#8BC34A', label: 'Higher normal' },
+          { max: 12, color: tc.warning, label: 'Mild' },
+          { max: 15, color: '#fd7e14', label: 'Moderate' },
+          { max: 24, color: tc.danger, label: 'Severe' }
+        ],
+        sublabel: 'Daytime Sleepiness',
+        height: 300
+      });
+    }
+
+    // ── AUDIT bullet chart ──
+    var audit = S.getScore('auditTool');
+    if (audit && audit.total !== null) {
+      createBulletChart('chart-audit', {
+        value: audit.total,
+        zones: [
+          { max: 7, color: tc.success, label: 'Low risk' },
+          { max: 15, color: tc.warning, label: 'Increasing risk' },
+          { max: 19, color: '#fd7e14', label: 'Higher risk' },
+          { max: 40, color: tc.danger, label: 'Possible dependence' }
+        ]
+      });
+    }
+
+    // ── CASP-19 grouped bar ──
     var casp = S.getScore('casp19');
     if (casp && casp.total !== null && casp.domainTotals) {
-      var cLabels = [], cData = [];
+      var cLabels = [], cData = [], cMax = [];
+      var domainMaxes = { 'Control': 12, 'Autonomy': 15, 'Self-realisation': 12, 'Pleasure': 18 };
       for (var d in casp.domainTotals) {
         if (casp.domainTotals.hasOwnProperty(d)) {
           cLabels.push(d);
           cData.push(casp.domainTotals[d]);
+          cMax.push(domainMaxes[d] || 15);
         }
       }
+      var cColors = cData.map(function (v, idx) { return v >= cMax[idx] * 0.7 ? tc.success : v >= cMax[idx] * 0.4 ? tc.warning : tc.danger; });
       createBarChart('chart-casp19', {
-        labels: cLabels, data: cData, height: 200,
-        colors: cData.map(function () { return tc.primary; })
+        labels: cLabels, data: cData, height: 280,
+        colors: cColors,
+        title: 'CASP-19 Quality of Life Domains'
       });
     }
 
-    // ── MBI-C 5-domain radar (windrose) ──
+    // ── Mediterranean Diet ring ──
+    var diet = S.getScore('diet');
+    if (diet && diet.total !== null) {
+      var dietColor = diet.total >= 10 ? tc.success : diet.total >= 7 ? tc.warning : tc.danger;
+      createProgressRing('chart-diet', {
+        value: diet.total, max: 14,
+        color: dietColor, label: 'Diet Score',
+        sublabel: diet.total >= 10 ? 'Good adherence' : diet.total >= 7 ? 'Moderate' : 'Low adherence',
+        height: 260
+      });
+    }
+
+    // ── Hearing mosaic ──
+    var hearing = S.getScore('hearing');
+    if (hearing) {
+      var HEAR_LABELS = [
+        'TV/radio', 'Phone', 'Face to face', 'Group unfamiliar', 'Group familiar',
+        'Noisy shop', 'Restaurant', 'Busy street', 'Car', 'Public transport',
+        'Worship', 'Music', 'Lecture/talk', 'Multi-floor rooms', 'Echoing rooms',
+        'Outdoors', 'Soft speech'
+      ];
+      var hearItems = [];
+      for (var h = 0; h < 17; h++) {
+        var hVal = S.get('instruments.hearing.hs' + (h + 1));
+        hearItems.push({ label: HEAR_LABELS[h] || 'Situation ' + (h + 1), endorsed: hVal === 'yes' });
+      }
+      if (hearItems.some(function (it) { return it.endorsed; })) {
+        createMosaic('chart-hearing', {
+          title: 'Hearing — Affected Situations',
+          items: hearItems,
+          cols: 6,
+          endorsedColor: '#fd7e14'
+        });
+      }
+    }
+
+    // ── MBI-C radar ──
     var mbic = S.getScore('mbiC');
     if (mbic && mbic.total !== null && BHM.Instruments.MBIC) {
       var domains = BHM.Instruments.MBIC.getDomains();
@@ -13115,36 +14137,29 @@ BHM.Charts = (function () {
         }
         mData.push(dTotal);
       }
-      // Max per domain: items * 3 (each scored 0-3)
       var maxPerDomain = domains.map(function (dom) { return dom.items.length * 3; });
       var maxAll = Math.max.apply(null, maxPerDomain);
       createRadarChart('chart-mbic', {
         labels: mLabels,
         datasets: [{ label: 'MBI-C Domain Scores', data: mData, border: tc.danger }],
-        max: maxAll,
-        step: Math.ceil(maxAll / 5),
-        height: 320,
-        labelSize: 11
+        max: maxAll, step: Math.ceil(maxAll / 5), height: 420, labelSize: 15
       });
     }
 
-    // ── NPI-Q 12-symptom radar (severity + distress overlaid) ──
+    // ── NPI-Q radar ──
     var npiq = S.getScore('npiQ');
     if (npiq && npiq.count > 0 && BHM.Instruments.NPIQ) {
       var symptoms = BHM.Instruments.NPIQ.getSymptoms();
       var nLabels = [], sevData = [], distData = [];
       for (var si = 0; si < symptoms.length; si++) {
-        nLabels.push(symptoms[si].label.split('/')[0]); // short label
+        nLabels.push(symptoms[si].label.split('/')[0]);
         var present = S.get('instruments.npiQ.' + symptoms[si].key + '_present');
         if (present === 'yes') {
           var sev = S.get('instruments.npiQ.' + symptoms[si].key + '_severity');
           var dist = S.get('instruments.npiQ.' + symptoms[si].key + '_distress');
           sevData.push(sev !== undefined && sev !== null ? Number(sev) : 0);
           distData.push(dist !== undefined && dist !== null ? Number(dist) : 0);
-        } else {
-          sevData.push(0);
-          distData.push(0);
-        }
+        } else { sevData.push(0); distData.push(0); }
       }
       createRadarChart('chart-npiq', {
         labels: nLabels,
@@ -13152,14 +14167,11 @@ BHM.Charts = (function () {
           { label: 'Severity', data: sevData, border: tc.warning, borderWidth: 2 },
           { label: 'Carer Distress', data: distData, border: tc.danger, borderWidth: 2 }
         ],
-        max: 5,
-        step: 1,
-        height: 340,
-        labelSize: 10
+        max: 5, step: 1, height: 440, labelSize: 15
       });
     }
 
-    // ── CDR 6-domain radar ──
+    // ── CDR radar ──
     var cdr = S.getScore('cdr');
     if (cdr && cdr.total !== null && cdr.domainScores) {
       var cdrLabels = ['Memory', 'Orientation', 'Judgment', 'Community\nAffairs', 'Home &\nHobbies', 'Personal\nCare'];
@@ -13168,11 +14180,29 @@ BHM.Charts = (function () {
       createRadarChart('chart-cdr', {
         labels: cdrLabels,
         datasets: [{ label: 'CDR Domain Ratings', data: cdrData, border: tc.secondary }],
-        max: 3,
-        step: 0.5,
-        height: 300,
-        labelSize: 11
+        max: 3, step: 0.5, height: 400, labelSize: 16
       });
+    }
+
+    // ── Neuroimaging severity bars ──
+    var scans = S.get('neuroimaging.scans') || [];
+    for (var ni = 0; ni < scans.length; ni++) {
+      var scan = scans[ni];
+      var containerId = 'chart-neuro-' + ni;
+      var bars = [];
+      if (scan.fazekasPV !== null && scan.fazekasPV !== undefined) bars.push({ label: 'Fazekas PV', value: scan.fazekasPV, max: 3 });
+      if (scan.fazekasDWM !== null && scan.fazekasDWM !== undefined) bars.push({ label: 'Fazekas DWM', value: scan.fazekasDWM, max: 3 });
+      if (scan.gca !== null && scan.gca !== undefined) bars.push({ label: 'GCA', value: scan.gca, max: 3 });
+      if (scan.koedam !== null && scan.koedam !== undefined) bars.push({ label: 'Koedam', value: scan.koedam, max: 3 });
+      if (scan.mtaLeft !== null && scan.mtaLeft !== undefined) bars.push({ label: 'MTA Left', value: scan.mtaLeft, max: 4 });
+      if (scan.mtaRight !== null && scan.mtaRight !== undefined) bars.push({ label: 'MTA Right', value: scan.mtaRight, max: 4 });
+      if (bars.length > 0) createSeverityBars(containerId, { items: bars });
+    }
+
+    // ── STOP-BANG infographic ──
+    var sb = S.getScore('stopBang');
+    if (sb && sb.total !== undefined) {
+      createStopBangInfographic('chart-stopbang', sb, tc);
     }
 
     // ── RBANS profile line chart ──
@@ -13368,6 +14398,28 @@ BHM.Export = (function () {
     var cvRisk = S.get('medicalHistory.cvRisk') || {};
     var cvCount = Object.keys(cvRisk).length;
     if (cvCount > 0) rows.push(['Medical History', 'CV Risk Factors', cvCount]);
+
+    // Physical examination
+    var pe = S.getSession().physicalExam || {};
+    if (pe.heightCm) rows.push(['Physical Exam', 'Height (cm)', pe.heightCm]);
+    if (pe.weightKg) rows.push(['Physical Exam', 'Weight (kg)', pe.weightKg]);
+    if (pe.bmi) rows.push(['Physical Exam', 'BMI', pe.bmi]);
+    if (pe.neckCircCm) rows.push(['Physical Exam', 'Neck Circumference (cm)', pe.neckCircCm]);
+    if (pe.bpSystolic) rows.push(['Physical Exam', 'BP Systolic', pe.bpSystolic]);
+    if (pe.bpDiastolic) rows.push(['Physical Exam', 'BP Diastolic', pe.bpDiastolic]);
+    if (pe.heartRate) rows.push(['Physical Exam', 'Heart Rate', pe.heartRate]);
+    if (pe.o2Sat) rows.push(['Physical Exam', 'O2 Sat (%)', pe.o2Sat]);
+    if (pe.gait) rows.push(['Physical Exam', 'Gait', pe.gait]);
+    if (pe.tremor) rows.push(['Physical Exam', 'Tremor', pe.tremor]);
+    if (pe.rigidity) rows.push(['Physical Exam', 'Rigidity', pe.rigidity]);
+
+    // STOP-BANG
+    var sbScore = scores.stopBang;
+    if (sbScore) {
+      rows.push(['STOP-BANG', 'Total', sbScore.total]);
+      rows.push(['STOP-BANG', 'Interpretation', sbScore.interp]);
+      rows.push(['STOP-BANG', 'Unknown Items', sbScore.unknownCount]);
+    }
 
     var csv = rows.map(function (row) {
       return row.map(function (cell) {
@@ -13881,42 +14933,87 @@ BHM.DocxExport = (function () {
   //  Chart capture
   // ═══════════════════════════════════════════
   var CHART_IDS = [
+    { id: 'chart-education', label: 'Education Level' },
+    { id: 'chart-gds', label: 'GDS-15 Depressive Items' },
+    { id: 'chart-gad7', label: 'GAD-7 Anxiety Profile' },
     { id: 'chart-psqi', label: 'PSQI Sleep Components' },
+    { id: 'chart-epworth', label: 'Epworth Sleepiness Scale' },
+    { id: 'chart-audit', label: 'AUDIT Alcohol Use' },
     { id: 'chart-casp19', label: 'CASP-19 Quality of Life Domains' },
+    { id: 'chart-diet', label: 'Mediterranean Diet Adherence' },
+    { id: 'chart-hearing', label: 'Hearing — Affected Situations' },
     { id: 'chart-mbic', label: 'MBI-C Behavioural Domains' },
     { id: 'chart-npiq', label: 'NPI-Q Symptom Severity & Distress' },
+    { id: 'chart-stopbang', label: 'STOP-BANG Sleep Apnoea Screen' },
     { id: 'chart-cdr', label: 'CDR Domain Ratings' },
     { id: 'chart-rbans', label: 'RBANS Cognitive Index Profile' }
   ];
 
+  // Also try neuroimaging charts dynamically
+  function getNeuroChartIds() {
+    var ids = [];
+    var scans = BHM.State.get('neuroimaging.scans') || [];
+    for (var i = 0; i < scans.length; i++) {
+      ids.push({ id: 'chart-neuro-' + i, label: 'Neuroimaging — ' + (scans[i].modality || 'Scan ' + (i + 1)) });
+    }
+    return ids;
+  }
+
   function captureCharts() {
-    var results = [];
-    for (var i = 0; i < CHART_IDS.length; i++) {
-      var container = document.getElementById(CHART_IDS[i].id);
+    var allIds = CHART_IDS.concat(getNeuroChartIds());
+    var canvasResults = [];
+    var domPromises = [];
+    for (var i = 0; i < allIds.length; i++) {
+      var container = document.getElementById(allIds[i].id);
       if (!container) continue;
+      // skip empty containers
+      if (!container.innerHTML || container.innerHTML.trim() === '') continue;
       var canvas = container.querySelector('canvas');
-      if (!canvas) continue;
-      try {
-        var canvasId = canvas.id;
-        var chartInstance = (BHM.Charts && BHM.Charts._instances) ? BHM.Charts._instances[canvasId] : null;
-        var dataUrl;
-        if (chartInstance && typeof chartInstance.toBase64Image === 'function') {
-          try { dataUrl = chartInstance.toBase64Image('image/png', 1); } catch (e2) { dataUrl = null; }
+      if (canvas) {
+        // Canvas-based chart (Chart.js)
+        try {
+          var canvasId = canvas.id;
+          var chartInstance = (BHM.Charts && BHM.Charts._instances) ? BHM.Charts._instances[canvasId] : null;
+          var dataUrl;
+          if (chartInstance && typeof chartInstance.toBase64Image === 'function') {
+            try { dataUrl = chartInstance.toBase64Image('image/png', 1); } catch (e2) { dataUrl = null; }
+          }
+          if (!dataUrl || dataUrl.length < 200) {
+            dataUrl = canvas.toDataURL('image/png');
+          }
+          if (dataUrl && dataUrl.length > 200) {
+            var rect = canvas.getBoundingClientRect();
+            var w = rect.width || canvas.offsetWidth || canvas.width;
+            var h = rect.height || canvas.offsetHeight || canvas.height;
+            canvasResults.push({ label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
+          }
+        } catch (e) {
+          console.warn('DocxExport: canvas chart capture failed', allIds[i].id, e);
         }
-        if (!dataUrl || dataUrl.length < 200) {
-          dataUrl = canvas.toDataURL('image/png');
-        }
-        if (dataUrl && dataUrl.length > 200) {
-          var rect = canvas.getBoundingClientRect();
-          var w = rect.width || canvas.offsetWidth || canvas.width;
-          var h = rect.height || canvas.offsetHeight || canvas.height;
-          results.push({ label: CHART_IDS[i].label, dataUrl: dataUrl, width: w, height: h });
-        }
-      } catch (e) {
-        console.warn('DocxExport: chart capture failed', CHART_IDS[i].id, e);
+      } else if (typeof html2canvas === 'function') {
+        // DOM-based chart — capture using html2canvas
+        domPromises.push((function (entry, el) {
+          return html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true }).then(function (cvs) {
+            var url = cvs.toDataURL('image/png');
+            if (url && url.length > 200) {
+              return { label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
+            }
+            return null;
+          }).catch(function (err) {
+            console.warn('DocxExport: DOM chart capture failed', entry.id, err);
+            return null;
+          });
+        })(allIds[i], container));
       }
     }
-    return results;
+    // Return a promise that resolves with all charts
+    if (domPromises.length === 0) return Promise.resolve(canvasResults);
+    return Promise.all(domPromises).then(function (domResults) {
+      for (var j = 0; j < domResults.length; j++) {
+        if (domResults[j]) canvasResults.push(domResults[j]);
+      }
+      return canvasResults;
+    });
   }
 
   function dataUrlToUint8(dataUrl) {
@@ -13927,7 +15024,7 @@ BHM.DocxExport = (function () {
     return arr;
   }
 
-  /** Build graphical summary section — charts in a 2-column table */
+  /** Build graphical summary — simple 2-column table. */
   function buildGraphicalSummary(charts) {
     var d = D();
     var children = [];
@@ -13963,16 +15060,16 @@ BHM.DocxExport = (function () {
         if (idx < charts.length) {
           var chart = charts[idx];
           var imgData = dataUrlToUint8(chart.dataUrl);
-          var maxW = 250;
+          var maxW = 280;
           var ratio = chart.height / chart.width;
           var imgW = maxW;
           var imgH = Math.round(maxW * ratio);
-          if (imgH > 220) { imgH = 220; imgW = Math.round(220 / ratio); }
+          if (imgH > 260) { imgH = 260; imgW = Math.round(260 / ratio); }
 
           cells.push(new d.TableCell({
             children: [
               new d.Paragraph({
-                children: [new d.TextRun({ text: chart.label, bold: true, size: 18, font: FONT, color: '1a3c6e' })],
+                children: [new d.TextRun({ text: chart.label, bold: true, size: 20, font: FONT, color: '1a3c6e' })],
                 alignment: d.AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 }
               }),
@@ -14176,54 +15273,58 @@ BHM.DocxExport = (function () {
       }));
     }
 
-    // ── Graphical summary (charts) ──
-    var charts = captureCharts();
-    var summaryElements = buildGraphicalSummary(charts);
+    // ── Graphical summary (charts — may be async due to html2canvas) ──
+    var chartsResult = captureCharts();
 
-    // ── Combine all content ──
-    var allChildren = titleElements.concat(reportElements).concat(summaryElements);
+    function finishDoc(charts) {
+      var summaryElements = buildGraphicalSummary(charts);
+      var allChildren = titleElements.concat(reportElements).concat(summaryElements);
 
-    // ── Build document ──
-    var doc = new d.Document({
-      creator: 'Manchester Brain Health Centre Assessment App',
-      title: 'Assessment Report — ' + name,
-      description: 'Generated assessment report',
-      styles: {
-        default: {
-          document: {
-            run: { font: FONT, size: 22 }
-          },
-          heading1: {
-            run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
-            paragraph: { spacing: { before: 300, after: 100 } }
-          },
-          heading2: {
-            run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
-            paragraph: { spacing: { before: 240, after: 80 } }
-          },
-          heading3: {
-            run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
-            paragraph: { spacing: { before: 200, after: 60 } }
-          },
-          heading4: {
-            run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
-            paragraph: { spacing: { before: 160, after: 40 } }
-          }
-        }
-      },
-      sections: [{
-        properties: {
-          page: {
-            margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+      return new d.Document({
+        creator: 'Manchester Brain Health Centre Assessment App',
+        title: 'Assessment Report — ' + name,
+        description: 'Generated assessment report',
+        styles: {
+          default: {
+            document: {
+              run: { font: FONT, size: 22 }
+            },
+            heading1: {
+              run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
+              paragraph: { spacing: { before: 300, after: 100 } }
+            },
+            heading2: {
+              run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
+              paragraph: { spacing: { before: 240, after: 80 } }
+            },
+            heading3: {
+              run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
+              paragraph: { spacing: { before: 200, after: 60 } }
+            },
+            heading4: {
+              run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
+              paragraph: { spacing: { before: 160, after: 40 } }
+            }
           }
         },
-        headers: { default: new d.Header({ children: headerChildren }) },
-        footers: { default: new d.Footer({ children: footerChildren }) },
-        children: allChildren
-      }]
-    });
+        sections: [{
+          properties: {
+            page: {
+              margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+            }
+          },
+          headers: { default: new d.Header({ children: headerChildren }) },
+          footers: { default: new d.Footer({ children: footerChildren }) },
+          children: allChildren
+        }]
+      });
+    }
 
-    return doc;
+    // chartsResult may be a Promise or an array
+    if (chartsResult && typeof chartsResult.then === 'function') {
+      return chartsResult.then(finishDoc);
+    }
+    return finishDoc(chartsResult);
   }
 
   // ═══════════════════════════════════════════
@@ -14402,8 +15503,12 @@ BHM.DocxExport = (function () {
       // Small extra delay for canvas paint to complete
       setTimeout(function () {
         try {
-          var doc = buildDocument();
-          d.Packer.toBlob(doc).then(function (blob) {
+          var docResult = buildDocument();
+          // buildDocument may return a Promise (async chart capture) or a Document
+          var docPromise = (docResult && typeof docResult.then === 'function') ? docResult : Promise.resolve(docResult);
+          docPromise.then(function (doc) {
+            return d.Packer.toBlob(doc);
+          }).then(function (blob) {
             return embedFonts(blob);
           }).then(function (finalBlob) {
             var filename = 'MBHC_Report_' + slug() + '_' + ts() + '.docx';
@@ -14540,6 +15645,9 @@ BHM.App = (function () {
 
     // Medications
     BHM.Instruments.Medications.render(document.getElementById('medicationsContent'));
+
+    // Physical Exam
+    BHM.Instruments.PhysicalExam.render(document.getElementById('physicalExamContent'));
 
     // Diagnosis
     BHM.Instruments.Diagnosis.render(document.getElementById('diagnosisContent'));

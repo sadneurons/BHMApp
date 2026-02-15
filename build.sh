@@ -45,6 +45,7 @@ JS_FILES=(
   "$SRC/js/instruments/neuroimaging.js"
   "$SRC/js/instruments/medicalHistory.js"
   "$SRC/js/instruments/medications.js"
+  "$SRC/js/instruments/physicalExam.js"
   "$SRC/js/instruments/diagnosis.js"
   "$SRC/js/scoring/scoring.js"
   "$SRC/js/report/reportGenerator.js"

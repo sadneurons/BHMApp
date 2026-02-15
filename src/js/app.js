@@ -90,6 +90,9 @@ BHM.App = (function () {
     // Medications
     BHM.Instruments.Medications.render(document.getElementById('medicationsContent'));
 
+    // Physical Exam
+    BHM.Instruments.PhysicalExam.render(document.getElementById('physicalExamContent'));
+
     // Diagnosis
     BHM.Instruments.Diagnosis.render(document.getElementById('diagnosisContent'));
 

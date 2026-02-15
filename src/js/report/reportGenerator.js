@@ -12,6 +12,8 @@ BHM.Report = (function () {
   var TEMPLATE_VERSION = '2.1.0';
 
   function update() {
+    // Recalculate derived scores that pull from multiple instruments
+    if (BHM.Scoring && BHM.Scoring.stopBang) BHM.Scoring.stopBang();
     updateSidePanel();
     updateFullReport();
   }
@@ -93,9 +95,10 @@ BHM.Report = (function () {
     html += neuroimagingSection(compact);
     html += rbansSection(compact);
 
-    // ── Medications & Medical History (placeholders) ──
+    // ── Medications, Medical History, Physical Exam ──
     html += medicationsSection(compact);
     html += medicalHistorySection(compact);
+    html += physicalExamSection(compact);
 
     // ── Informant scales ──
     html += informantSection(compact);
@@ -328,6 +331,9 @@ BHM.Report = (function () {
 
       // ── Scores table (MRI / CT only) ──
       content += niScoresTable(scan, mod);
+
+      // ── Visual rating scale chart ──
+      if (!compact) content += '<div class="chart-container" id="chart-neuro-' + i + '"></div>';
 
       // Clinician interpretation
       if (scan.clinicianInterpretation && scan.clinicianInterpretation.trim()) {
@@ -740,6 +746,119 @@ BHM.Report = (function () {
     return section('Medical History', content, compact, 'medicalHistory');
   }
 
+  // ═══════════════════════════════════════════
+  //  PHYSICAL EXAMINATION
+  // ═══════════════════════════════════════════
+  function physicalExamSection(compact) {
+    var PE = 'physicalExam.';
+    var hasAny = S.get(PE + 'heightCm') || S.get(PE + 'weightKg') || S.get(PE + 'bpSystolic') ||
+                 S.get(PE + 'heartRate') || S.get(PE + 'gait') || S.get(PE + 'focalNeurology') ||
+                 S.get(PE + 'neckCircCm');
+    var sbScore = S.getScore('stopBang');
+    var hasSB = sbScore && sbScore.unknownCount < 8;
+    if (!hasAny && !hasSB) {
+      return section('Physical Examination', '<p class="text-muted">No physical examination findings have been recorded.</p>', compact, 'physicalExam');
+    }
+
+    var content = '';
+
+    // ── Anthropometrics ──
+    var h = S.get(PE + 'heightCm');
+    var w = S.get(PE + 'weightKg');
+    var bmi = parseFloat(S.get(PE + 'bmi'));
+    var neck = S.get(PE + 'neckCircCm');
+    var waist = S.get(PE + 'waistCircCm');
+
+    if (h || w || !isNaN(bmi)) {
+      var anthro = [];
+      if (h) anthro.push('height ' + esc(String(h)) + ' cm');
+      if (w) anthro.push('weight ' + esc(String(w)) + ' kg');
+      if (!isNaN(bmi)) {
+        var bmiLabel = bmi < 18.5 ? 'underweight' : bmi < 25 ? 'normal' : bmi < 30 ? 'overweight' : bmi < 35 ? 'obese (Class I)' : bmi < 40 ? 'obese (Class II)' : 'obese (Class III)';
+        anthro.push('BMI <strong>' + bmi + '</strong> (' + bmiLabel + ')');
+      }
+      if (neck) anthro.push('neck circumference ' + esc(String(neck)) + ' cm');
+      if (waist) anthro.push('waist circumference ' + esc(String(waist)) + ' cm');
+      content += '<p><strong>Anthropometrics:</strong> ' + anthro.join(', ') + '.</p>';
+    }
+
+    // ── Vital signs ──
+    var sys = S.get(PE + 'bpSystolic');
+    var dia = S.get(PE + 'bpDiastolic');
+    var hr = S.get(PE + 'heartRate');
+    var o2 = S.get(PE + 'o2Sat');
+    var temp = S.get(PE + 'temperature');
+    var rr = S.get(PE + 'respRate');
+
+    if (sys || hr || o2) {
+      var vitals = [];
+      if (sys && dia) vitals.push('blood pressure ' + esc(String(sys)) + '/' + esc(String(dia)) + ' mmHg');
+      else if (sys) vitals.push('systolic BP ' + esc(String(sys)) + ' mmHg');
+      if (hr) vitals.push('heart rate ' + esc(String(hr)) + ' bpm');
+      if (o2) vitals.push('O\u2082 saturation ' + esc(String(o2)) + '%');
+      if (temp) vitals.push('temperature ' + esc(String(temp)) + ' \u00B0C');
+      if (rr) vitals.push('respiratory rate ' + esc(String(rr)));
+      content += '<p><strong>Vital signs:</strong> ' + vitals.join(', ') + '.</p>';
+    }
+
+    // ── Postural BP ──
+    var ls = parseFloat(S.get(PE + 'bpLyingSys'));
+    var ss = parseFloat(S.get(PE + 'bpStandingSys'));
+    if (!isNaN(ls) && !isNaN(ss)) {
+      var drop = ls - ss;
+      var significant = drop >= 20;
+      content += '<p><strong>Postural blood pressure:</strong> Lying ' + ls + '/' + (S.get(PE + 'bpLyingDia') || '?') +
+        ', standing ' + ss + '/' + (S.get(PE + 'bpStandingDia') || '?') +
+        ' mmHg (systolic drop ' + drop + ' mmHg' +
+        (significant ? ' — <em>significant postural hypotension</em>' : ' — within normal range') + ').</p>';
+    }
+
+    // ── Observations ──
+    var gait = S.get(PE + 'gait');
+    var tremor = S.get(PE + 'tremor');
+    var rigidity = S.get(PE + 'rigidity');
+    var nutritional = S.get(PE + 'nutritional');
+    if (gait || tremor || rigidity || nutritional) {
+      var obs = [];
+      if (gait && gait !== '') obs.push('gait was ' + esc(gait).toLowerCase());
+      if (tremor && tremor !== '' && tremor !== 'None') obs.push(esc(tremor).toLowerCase() + ' was noted');
+      else if (tremor === 'None') obs.push('no tremor');
+      if (rigidity && rigidity !== '' && rigidity !== 'None') obs.push('rigidity was ' + esc(rigidity).toLowerCase());
+      else if (rigidity === 'None') obs.push('no rigidity');
+      if (nutritional && nutritional !== '') obs.push('nutritional status: ' + esc(nutritional).toLowerCase());
+      content += '<p><strong>General observations:</strong> ' + obs.join('; ') + '.</p>';
+    }
+
+    // ── Focal neurology ──
+    var focal = S.get(PE + 'focalNeurology');
+    if (focal && focal.trim()) {
+      content += '<p><strong>Focal neurological signs:</strong> ' + esc(focal) + '</p>';
+    } else {
+      content += '<p><strong>Focal neurological signs:</strong> none elicited.</p>';
+    }
+
+    // ── Other findings ──
+    var other = S.get(PE + 'otherFindings');
+    if (other && other.trim()) {
+      content += '<p><strong>Other findings:</strong> ' + esc(other) + '</p>';
+    }
+
+    // ── STOP-BANG ──
+    var sb = S.getScore('stopBang');
+    if (sb && sb.unknownCount < 8) {
+      content += '<p><strong>STOP-BANG sleep apnoea screen:</strong> ' +
+        scoreBadge(sb.total, 8, { moderate: 3, poor: 5 }) +
+        ' (' + sb.interp + ')';
+      if (sb.unknownCount > 0) {
+        content += ' <em>(' + sb.unknownCount + ' item' + (sb.unknownCount > 1 ? 's' : '') + ' not yet assessed)</em>';
+      }
+      content += '</p>';
+      if (!compact) content += '<div class="chart-container" id="chart-stopbang"></div>';
+    }
+
+    return section('Physical Examination', content, compact, 'physicalExam');
+  }
+
   // Helper: extract checked labels from a checklist object
   function checkedLabels(obj, defs) {
     var labels = [];
@@ -1065,6 +1184,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>It sounds like anxiety has been having a noticeable impact on your life. There are effective approaches that can help, and it is worth exploring what kind of support might be most beneficial for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-gad7"></div>';
     } else {
       content += '<p class="text-muted">GAD-7 not yet completed.</p>';
     }
@@ -1116,6 +1236,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>It sounds like you have been going through a difficult time emotionally. Please know that support is available, and there are effective ways to help with these feelings.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-gds"></div>';
     } else {
       content += '<p class="text-muted">Depression screen not yet completed.</p>';
     }
@@ -1181,6 +1302,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>Your responses suggest that alcohol may be having a significant impact on your life. There are effective support options available, and it is worth discussing what might be most helpful for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-audit"></div>';
     } else {
       content += '<p class="text-muted">AUDIT not yet completed.</p>';
     }
@@ -1237,6 +1359,7 @@ BHM.Report = (function () {
       } else {
         content += '<p><em>There may be some straightforward changes you could consider to move your diet closer to a Mediterranean pattern, which is associated with better brain health outcomes. A dietitian or other specialist can help think about what would work best for you.</em></p>';
       }
+      if (!compact) content += '<div class="chart-container" id="chart-diet"></div>';
     } else {
       content += '<p class="text-muted">Diet questionnaire not yet completed.</p>';
     }
@@ -1402,6 +1525,7 @@ BHM.Report = (function () {
         }
 
         content += '<p><em>Hearing plays an important role in communication, social connection, and overall wellbeing. Addressing hearing difficulties can have a positive impact on many areas of life, and there are good options available.</em></p>';
+        if (!compact) content += '<div class="chart-container" id="chart-hearing"></div>';
       } else {
         content += '<p><em>You did not report significant hearing difficulties, which is positive.</em></p>';
       }
@@ -1744,6 +1868,7 @@ BHM.Report = (function () {
         content += '. ' + edSentences[es].charAt(0).toUpperCase() + edSentences[es].slice(1);
       }
       content += '.</p>';
+      if (!compact) content += '<div class="chart-container" id="chart-education"></div>';
     }
 
     // ── H. Substance use ──

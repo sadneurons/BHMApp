@@ -380,42 +380,87 @@ BHM.DocxExport = (function () {
   //  Chart capture
   // ═══════════════════════════════════════════
   var CHART_IDS = [
+    { id: 'chart-education', label: 'Education Level' },
+    { id: 'chart-gds', label: 'GDS-15 Depressive Items' },
+    { id: 'chart-gad7', label: 'GAD-7 Anxiety Profile' },
     { id: 'chart-psqi', label: 'PSQI Sleep Components' },
+    { id: 'chart-epworth', label: 'Epworth Sleepiness Scale' },
+    { id: 'chart-audit', label: 'AUDIT Alcohol Use' },
     { id: 'chart-casp19', label: 'CASP-19 Quality of Life Domains' },
+    { id: 'chart-diet', label: 'Mediterranean Diet Adherence' },
+    { id: 'chart-hearing', label: 'Hearing — Affected Situations' },
     { id: 'chart-mbic', label: 'MBI-C Behavioural Domains' },
     { id: 'chart-npiq', label: 'NPI-Q Symptom Severity & Distress' },
+    { id: 'chart-stopbang', label: 'STOP-BANG Sleep Apnoea Screen' },
     { id: 'chart-cdr', label: 'CDR Domain Ratings' },
     { id: 'chart-rbans', label: 'RBANS Cognitive Index Profile' }
   ];
 
+  // Also try neuroimaging charts dynamically
+  function getNeuroChartIds() {
+    var ids = [];
+    var scans = BHM.State.get('neuroimaging.scans') || [];
+    for (var i = 0; i < scans.length; i++) {
+      ids.push({ id: 'chart-neuro-' + i, label: 'Neuroimaging — ' + (scans[i].modality || 'Scan ' + (i + 1)) });
+    }
+    return ids;
+  }
+
   function captureCharts() {
-    var results = [];
-    for (var i = 0; i < CHART_IDS.length; i++) {
-      var container = document.getElementById(CHART_IDS[i].id);
+    var allIds = CHART_IDS.concat(getNeuroChartIds());
+    var canvasResults = [];
+    var domPromises = [];
+    for (var i = 0; i < allIds.length; i++) {
+      var container = document.getElementById(allIds[i].id);
       if (!container) continue;
+      // skip empty containers
+      if (!container.innerHTML || container.innerHTML.trim() === '') continue;
       var canvas = container.querySelector('canvas');
-      if (!canvas) continue;
-      try {
-        var canvasId = canvas.id;
-        var chartInstance = (BHM.Charts && BHM.Charts._instances) ? BHM.Charts._instances[canvasId] : null;
-        var dataUrl;
-        if (chartInstance && typeof chartInstance.toBase64Image === 'function') {
-          try { dataUrl = chartInstance.toBase64Image('image/png', 1); } catch (e2) { dataUrl = null; }
+      if (canvas) {
+        // Canvas-based chart (Chart.js)
+        try {
+          var canvasId = canvas.id;
+          var chartInstance = (BHM.Charts && BHM.Charts._instances) ? BHM.Charts._instances[canvasId] : null;
+          var dataUrl;
+          if (chartInstance && typeof chartInstance.toBase64Image === 'function') {
+            try { dataUrl = chartInstance.toBase64Image('image/png', 1); } catch (e2) { dataUrl = null; }
+          }
+          if (!dataUrl || dataUrl.length < 200) {
+            dataUrl = canvas.toDataURL('image/png');
+          }
+          if (dataUrl && dataUrl.length > 200) {
+            var rect = canvas.getBoundingClientRect();
+            var w = rect.width || canvas.offsetWidth || canvas.width;
+            var h = rect.height || canvas.offsetHeight || canvas.height;
+            canvasResults.push({ label: allIds[i].label, dataUrl: dataUrl, width: w, height: h });
+          }
+        } catch (e) {
+          console.warn('DocxExport: canvas chart capture failed', allIds[i].id, e);
         }
-        if (!dataUrl || dataUrl.length < 200) {
-          dataUrl = canvas.toDataURL('image/png');
-        }
-        if (dataUrl && dataUrl.length > 200) {
-          var rect = canvas.getBoundingClientRect();
-          var w = rect.width || canvas.offsetWidth || canvas.width;
-          var h = rect.height || canvas.offsetHeight || canvas.height;
-          results.push({ label: CHART_IDS[i].label, dataUrl: dataUrl, width: w, height: h });
-        }
-      } catch (e) {
-        console.warn('DocxExport: chart capture failed', CHART_IDS[i].id, e);
+      } else if (typeof html2canvas === 'function') {
+        // DOM-based chart — capture using html2canvas
+        domPromises.push((function (entry, el) {
+          return html2canvas(el, { backgroundColor: null, scale: 2, useCORS: true }).then(function (cvs) {
+            var url = cvs.toDataURL('image/png');
+            if (url && url.length > 200) {
+              return { label: entry.label, dataUrl: url, width: el.offsetWidth, height: el.offsetHeight };
+            }
+            return null;
+          }).catch(function (err) {
+            console.warn('DocxExport: DOM chart capture failed', entry.id, err);
+            return null;
+          });
+        })(allIds[i], container));
       }
     }
-    return results;
+    // Return a promise that resolves with all charts
+    if (domPromises.length === 0) return Promise.resolve(canvasResults);
+    return Promise.all(domPromises).then(function (domResults) {
+      for (var j = 0; j < domResults.length; j++) {
+        if (domResults[j]) canvasResults.push(domResults[j]);
+      }
+      return canvasResults;
+    });
   }
 
   function dataUrlToUint8(dataUrl) {
@@ -426,7 +471,7 @@ BHM.DocxExport = (function () {
     return arr;
   }
 
-  /** Build graphical summary section — charts in a 2-column table */
+  /** Build graphical summary — simple 2-column table. */
   function buildGraphicalSummary(charts) {
     var d = D();
     var children = [];
@@ -462,16 +507,16 @@ BHM.DocxExport = (function () {
         if (idx < charts.length) {
           var chart = charts[idx];
           var imgData = dataUrlToUint8(chart.dataUrl);
-          var maxW = 250;
+          var maxW = 280;
           var ratio = chart.height / chart.width;
           var imgW = maxW;
           var imgH = Math.round(maxW * ratio);
-          if (imgH > 220) { imgH = 220; imgW = Math.round(220 / ratio); }
+          if (imgH > 260) { imgH = 260; imgW = Math.round(260 / ratio); }
 
           cells.push(new d.TableCell({
             children: [
               new d.Paragraph({
-                children: [new d.TextRun({ text: chart.label, bold: true, size: 18, font: FONT, color: '1a3c6e' })],
+                children: [new d.TextRun({ text: chart.label, bold: true, size: 20, font: FONT, color: '1a3c6e' })],
                 alignment: d.AlignmentType.CENTER,
                 spacing: { before: 80, after: 80 }
               }),
@@ -675,54 +720,58 @@ BHM.DocxExport = (function () {
       }));
     }
 
-    // ── Graphical summary (charts) ──
-    var charts = captureCharts();
-    var summaryElements = buildGraphicalSummary(charts);
+    // ── Graphical summary (charts — may be async due to html2canvas) ──
+    var chartsResult = captureCharts();
 
-    // ── Combine all content ──
-    var allChildren = titleElements.concat(reportElements).concat(summaryElements);
+    function finishDoc(charts) {
+      var summaryElements = buildGraphicalSummary(charts);
+      var allChildren = titleElements.concat(reportElements).concat(summaryElements);
 
-    // ── Build document ──
-    var doc = new d.Document({
-      creator: 'Manchester Brain Health Centre Assessment App',
-      title: 'Assessment Report — ' + name,
-      description: 'Generated assessment report',
-      styles: {
-        default: {
-          document: {
-            run: { font: FONT, size: 22 }
-          },
-          heading1: {
-            run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
-            paragraph: { spacing: { before: 300, after: 100 } }
-          },
-          heading2: {
-            run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
-            paragraph: { spacing: { before: 240, after: 80 } }
-          },
-          heading3: {
-            run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
-            paragraph: { spacing: { before: 200, after: 60 } }
-          },
-          heading4: {
-            run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
-            paragraph: { spacing: { before: 160, after: 40 } }
-          }
-        }
-      },
-      sections: [{
-        properties: {
-          page: {
-            margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+      return new d.Document({
+        creator: 'Manchester Brain Health Centre Assessment App',
+        title: 'Assessment Report — ' + name,
+        description: 'Generated assessment report',
+        styles: {
+          default: {
+            document: {
+              run: { font: FONT, size: 22 }
+            },
+            heading1: {
+              run: { font: FONT_HEADING, size: 30, bold: false, color: '2080E5' },
+              paragraph: { spacing: { before: 300, after: 100 } }
+            },
+            heading2: {
+              run: { font: FONT_HEADING, size: 26, bold: false, color: '2080E5' },
+              paragraph: { spacing: { before: 240, after: 80 } }
+            },
+            heading3: {
+              run: { font: FONT_HEADING, size: 23, bold: false, color: '3A8FE8' },
+              paragraph: { spacing: { before: 200, after: 60 } }
+            },
+            heading4: {
+              run: { font: FONT_HEADING, size: 21, bold: false, color: '4A9AEF' },
+              paragraph: { spacing: { before: 160, after: 40 } }
+            }
           }
         },
-        headers: { default: new d.Header({ children: headerChildren }) },
-        footers: { default: new d.Footer({ children: footerChildren }) },
-        children: allChildren
-      }]
-    });
+        sections: [{
+          properties: {
+            page: {
+              margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 }
+            }
+          },
+          headers: { default: new d.Header({ children: headerChildren }) },
+          footers: { default: new d.Footer({ children: footerChildren }) },
+          children: allChildren
+        }]
+      });
+    }
 
-    return doc;
+    // chartsResult may be a Promise or an array
+    if (chartsResult && typeof chartsResult.then === 'function') {
+      return chartsResult.then(finishDoc);
+    }
+    return finishDoc(chartsResult);
   }
 
   // ═══════════════════════════════════════════
@@ -901,8 +950,12 @@ BHM.DocxExport = (function () {
       // Small extra delay for canvas paint to complete
       setTimeout(function () {
         try {
-          var doc = buildDocument();
-          d.Packer.toBlob(doc).then(function (blob) {
+          var docResult = buildDocument();
+          // buildDocument may return a Promise (async chart capture) or a Document
+          var docPromise = (docResult && typeof docResult.then === 'function') ? docResult : Promise.resolve(docResult);
+          docPromise.then(function (doc) {
+            return d.Packer.toBlob(doc);
+          }).then(function (blob) {
             return embedFonts(blob);
           }).then(function (finalBlob) {
             var filename = 'MBHC_Report_' + slug() + '_' + ts() + '.docx';

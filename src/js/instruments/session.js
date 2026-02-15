@@ -73,16 +73,56 @@ BHM.Instruments.Session = (function () {
       label: 'Date of Birth',
       statePath: 'patient.dob',
       type: 'date'
-    }), 'col-md-4'));
+    }), 'col-md-3'));
+
+    // Auto-calculated age display
+    var ageCol = document.createElement('div');
+    ageCol.className = 'col-md-1';
+    var ageGroup = document.createElement('div');
+    ageGroup.className = 'bhm-field-group';
+    ageGroup.innerHTML =
+      '<label class="form-label small fw-bold">Age</label>' +
+      '<div class="form-control form-control-sm text-center fw-bold" style="background:var(--bs-tertiary-bg,#f8f9fa)" id="session-age-display">—</div>';
+    ageCol.appendChild(ageGroup);
+    patRow.appendChild(ageCol);
+
+    patRow.appendChild(wrapCol(F.createField({
+      label: 'Sex',
+      statePath: 'patient.sex',
+      type: 'select',
+      options: ['', 'Male', 'Female']
+    }), 'col-md-2'));
 
     patRow.appendChild(wrapCol(F.createField({
       label: 'EPR Number',
       statePath: 'patient.nhsNumber',
       placeholder: 'Optional',
       helpText: 'Optional — for clinical linking'
-    }), 'col-md-4'));
+    }), 'col-md-2'));
 
     patientSection.appendChild(patRow);
+
+    // ── Age auto-calculation on DOB change ──
+    function updateAge() {
+      var dob = BHM.State.get('patient.dob');
+      var el = document.getElementById('session-age-display');
+      if (!el) return;
+      if (dob) {
+        var b = new Date(dob);
+        var now = new Date();
+        var age = now.getFullYear() - b.getFullYear();
+        var m = now.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+        el.textContent = age;
+      } else {
+        el.textContent = '—';
+      }
+    }
+    BHM.State.subscribe(function (path) {
+      if (path === 'patient.dob') updateAge();
+    });
+    updateAge();
+
     card.appendChild(patientSection);
 
     // ── Clinician / Informant ──

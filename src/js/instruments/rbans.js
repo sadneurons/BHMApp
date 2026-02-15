@@ -51,10 +51,28 @@ BHM.Instruments.RBANS = (function () {
     html += '<table class="cdr-worksheet-table mb-0">';
     html += '<colgroup><col style="width:50%"><col style="width:50%"></colgroup>';
     html += demoRow('topf', 'TOPF Score', 'number', '0–70');
-    html += demoRow('age', 'Age', 'number', 'Years');
-    html += demoRow('years_of_education', 'Years of Education', 'number', 'Years');
-    html += '<tr><td>Gender at Birth</td><td class="cdr-ws-note-cell">' +
-      radioGroup('gender', [{ v: 'Male', l: 'Male' }, { v: 'Female', l: 'Female' }]) + '</td></tr>';
+
+    // Auto-derived: Age from patient.dob
+    var autoAge = getPatientAge();
+    html += '<tr><td>Age</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-age" class="fw-bold" style="font-size:0.9rem">' +
+      (autoAge !== null ? autoAge + ' yrs' : '<span class="text-muted fst-italic">Set DOB on Session tab</span>') +
+      '</span></td></tr>';
+
+    // Auto-derived: Years of Education from clinical interview
+    var autoYOE = S.get('instruments.clinical.yearsEdu');
+    html += '<tr><td>Years of Education</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-yoe" class="fw-bold" style="font-size:0.9rem">' +
+      (autoYOE !== undefined && autoYOE !== null && autoYOE !== '' ? autoYOE + ' yrs' : '<span class="text-muted fst-italic">Set on Clinical Interview tab</span>') +
+      '</span></td></tr>';
+
+    // Auto-derived: Sex from patient.sex
+    var autoSex = S.get('patient.sex');
+    html += '<tr><td>Sex</td><td class="cdr-ws-note-cell">' +
+      '<span id="rbans-auto-sex" class="fw-bold" style="font-size:0.9rem">' +
+      (autoSex ? autoSex : '<span class="text-muted fst-italic">Set on Session tab</span>') +
+      '</span></td></tr>';
+
     html += '<tr><td>Ethnicity</td><td class="cdr-ws-note-cell">' +
       radioGroup('ethnicity', [{ v: 'White', l: 'White' }, { v: 'Non-White', l: 'Non-White' }]) + '</td></tr>';
     html += '</table>';
@@ -138,16 +156,23 @@ BHM.Instruments.RBANS = (function () {
     }
 
     // Restore radio selections
-    var savedGender = S.get(PREFIX + '.gender');
-    if (savedGender) {
-      var gEl = container.querySelector('input.rbans-radio[data-key="gender"][value="' + savedGender + '"]');
-      if (gEl) gEl.checked = true;
-    }
     var savedEth = S.get(PREFIX + '.ethnicity');
     if (savedEth) {
       var eEl = container.querySelector('input.rbans-radio[data-key="ethnicity"][value="' + savedEth + '"]');
       if (eEl) eEl.checked = true;
     }
+  }
+
+  // ── Helper: derive age from patient.dob ──
+  function getPatientAge() {
+    var dob = S.get('patient.dob');
+    if (!dob) return null;
+    var b = new Date(dob);
+    var now = new Date();
+    var age = now.getFullYear() - b.getFullYear();
+    var m = now.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+    return age;
   }
 
   // ── Helper: demographic input row ──
@@ -181,12 +206,17 @@ BHM.Instruments.RBANS = (function () {
     var d = S.getSession().instruments.rbans || {};
     var SD = 15;
 
+    // Pull demographics from session / clinical interview
+    var derivedAge = getPatientAge();
+    var derivedSex = S.get('patient.sex');
+    var derivedYOE = S.get('instruments.clinical.yearsEdu');
+
     // Validate required fields
     var missing = [];
-    if (d.age === undefined || d.age === null) missing.push('Age');
-    if (!d.gender) missing.push('Gender');
+    if (derivedAge === null || derivedAge === undefined) missing.push('Age (set DOB on Session tab)');
+    if (!derivedSex) missing.push('Sex (set on Session tab)');
     if (!d.ethnicity) missing.push('Ethnicity');
-    if (d.years_of_education === undefined || d.years_of_education === null) missing.push('Years of Education');
+    if (derivedYOE === undefined || derivedYOE === null || derivedYOE === '') missing.push('Years of Education (set on Clinical Interview tab)');
     for (var i = 0; i < SUBTESTS.length; i++) {
       if (d[SUBTESTS[i].id] === undefined || d[SUBTESTS[i].id] === null) {
         missing.push(SUBTESTS[i].label);
@@ -197,9 +227,9 @@ BHM.Instruments.RBANS = (function () {
       return;
     }
 
-    var age = parseInt(d.age, 10);
+    var age = parseInt(derivedAge, 10);
     var topf = d.topf !== undefined && d.topf !== null ? parseInt(d.topf, 10) : null;
-    var yearsEd = parseInt(d.years_of_education, 10);
+    var yearsEd = parseInt(derivedYOE, 10);
 
     // Get raw scores
     var listlearning = parseInt(d.listlearning, 10);
@@ -261,7 +291,7 @@ BHM.Instruments.RBANS = (function () {
     var totalCentile = centile(totalScaledScore);
 
     // ── DUFF REGRESSION NORMS ──
-    var sexbeta = d.gender === 'Male' ? 1 : 0;
+    var sexbeta = derivedSex === 'Male' ? 1 : 0;
     var ethnicbeta = d.ethnicity === 'White' ? 0 : 1;
     var yoebeta;
     if (yearsEd < 12) yoebeta = 1;

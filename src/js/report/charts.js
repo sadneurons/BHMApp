@@ -72,7 +72,7 @@ BHM.Charts = (function () {
   //  1. BAR CHART (generic)
   // ═══════════════════════════════════════════
   function createBarChart(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 220);
+    var c = ensureCanvas(containerId, config.height || 280);
     if (!c) return;
     var tc = themeColors();
     var colors = config.colors || config.data.map(function (val) {
@@ -88,10 +88,13 @@ BHM.Charts = (function () {
         data: { labels: config.labels, datasets: [{ data: config.data, backgroundColor: colors, borderColor: colors, borderWidth: 1, borderRadius: 4 }] },
         options: {
           responsive: true, maintainAspectRatio: false, indexAxis: config.horizontal ? 'y' : 'x',
-          plugins: { legend: { display: false }, title: config.title ? { display: true, text: config.title, font: { size: 12, weight: 'bold' }, color: tc.bodyColor } : { display: false } },
+          plugins: {
+            legend: { display: false },
+            title: config.title ? { display: true, text: config.title, font: { size: 24, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } } : { display: false }
+          },
           scales: {
-            y: { beginAtZero: true, max: config.max || undefined, grid: { color: tc.gridColor }, ticks: { font: { size: 10 }, color: tc.tickColor } },
-            x: { grid: { display: config.horizontal ? true : false, color: tc.gridColor }, ticks: { font: { size: 10 }, maxRotation: 45, color: tc.tickColor }, max: config.horizontal ? (config.max || undefined) : undefined }
+            y: { beginAtZero: true, max: config.max || undefined, grid: { color: tc.gridColor }, ticks: { font: { size: 20 }, color: tc.tickColor } },
+            x: { grid: { display: config.horizontal ? true : false, color: tc.gridColor }, ticks: { font: { size: 20 }, maxRotation: 45, color: tc.tickColor }, max: config.horizontal ? (config.max || undefined) : undefined }
           }
         }
       });
@@ -102,7 +105,7 @@ BHM.Charts = (function () {
   //  2. RADAR / WINDROSE
   // ═══════════════════════════════════════════
   function createRadarChart(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 300);
+    var c = ensureCanvas(containerId, config.height || 400);
     if (!c) return;
     var tc = themeColors();
     var datasets = [];
@@ -112,7 +115,7 @@ BHM.Charts = (function () {
       datasets.push({
         label: ds.label, data: ds.data,
         backgroundColor: ds.bg || hexToRGBA(border, 0.15), borderColor: border,
-        borderWidth: ds.borderWidth || 2, pointBackgroundColor: border, pointRadius: 4, pointHoverRadius: 6
+        borderWidth: ds.borderWidth || 2, pointBackgroundColor: border, pointRadius: 5, pointHoverRadius: 7
       });
     }
     try {
@@ -122,14 +125,14 @@ BHM.Charts = (function () {
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } },
-            title: config.title ? { display: true, text: config.title, font: { size: 12, weight: 'bold' }, color: tc.bodyColor } : { display: false }
+            legend: { display: datasets.length > 1, position: 'bottom', labels: { font: { size: 16 }, color: tc.tickColor, padding: 12 } },
+            title: config.title ? { display: true, text: config.title, font: { size: 18, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 8 } } : { display: false }
           },
           scales: {
             r: {
               beginAtZero: true, max: config.max || undefined,
-              ticks: { stepSize: config.step || undefined, font: { size: 10 }, backdropColor: 'transparent', color: tc.tickColor },
-              pointLabels: { font: { size: config.labelSize || 11 }, color: tc.tickColor },
+              ticks: { stepSize: config.step || undefined, font: { size: 15 }, backdropColor: 'transparent', color: tc.tickColor },
+              pointLabels: { font: { size: config.labelSize || 16 }, color: tc.tickColor },
               grid: { color: tc.gridColor }, angleLines: { color: tc.gridColor }
             }
           }
@@ -142,7 +145,7 @@ BHM.Charts = (function () {
   //  3. DOUGHNUT / PROGRESS RING
   // ═══════════════════════════════════════════
   function createProgressRing(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 200, { maxWidth: 220, center: true });
+    var c = ensureCanvas(containerId, config.height || 260, { maxWidth: 300, center: true });
     if (!c) return;
     var tc = themeColors();
     var val = config.value;
@@ -172,10 +175,10 @@ BHM.Charts = (function () {
             var cy = (area.top + area.bottom) / 2;
             ctx.save();
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = tc.bodyColor;
-            ctx.fillText(val + '/' + max, cx, cy - 8);
-            ctx.font = '12px sans-serif'; ctx.fillStyle = tc.tickColor;
-            ctx.fillText(config.sublabel || '', cx, cy + 16);
+            ctx.font = 'bold 48px sans-serif'; ctx.fillStyle = tc.bodyColor;
+            ctx.fillText(val + '/' + max, cx, cy - 10);
+            ctx.font = '22px sans-serif'; ctx.fillStyle = tc.tickColor;
+            ctx.fillText(config.sublabel || '', cx, cy + 26);
             ctx.restore();
           }
         }]
@@ -187,7 +190,7 @@ BHM.Charts = (function () {
   //  4. SEMICIRCULAR GAUGE (Epworth-style)
   // ═══════════════════════════════════════════
   function createGaugeChart(containerId, config) {
-    var c = ensureCanvas(containerId, config.height || 180, { maxWidth: 280, center: true });
+    var c = ensureCanvas(containerId, config.height || 300, { maxWidth: 400, center: true });
     if (!c) return;
     var tc = themeColors();
     var zones = config.zones; // [{max, color, label}]
@@ -203,6 +206,7 @@ BHM.Charts = (function () {
         options: {
           responsive: true, maintainAspectRatio: false,
           rotation: -90, circumference: 180,
+          layout: { padding: { bottom: 60 } },
           plugins: { legend: { display: false }, tooltip: { enabled: true } }
         },
         plugins: [{
@@ -220,18 +224,18 @@ BHM.Charts = (function () {
             ctx.translate(cx, cy);
             ctx.rotate(angle);
             ctx.beginPath();
-            ctx.moveTo(0, -3); ctx.lineTo(needleLen, 0); ctx.lineTo(0, 3);
+            ctx.moveTo(0, -4); ctx.lineTo(needleLen, 0); ctx.lineTo(0, 4);
             ctx.fillStyle = tc.bodyColor; ctx.fill();
             ctx.restore();
             // Center dot
-            ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2);
             ctx.fillStyle = tc.bodyColor; ctx.fill();
             // Score text
             ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-            ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = tc.bodyColor;
-            ctx.fillText(config.value + '/' + totalMax, cx, cy - 12);
-            ctx.font = '11px sans-serif'; ctx.fillStyle = tc.tickColor;
-            ctx.fillText(config.sublabel || '', cx, cy + 18);
+            ctx.font = 'bold 40px sans-serif'; ctx.fillStyle = tc.bodyColor;
+            ctx.fillText(config.value + '/' + totalMax, cx, cy - 14);
+            ctx.font = '22px sans-serif'; ctx.fillStyle = tc.tickColor;
+            ctx.fillText(config.sublabel || '', cx, cy + 30);
           }
         }]
       });
@@ -245,14 +249,14 @@ BHM.Charts = (function () {
     var container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    container.style.padding = '12px 0';
+    container.style.padding = '14px 0';
     var tc = themeColors();
     var zones = config.zones; // [{max, color, label}]
     var totalMax = zones[zones.length - 1].max;
     var val = config.value;
 
     var wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;height:32px;border-radius:6px;overflow:hidden;background:' + (isDark() ? 'rgba(255,255,255,0.06)' : '#f0f0f0');
+    wrap.style.cssText = 'position:relative;height:40px;border-radius:6px;overflow:hidden;background:' + (isDark() ? 'rgba(255,255,255,0.06)' : '#f0f0f0');
 
     // Zone backgrounds
     var prevPct = 0;
@@ -268,14 +272,14 @@ BHM.Charts = (function () {
     // Marker
     var markerPct = Math.min((val / totalMax) * 100, 100);
     var marker = document.createElement('div');
-    marker.style.cssText = 'position:absolute;top:2px;bottom:2px;left:' + markerPct + '%;width:4px;border-radius:2px;background:' + tc.bodyColor + ';transform:translateX(-2px)';
+    marker.style.cssText = 'position:absolute;top:2px;bottom:2px;left:' + markerPct + '%;width:5px;border-radius:2px;background:' + tc.bodyColor + ';transform:translateX(-2px)';
     wrap.appendChild(marker);
 
     container.appendChild(wrap);
 
     // Labels row
     var labels = document.createElement('div');
-    labels.style.cssText = 'display:flex;justify-content:space-between;font-size:0.72rem;color:' + tc.tickColor + ';margin-top:4px';
+    labels.style.cssText = 'display:flex;justify-content:space-between;font-size:1.1rem;color:' + tc.tickColor + ';margin-top:6px';
     for (var l = 0; l < zones.length; l++) {
       var sp = document.createElement('span');
       sp.textContent = zones[l].label;
@@ -285,7 +289,7 @@ BHM.Charts = (function () {
 
     // Score label
     var scoreLabel = document.createElement('div');
-    scoreLabel.style.cssText = 'text-align:center;font-weight:bold;font-size:0.9rem;margin-top:2px;color:' + tc.bodyColor;
+    scoreLabel.style.cssText = 'text-align:center;font-weight:bold;font-size:1.5rem;margin-top:4px;color:' + tc.bodyColor;
     scoreLabel.textContent = 'Score: ' + val + '/' + totalMax;
     container.appendChild(scoreLabel);
   }
@@ -303,12 +307,12 @@ BHM.Charts = (function () {
     var activeIdx = config.activeIndex;
 
     var row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:center;align-items:center';
+    row.style.cssText = 'display:flex;gap:10px;justify-content:center;align-items:center';
 
     for (var i = 0; i < levels.length; i++) {
       var light = document.createElement('div');
       var isActive = i === activeIdx;
-      light.style.cssText = 'flex:1;text-align:center;padding:10px 6px;border-radius:8px;font-size:0.82rem;font-weight:' +
+      light.style.cssText = 'flex:1;text-align:center;padding:14px 8px;border-radius:8px;font-size:1.3rem;font-weight:' +
         (isActive ? '700' : '400') + ';color:' + (isActive ? '#fff' : tc.tickColor) +
         ';background:' + (isActive ? levels[i].color : hexToRGBA(levels[i].color, 0.15)) +
         ';border:2px solid ' + (isActive ? levels[i].color : 'transparent') +
@@ -332,18 +336,18 @@ BHM.Charts = (function () {
     var cols = config.cols || 5;
 
     var title = document.createElement('div');
-    title.style.cssText = 'text-align:center;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:' + tc.bodyColor;
+    title.style.cssText = 'text-align:center;font-size:1.3rem;font-weight:600;margin-bottom:8px;color:' + tc.bodyColor;
     title.textContent = config.title || '';
     container.appendChild(title);
 
     var grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(' + cols + ',1fr);gap:3px;max-width:320px;margin:0 auto';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(' + cols + ',1fr);gap:4px;max-width:480px;margin:0 auto';
 
     for (var i = 0; i < items.length; i++) {
       var cell = document.createElement('div');
       var endorsed = items[i].endorsed;
       cell.style.cssText = 'aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;' +
-        'font-size:0.6rem;text-align:center;padding:2px;line-height:1.1;' +
+        'font-size:0.95rem;text-align:center;padding:4px;line-height:1.15;' +
         'background:' + (endorsed ? (config.endorsedColor || tc.danger) : (isDark() ? 'rgba(255,255,255,0.08)' : '#f5f5f5')) +
         ';color:' + (endorsed ? '#fff' : tc.tickColor) +
         ';font-weight:' + (endorsed ? '600' : '400');
@@ -355,7 +359,7 @@ BHM.Charts = (function () {
 
     var countLabel = document.createElement('div');
     var endorsedCount = items.filter(function (it) { return it.endorsed; }).length;
-    countLabel.style.cssText = 'text-align:center;font-size:0.85rem;font-weight:bold;margin-top:6px;color:' + tc.bodyColor;
+    countLabel.style.cssText = 'text-align:center;font-size:1.4rem;font-weight:bold;margin-top:8px;color:' + tc.bodyColor;
     countLabel.textContent = endorsedCount + '/' + items.length + ' endorsed';
     container.appendChild(countLabel);
   }
@@ -367,22 +371,22 @@ BHM.Charts = (function () {
     var container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    container.style.padding = '8px 0';
+    container.style.padding = '10px 0';
     var tc = themeColors();
     var items = config.items; // [{label, value, max}]
 
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;margin-bottom:4px;font-size:0.78rem';
+      row.style.cssText = 'display:flex;align-items:center;margin-bottom:8px;font-size:1.2rem';
 
       var label = document.createElement('span');
-      label.style.cssText = 'width:140px;flex-shrink:0;color:' + tc.bodyColor + ';font-weight:500';
+      label.style.cssText = 'width:160px;flex-shrink:0;color:' + tc.bodyColor + ';font-weight:500';
       label.textContent = item.label;
       row.appendChild(label);
 
       var barWrap = document.createElement('div');
-      barWrap.style.cssText = 'flex:1;height:16px;border-radius:4px;background:' + (isDark() ? 'rgba(255,255,255,0.08)' : '#eee') + ';position:relative;overflow:hidden';
+      barWrap.style.cssText = 'flex:1;height:22px;border-radius:4px;background:' + (isDark() ? 'rgba(255,255,255,0.08)' : '#eee') + ';position:relative;overflow:hidden';
 
       var fillPct = (item.value / item.max) * 100;
       var fill = document.createElement('div');
@@ -391,7 +395,7 @@ BHM.Charts = (function () {
       row.appendChild(barWrap);
 
       var valLabel = document.createElement('span');
-      valLabel.style.cssText = 'width:40px;text-align:right;font-weight:600;margin-left:6px;color:' + tc.bodyColor;
+      valLabel.style.cssText = 'width:60px;text-align:right;font-weight:600;margin-left:8px;color:' + tc.bodyColor;
       valLabel.textContent = item.value + '/' + item.max;
       row.appendChild(valLabel);
 
@@ -400,14 +404,134 @@ BHM.Charts = (function () {
   }
 
   // ═══════════════════════════════════════════
-  //  9. RBANS LINE PROFILE (preserved)
+  //  9. STOP-BANG INFOGRAPHIC (icon grid)
+  // ═══════════════════════════════════════════
+  function createStopBangInfographic(containerId, sb, tc) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.padding = '12px 0';
+
+    var ITEMS = [
+      { key: 'snoring',  letter: 'S', label: 'Snoring',  icon: 'bi-volume-up-fill' },
+      { key: 'tired',    letter: 'T', label: 'Tired',    icon: 'bi-emoji-dizzy-fill' },
+      { key: 'observed', letter: 'O', label: 'Observed', icon: 'bi-eye-fill' },
+      { key: 'pressure', letter: 'P', label: 'Pressure', icon: 'bi-heart-pulse-fill' },
+      { key: 'bmi',      letter: 'B', label: 'BMI > 35', icon: 'bi-person-fill' },
+      { key: 'age',      letter: 'A', label: 'Age > 50', icon: 'bi-calendar-event-fill' },
+      { key: 'neck',     letter: 'N', label: 'Neck > 40cm', icon: 'bi-record-circle-fill' },
+      { key: 'gender',   letter: 'G', label: 'Male',     icon: 'bi-gender-male' }
+    ];
+
+    // Title
+    var title = document.createElement('div');
+    title.style.cssText = 'text-align:center;font-size:1.3rem;font-weight:700;margin-bottom:10px;color:' + tc.bodyColor;
+    title.textContent = 'STOP-BANG — Sleep Apnoea Screen';
+    container.appendChild(title);
+
+    // 4×2 grid
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:520px;margin:0 auto';
+
+    for (var i = 0; i < ITEMS.length; i++) {
+      var item = ITEMS[i];
+      var pos = sb.items[item.key];
+      var unknown = sb.unknown && sb.unknown[item.key];
+
+      var cell = document.createElement('div');
+      var bgColor, fgColor, borderCol;
+      if (unknown) {
+        bgColor = isDark() ? 'rgba(255,255,255,0.06)' : '#f5f5f5';
+        fgColor = tc.tickColor;
+        borderCol = isDark() ? 'rgba(255,255,255,0.1)' : '#ddd';
+      } else if (pos) {
+        bgColor = hexToRGBA(tc.danger, 0.15);
+        fgColor = tc.danger;
+        borderCol = tc.danger;
+      } else {
+        bgColor = hexToRGBA(tc.success, 0.12);
+        fgColor = tc.success;
+        borderCol = hexToRGBA(tc.success, 0.4);
+      }
+
+      cell.style.cssText = 'border-radius:8px;padding:10px 6px;text-align:center;' +
+        'background:' + bgColor + ';border:2px solid ' + borderCol + ';' +
+        'display:flex;flex-direction:column;align-items:center;gap:2px';
+
+      // Icon
+      var iconEl = document.createElement('i');
+      iconEl.className = 'bi ' + item.icon;
+      iconEl.style.cssText = 'font-size:1.8rem;color:' + fgColor;
+      cell.appendChild(iconEl);
+
+      // Letter badge
+      var badge = document.createElement('div');
+      badge.style.cssText = 'font-size:1.4rem;font-weight:800;line-height:1;color:' + fgColor;
+      badge.textContent = item.letter;
+      cell.appendChild(badge);
+
+      // Label
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:0.78rem;line-height:1.1;color:' + (unknown ? tc.tickColor : fgColor) +
+        ';font-weight:500';
+      lbl.textContent = item.label;
+      cell.appendChild(lbl);
+
+      // Status
+      var status = document.createElement('div');
+      status.style.cssText = 'font-size:0.7rem;margin-top:2px;font-weight:600';
+      if (unknown) {
+        status.style.color = tc.tickColor;
+        status.textContent = 'Not assessed';
+      } else if (pos) {
+        status.style.color = tc.danger;
+        status.textContent = '● YES';
+      } else {
+        status.style.color = tc.success;
+        status.textContent = '○ No';
+      }
+      cell.appendChild(status);
+
+      grid.appendChild(cell);
+    }
+    container.appendChild(grid);
+
+    // Score summary bar
+    var summary = document.createElement('div');
+    summary.style.cssText = 'text-align:center;margin-top:10px';
+
+    var scoreBig = document.createElement('span');
+    scoreBig.style.cssText = 'font-size:1.6rem;font-weight:800;color:' + tc.bodyColor;
+    scoreBig.textContent = sb.total + '/8';
+    summary.appendChild(scoreBig);
+
+    var interpBadge = document.createElement('span');
+    var interpColor = sb.total >= 5 ? tc.danger : sb.total >= 3 ? tc.warning : tc.success;
+    var interpText = sb.total >= 5 ? 'High risk of OSA' : sb.total >= 3 ? 'Intermediate risk' : 'Low risk of OSA';
+    interpBadge.style.cssText = 'display:inline-block;margin-left:10px;padding:3px 12px;border-radius:20px;' +
+      'font-size:0.95rem;font-weight:600;color:#fff;background:' + interpColor;
+    interpBadge.textContent = interpText;
+    summary.appendChild(interpBadge);
+
+    if (sb.unknownCount > 0) {
+      var unknownNote = document.createElement('div');
+      unknownNote.style.cssText = 'font-size:0.8rem;color:' + tc.tickColor + ';margin-top:4px;font-style:italic';
+      unknownNote.textContent = sb.unknownCount + ' item' + (sb.unknownCount > 1 ? 's' : '') + ' not yet assessed';
+      summary.appendChild(unknownNote);
+    }
+
+    container.appendChild(summary);
+  }
+
+  // ═══════════════════════════════════════════
+  //  10. RBANS LINE PROFILE (preserved)
   // ═══════════════════════════════════════════
   function createRBANSChart(containerId) {
     var rb = S.getScore('rbans');
     if (!rb || !rb.indices) return;
     var container = document.getElementById(containerId);
-    if (container) { container.style.maxWidth = '600px'; container.style.margin = '0 auto'; }
-    var c = ensureCanvas(containerId, 500);
+    if (container) { container.style.maxWidth = '700px'; container.style.margin = '0 auto'; }
+    var c = ensureCanvas(containerId, 550);
     if (!c) return;
     var tc = themeColors();
     var labels = ['Immediate\nMemory', 'Visuospatial', 'Language', 'Attention', 'Delayed\nMemory'];
@@ -420,19 +544,19 @@ BHM.Charts = (function () {
         data: {
           labels: labels,
           datasets: [
-            { label: 'Standard Norms', data: stdData, borderColor: tc.primary, backgroundColor: hexToRGBA(tc.primary, 0.08), borderWidth: 2.5, pointRadius: 6, pointBackgroundColor: tc.primary, fill: false, tension: 0.1 },
-            { label: 'Duff Adjusted', data: duffData, borderColor: tc.warning, backgroundColor: hexToRGBA(tc.warning, 0.08), borderWidth: 2.5, borderDash: [6,3], pointRadius: 6, pointBackgroundColor: tc.warning, pointStyle: 'rectRot', fill: false, tension: 0.1 }
+            { label: 'Standard Norms', data: stdData, borderColor: tc.primary, backgroundColor: hexToRGBA(tc.primary, 0.08), borderWidth: 3, pointRadius: 7, pointBackgroundColor: tc.primary, fill: false, tension: 0.1 },
+            { label: 'Duff Adjusted', data: duffData, borderColor: tc.warning, backgroundColor: hexToRGBA(tc.warning, 0.08), borderWidth: 3, borderDash: [6,3], pointRadius: 7, pointBackgroundColor: tc.warning, pointStyle: 'rectRot', fill: false, tension: 0.1 }
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: 'RBANS Index Profile', font: { size: 13, weight: 'bold' }, color: tc.bodyColor },
-            legend: { position: 'bottom', labels: { font: { size: 11 }, color: tc.tickColor } }
+            title: { display: true, text: 'RBANS Index Profile', font: { size: 26, weight: 'bold' }, color: tc.bodyColor, padding: { bottom: 12 } },
+            legend: { position: 'bottom', labels: { font: { size: 22 }, color: tc.tickColor, padding: 16 } }
           },
           scales: {
-            y: { min: 40, max: 160, ticks: { stepSize: 10, font: { size: 10 }, color: tc.tickColor }, title: { display: true, text: 'Index Score', font: { size: 11 }, color: tc.tickColor }, grid: { color: tc.gridColor } },
-            x: { ticks: { font: { size: 10 }, color: tc.tickColor }, grid: { color: tc.gridColor } }
+            y: { min: 40, max: 160, ticks: { stepSize: 10, font: { size: 20 }, color: tc.tickColor }, title: { display: true, text: 'Index Score', font: { size: 22 }, color: tc.tickColor }, grid: { color: tc.gridColor } },
+            x: { ticks: { font: { size: 20 }, color: tc.tickColor }, grid: { color: tc.gridColor } }
           }
         },
         plugins: [{
@@ -520,12 +644,12 @@ BHM.Charts = (function () {
       createRadarChart('chart-gad7', {
         labels: GAD_LABELS,
         datasets: [{ label: 'GAD-7', data: gadData, border: tc.info }],
-        max: 3, step: 1, height: 280, labelSize: 10,
+        max: 3, step: 1, height: 380, labelSize: 15,
         title: 'GAD-7 — Anxiety Profile'
       });
     }
 
-    // ── PSQI stacked horizontal bar (7 components) ──
+    // ── PSQI horizontal bar (7 components) ──
     var psqi = S.getScore('psqi');
     if (psqi && psqi.globalTotal !== null) {
       var compLabels = ['Quality', 'Latency', 'Duration', 'Efficiency', 'Disturbance', 'Medication', 'Day Dysfunction'];
@@ -533,7 +657,7 @@ BHM.Charts = (function () {
       var compData = compKeys.map(function (k) { return psqi.components[k] || 0; });
       var compColors = compData.map(function (v) { return sevColor(v, 3, tc); });
       createBarChart('chart-psqi', {
-        labels: compLabels, data: compData, max: 3, height: 220,
+        labels: compLabels, data: compData, max: 3, height: 320,
         colors: compColors, horizontal: true,
         title: 'PSQI Components (0–3 each)'
       });
@@ -552,7 +676,7 @@ BHM.Charts = (function () {
           { max: 24, color: tc.danger, label: 'Severe' }
         ],
         sublabel: 'Daytime Sleepiness',
-        height: 170
+        height: 300
       });
     }
 
@@ -584,7 +708,7 @@ BHM.Charts = (function () {
       }
       var cColors = cData.map(function (v, idx) { return v >= cMax[idx] * 0.7 ? tc.success : v >= cMax[idx] * 0.4 ? tc.warning : tc.danger; });
       createBarChart('chart-casp19', {
-        labels: cLabels, data: cData, height: 200,
+        labels: cLabels, data: cData, height: 280,
         colors: cColors,
         title: 'CASP-19 Quality of Life Domains'
       });
@@ -598,7 +722,7 @@ BHM.Charts = (function () {
         value: diet.total, max: 14,
         color: dietColor, label: 'Diet Score',
         sublabel: diet.total >= 10 ? 'Good adherence' : diet.total >= 7 ? 'Moderate' : 'Low adherence',
-        height: 200
+        height: 260
       });
     }
 
@@ -646,7 +770,7 @@ BHM.Charts = (function () {
       createRadarChart('chart-mbic', {
         labels: mLabels,
         datasets: [{ label: 'MBI-C Domain Scores', data: mData, border: tc.danger }],
-        max: maxAll, step: Math.ceil(maxAll / 5), height: 320, labelSize: 11
+        max: maxAll, step: Math.ceil(maxAll / 5), height: 420, labelSize: 15
       });
     }
 
@@ -671,7 +795,7 @@ BHM.Charts = (function () {
           { label: 'Severity', data: sevData, border: tc.warning, borderWidth: 2 },
           { label: 'Carer Distress', data: distData, border: tc.danger, borderWidth: 2 }
         ],
-        max: 5, step: 1, height: 340, labelSize: 10
+        max: 5, step: 1, height: 440, labelSize: 15
       });
     }
 
@@ -684,7 +808,7 @@ BHM.Charts = (function () {
       createRadarChart('chart-cdr', {
         labels: cdrLabels,
         datasets: [{ label: 'CDR Domain Ratings', data: cdrData, border: tc.secondary }],
-        max: 3, step: 0.5, height: 300, labelSize: 11
+        max: 3, step: 0.5, height: 400, labelSize: 16
       });
     }
 
@@ -701,6 +825,12 @@ BHM.Charts = (function () {
       if (scan.mtaLeft !== null && scan.mtaLeft !== undefined) bars.push({ label: 'MTA Left', value: scan.mtaLeft, max: 4 });
       if (scan.mtaRight !== null && scan.mtaRight !== undefined) bars.push({ label: 'MTA Right', value: scan.mtaRight, max: 4 });
       if (bars.length > 0) createSeverityBars(containerId, { items: bars });
+    }
+
+    // ── STOP-BANG infographic ──
+    var sb = S.getScore('stopBang');
+    if (sb && sb.total !== undefined) {
+      createStopBangInfographic('chart-stopbang', sb, tc);
     }
 
     // ── RBANS profile line chart ──
