@@ -25,6 +25,7 @@ JS_FILES=(
   "$SRC/js/crypto.js"
   "$SRC/js/themes.js"
   "$SRC/js/state.js"
+  "$SRC/js/completeness.js"
   "$SRC/js/components/clickableGrid.js"
   "$SRC/js/instruments/session.js"
   "$SRC/js/instruments/psqi.js"

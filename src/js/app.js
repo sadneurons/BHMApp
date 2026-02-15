@@ -36,24 +36,30 @@ BHM.App = (function () {
       // ── Step 5: Render all instrument forms ──
       renderAll();
 
-      // ── Step 6: Bind UI controls ──
+      // ── Step 6: Render completeness dashboard ──
+      if (BHM.Completeness && BHM.Completeness.render) {
+        BHM.Completeness.render(document.getElementById('completenessDashboard'));
+      }
+
+      // ── Step 7: Bind UI controls ──
       bindResetSession();
       bindReportPanel();
       bindSnippetPanel();
       bindExportButtons();
       bindTabEvents();
 
-      // ── Step 7: Subscribe to state changes for live report updates ──
+      // ── Step 8: Subscribe to state changes for live report updates ──
       BHM.State.subscribe(function (changedPath) {
         if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
         if (changedPath && changedPath.indexOf('snippetInserts.') === 0) return;
         BHM.Report.update();
+        if (BHM.Completeness && BHM.Completeness.update) BHM.Completeness.update();
       });
 
-      // ── Step 8: Initial report generation ──
+      // ── Step 9: Initial report generation ──
       BHM.Report.update();
 
-      // ── Step 9: Show disclaimer splash on every fresh page load ──
+      // ── Step 10: Show disclaimer splash on every fresh page load ──
       showDisclaimer();
 
       console.log('BHM: App ready');
