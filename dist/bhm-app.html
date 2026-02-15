@@ -687,6 +687,42 @@
   }
 }
 
+/* ── Dictation mic button ── */
+.dictation-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #495057;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 0;
+}
+.dictation-btn:hover {
+  background: #dee2e6;
+  color: #212529;
+}
+.dictation-btn.recording {
+  background: #dc3545;
+  color: #fff;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(220,53,69,0); }
+}
+.dictation-btn.unsupported {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 /* ── RBANS Results ── */
 .rbans-results-table th {
   font-size: 0.82rem;
@@ -8257,18 +8293,114 @@ BHM.Report = (function () {
   }
 
   // HTML for a clinician insert textarea (rendered in the HTML string)
+  var _speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
   function insertHTML(key, label) {
     var statePath = 'clinicianInserts.' + key;
     var current = S.get(statePath) || '';
+    var micBtn = _speechSupported
+      ? '<button type="button" class="dictation-btn" data-dictation-for="' + esc(statePath) + '" title="Dictate (click to start/stop)"><i class="bi bi-mic"></i></button>'
+      : '<button type="button" class="dictation-btn unsupported" title="Speech recognition not supported in this browser" disabled><i class="bi bi-mic-mute"></i></button>';
+
     return '<div class="clinician-insert" style="margin:0.75rem 0 1.25rem;padding:8px 12px;background:#fffbe6;border:1px dashed #e0c36a;border-radius:6px;">' +
-      '<div style="font-size:0.78rem;color:#8a7530;margin-bottom:4px;font-weight:600">' + esc(label) + ' <span style="font-weight:400">(editable — will be preserved)</span></div>' +
+      '<div style="font-size:0.78rem;color:#8a7530;margin-bottom:4px;font-weight:600">' + esc(label) + ' <span style="font-weight:400">(editable — will be preserved)</span>' + micBtn + '</div>' +
       '<textarea data-insert-key="' + esc(statePath) + '" ' +
         'style="width:100%;min-height:48px;border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-size:0.85rem;resize:vertical;font-family:inherit;background:#fff;"' +
-        ' placeholder="Type clinical notes here...">' + esc(current) + '</textarea></div>';
+        ' placeholder="Type or dictate clinical notes here...">' + esc(current) + '</textarea></div>';
+  }
+
+  // ── Speech recognition state ──
+  var _activeRecognition = null;   // current SpeechRecognition instance
+  var _activeBtn = null;           // currently active mic button element
+  var _activeTa = null;            // currently active textarea element
+
+  function stopDictation() {
+    if (_activeRecognition) {
+      try { _activeRecognition.stop(); } catch (e) { /* ignore */ }
+      _activeRecognition = null;
+    }
+    if (_activeBtn) {
+      _activeBtn.classList.remove('recording');
+      _activeBtn.querySelector('i').className = 'bi bi-mic';
+      _activeBtn = null;
+    }
+    _activeTa = null;
+  }
+
+  function startDictation(btn, textarea) {
+    // Stop any existing session first
+    stopDictation();
+
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    var recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-GB';
+
+    _activeRecognition = recognition;
+    _activeBtn = btn;
+    _activeTa = textarea;
+
+    // Visual feedback
+    btn.classList.add('recording');
+    btn.querySelector('i').className = 'bi bi-mic-fill';
+
+    // Track where existing text ends so we can show interim results
+    var baseText = textarea.value;
+    var finalAppended = '';
+
+    recognition.onresult = function (event) {
+      var interim = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          // Capitalise first char if it follows a sentence end or is at the start
+          var separator = (baseText + finalAppended).length > 0 ? ' ' : '';
+          var lastChar = (baseText + finalAppended).slice(-1);
+          if (lastChar === '.' || lastChar === '?' || lastChar === '!' || lastChar === '\n' || (baseText + finalAppended).length === 0) {
+            transcript = transcript.charAt(0).toUpperCase() + transcript.slice(1);
+          }
+          finalAppended += separator + transcript;
+          // Persist after each final result
+          textarea.value = baseText + finalAppended;
+          S.set(textarea.getAttribute('data-insert-key'), textarea.value);
+        } else {
+          interim += transcript;
+        }
+      }
+      // Show interim text as a preview (greyed out feel via the textarea)
+      if (interim) {
+        textarea.value = baseText + finalAppended + ' ' + interim;
+      }
+    };
+
+    recognition.onerror = function (event) {
+      console.warn('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        alert('Microphone access was denied. Please allow microphone permission in your browser settings.');
+      }
+      stopDictation();
+    };
+
+    recognition.onend = function () {
+      // Finalise text (remove any interim preview)
+      if (_activeTa) {
+        _activeTa.value = baseText + finalAppended;
+        S.set(_activeTa.getAttribute('data-insert-key'), _activeTa.value);
+      }
+      stopDictation();
+    };
+
+    recognition.start();
   }
 
   // Bind event listeners for all clinician inserts after innerHTML is set
   function bindInserts(container) {
+    // Stop any active dictation when report re-renders
+    stopDictation();
+
     var textareas = container.querySelectorAll('textarea[data-insert-key]');
     for (var i = 0; i < textareas.length; i++) {
       (function (ta) {
@@ -8276,6 +8408,24 @@ BHM.Report = (function () {
           S.set(ta.getAttribute('data-insert-key'), ta.value);
         });
       })(textareas[i]);
+    }
+
+    // Bind mic buttons
+    var micBtns = container.querySelectorAll('.dictation-btn[data-dictation-for]');
+    for (var m = 0; m < micBtns.length; m++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var key = btn.getAttribute('data-dictation-for');
+          var ta = container.querySelector('textarea[data-insert-key="' + key + '"]');
+          if (!ta) return;
+          // Toggle: if this button is already recording, stop
+          if (_activeBtn === btn) {
+            stopDictation();
+          } else {
+            startDictation(btn, ta);
+          }
+        });
+      })(micBtns[m]);
     }
   }
 
@@ -8694,13 +8844,60 @@ BHM.Report = (function () {
         if (v === undefined || v === null) continue;
         var colIdx = Number(v);
         var freqWord = COLS[colIdx];
-        var stmt = item.label.charAt(0).toLowerCase() + item.label.slice(1);
+
+        // Convert label to second person ("I/me/my" → "you/your")
+        var stmt = toSecondPerson(item.label);
+        var stmtLower = stmt.charAt(0).toLowerCase() + stmt.slice(1);
+        // Strip "on balance, " prefix for cleaner embedding
+        stmtLower = stmtLower.replace(/^on balance,\s*/i, '');
+
+        // Check if the converted text starts with "you [verb]"
+        var startsWithYou = /^you\s/.test(stmtLower);
+        var verbPhrase = startsWithYou ? stmtLower.replace(/^you\s+/, '') : null;
 
         if (item.reverse) {
-          if (colIdx <= 1) domains[item.domain].concerns.push('you ' + freqWord + ' feel that ' + stmt);
+          // Negative wording: concern when often (0) or sometimes (1)
+          if (colIdx <= 1) {
+            var phrase;
+            if (startsWithYou) {
+              // "you feel left out" → "you often feel left out"
+              phrase = 'you ' + freqWord + ' ' + verbPhrase;
+            } else {
+              // "your age prevents you..." → "you often feel that your age prevents you..."
+              phrase = 'you ' + freqWord + ' feel that ' + stmtLower;
+            }
+            domains[item.domain].concerns.push(phrase);
+          }
         } else {
-          if (colIdx >= 2) domains[item.domain].concerns.push('you ' + freqWord + ' feel that ' + stmt);
-          else domains[item.domain].positives.push(stmt);
+          // Positive wording: concern when not often (2) or never (3)
+          if (colIdx >= 2) {
+            var phrase2;
+            if (startsWithYou && verbPhrase) {
+              // Handle "can" specially: "you do not often feel you can..."
+              if (/^can\s/.test(verbPhrase)) {
+                phrase2 = (freqWord === 'not often')
+                  ? 'you do not often feel you can ' + verbPhrase.replace(/^can\s+/, '')
+                  : 'you ' + freqWord + ' feel you can ' + verbPhrase.replace(/^can\s+/, '');
+              } else {
+                phrase2 = (freqWord === 'not often')
+                  ? 'you do not often ' + verbPhrase
+                  : 'you ' + freqWord + ' ' + verbPhrase;
+              }
+            } else {
+              phrase2 = (freqWord === 'not often')
+                ? 'you do not often feel that ' + stmtLower
+                : 'you ' + freqWord + ' feel that ' + stmtLower;
+            }
+            domains[item.domain].concerns.push(phrase2);
+          } else {
+            // Positive: store as second-person verb phrase for "you often..."
+            var posStmt = toSecondPerson(item.label);
+            var posLower = posStmt.charAt(0).toLowerCase() + posStmt.slice(1);
+            posLower = posLower.replace(/^on balance,\s*/i, '');
+            // Strip leading "you " so it can be joined after "you often"
+            var posVerb = /^you\s/.test(posLower) ? posLower.replace(/^you\s+/, '') : posLower;
+            domains[item.domain].positives.push(posVerb);
+          }
         }
       }
 
@@ -8794,49 +8991,82 @@ BHM.Report = (function () {
 
   // ═══════════════════════════════════════════
   //  INFORMANT (MBI-C + NPI-Q)
+  //  Concise score-summary + brief narrative
   // ═══════════════════════════════════════════
   function informantSection(compact) {
     var mbic = S.getScore('mbiC');
     var npiq = S.getScore('npiQ');
     var content = '';
 
-    // MBI-C
+    // ── MBI-C ──
     if (mbic && mbic.total !== null) {
-      content += '<p><strong>Mild Behavioural Impairment (MBI-C) Total:</strong> ' + mbic.total + '</p>';
+      content += '<p><strong>Mild Behavioural Impairment Checklist (MBI-C):</strong> Total score ' + mbic.total + '</p>';
+
+      var domains = BHM.Instruments.MBIC.getDomains();
+      var domainShort = ['Motivation & drive', 'Mood & anxiety', 'Impulse control', 'Social appropriateness', 'Beliefs & perception'];
+      var mbicData = S.getSession().instruments.mbiC || {};
+
+      // Build per-domain stats
+      var domStats = [];
+      var concernDomains = [], clearDomains = [];
+      for (var d = 0; d < domains.length; d++) {
+        var dom = domains[d];
+        var domTotal = 0, endorsedCount = 0, maxSev = 0, answered = 0;
+        for (var j = 0; j < dom.items.length; j++) {
+          var v = mbicData[dom.items[j].key];
+          if (v !== undefined && v !== null && v !== '') {
+            answered++;
+            var nv = Number(v);
+            domTotal += nv;
+            if (nv > 0) { endorsedCount++; if (nv > maxSev) maxSev = nv; }
+          }
+        }
+        var stat = { name: domainShort[d], score: domTotal, endorsed: endorsedCount, total: dom.items.length, maxSev: maxSev, answered: answered };
+        domStats.push(stat);
+        if (endorsedCount > 0) concernDomains.push(stat);
+        else if (answered > 0) clearDomains.push(stat);
+      }
+
+      // Domain score table
+      content += '<table style="width:100%;border-collapse:collapse;margin:0.5rem 0 0.75rem">';
+      content += '<thead><tr>' + rptTh('Domain') + rptTh('Score', 'center') + rptTh('Items endorsed', 'center') + rptTh('Max severity', 'center') + '</tr></thead><tbody>';
+      var sevWord = ['—', 'mild', 'moderate', 'severe'];
+      for (var ds = 0; ds < domStats.length; ds++) {
+        var st = domStats[ds];
+        content += '<tr>' + rptTd(st.name, null, st.endorsed > 0) + rptTd(st.score, 'center') + rptTd(st.endorsed + ' / ' + st.total, 'center') + rptTd(sevWord[st.maxSev] || '—', 'center') + '</tr>';
+      }
+      content += '</tbody></table>';
 
       if (mbic.total > 0) {
-        var domains = BHM.Instruments.MBIC.getDomains();
-        var domainShort = ['motivation and drive', 'mood and anxiety', 'impulse control and behaviour', 'social appropriateness', 'beliefs and perception'];
-        var mbicData = S.getSession().instruments.mbiC || {};
-        var domainNotes = [];
-
-        for (var d = 0; d < domains.length; d++) {
-          var dom = domains[d];
-          var endorsed = [];
-          for (var j = 0; j < dom.items.length; j++) {
-            var v = mbicData[dom.items[j].key];
-            if (v !== undefined && v !== null && Number(v) > 0) {
-              var sev = Number(v) === 1 ? 'mildly' : Number(v) === 2 ? 'moderately' : 'severely';
-              var lbl = dom.items[j].label;
-              lbl = lbl.replace(/^(Does the person|Has the person|Has she\/he|Is the person|Does she\/he)\s*/i, '').replace(/\?$/, '');
-              endorsed.push(sev + ': ' + lbl.charAt(0).toLowerCase() + lbl.slice(1));
-            }
-          }
-          if (endorsed.length > 0) {
-            domainNotes.push({ domain: domainShort[d], items: endorsed });
-          }
+        // Narrative summary — group by severity
+        var severe = [], moderate = [], mild = [];
+        for (var cd2 = 0; cd2 < concernDomains.length; cd2++) {
+          var cs = concernDomains[cd2];
+          var phrase = cs.name.toLowerCase() + ' (' + cs.endorsed + ' item' + (cs.endorsed > 1 ? 's' : '') + ')';
+          if (cs.maxSev === 3) severe.push(phrase);
+          else if (cs.maxSev === 2) moderate.push(phrase);
+          else mild.push(phrase);
         }
 
-        if (domainNotes.length > 0) {
-          content += '<p>The informant reported the following behavioural changes:</p><ul>';
-          for (var dn = 0; dn < domainNotes.length; dn++) {
-            content += '<li><strong>' + domainNotes[dn].domain.charAt(0).toUpperCase() + domainNotes[dn].domain.slice(1) + ':</strong> ';
-            content += domainNotes[dn].items.join('; ') + '.</li>';
-          }
-          content += '</ul>';
+        content += '<p>';
+        if (severe.length > 0) content += 'The informant reported <strong>severe</strong> concerns in ' + joinList(severe) + '. ';
+        if (moderate.length > 0) {
+          content += (severe.length > 0 ? '<strong>Moderate</strong> concerns were noted in ' : 'The informant reported <strong>moderate</strong> concerns in ');
+          content += joinList(moderate) + '. ';
+        }
+        if (mild.length > 0) {
+          content += (severe.length > 0 || moderate.length > 0 ? '<strong>Mild</strong> concerns were noted in ' : 'The informant reported <strong>mild</strong> concerns in ');
+          content += joinList(mild) + '. ';
+        }
+        content += '</p>';
+
+        if (clearDomains.length > 0) {
+          var clearNames = [];
+          for (var cl = 0; cl < clearDomains.length; cl++) clearNames.push(clearDomains[cl].name.toLowerCase());
+          content += '<p>No concerns were raised in ' + joinList(clearNames) + '.</p>';
         }
 
-        content += '<p><em>Changes in behaviour can sometimes be among the earliest signs of changes in brain health. Documenting these observations is helpful for monitoring over time and will be taken into account alongside other assessment findings.</em></p>';
+        content += '<p><em>Changes in behaviour can sometimes be among the earliest signs of changes in brain health. These observations will be considered alongside all other assessment findings.</em></p>';
       } else {
         content += '<p><em>No behavioural changes were reported by the informant, which is reassuring.</em></p>';
       }
@@ -8845,34 +9075,50 @@ BHM.Report = (function () {
       content += '<p class="text-muted">MBI-C not yet completed.</p>';
     }
 
-    // NPI-Q
+    // ── NPI-Q ──
     if (npiq) {
-      content += '<p><strong>NPI-Q:</strong> ' + npiq.count + ' symptom(s) reported, severity total ' + npiq.severityTotal + ', distress total ' + npiq.distressTotal + '</p>';
+      content += '<p><strong>Neuropsychiatric Inventory (NPI-Q):</strong> ' + npiq.count + ' of 12 symptoms reported';
+      if (npiq.count > 0) content += ' — severity total ' + npiq.severityTotal + ', carer distress total ' + npiq.distressTotal;
+      content += '</p>';
 
       if (npiq.count > 0) {
         var symptoms = BHM.Instruments.NPIQ.getSymptoms();
         var npiData = S.getSession().instruments.npiQ || {};
         var sevLabels = { 1: 'mild', 2: 'moderate', 3: 'severe' };
         var distLabels = { 0: 'no distress', 1: 'minimal', 2: 'mild', 3: 'moderate', 4: 'severe', 5: 'extreme' };
-        var npiNotes = [];
 
+        // Group by severity
+        var npiSevere = [], npiMod = [], npiMild = [], npiAbsent = [];
+        var maxDist = 0;
         for (var si = 0; si < symptoms.length; si++) {
           if (npiData[symptoms[si].key + '_present'] === 'yes') {
-            var sev = npiData[symptoms[si].key + '_severity'];
-            var dist = npiData[symptoms[si].key + '_distress'];
-            var note = '<strong>' + symptoms[si].label + '</strong>';
-            if (sev !== undefined && sev !== null) note += ' (' + (sevLabels[Number(sev)] || '') + ' severity';
-            if (dist !== undefined && dist !== null) note += ', ' + (distLabels[Number(dist)] || '') + ' carer distress';
-            note += ')';
-            npiNotes.push(note);
+            var sev = Number(npiData[symptoms[si].key + '_severity'] || 0);
+            var dist = Number(npiData[symptoms[si].key + '_distress'] || 0);
+            if (dist > maxDist) maxDist = dist;
+            var entry = symptoms[si].label;
+            if (sev === 3) npiSevere.push(entry);
+            else if (sev === 2) npiMod.push(entry);
+            else npiMild.push(entry);
+          } else if (npiData[symptoms[si].key + '_present'] === 'no') {
+            npiAbsent.push(symptoms[si].label.toLowerCase());
           }
         }
 
-        if (npiNotes.length > 0) {
-          content += '<p>The informant reported the following neuropsychiatric symptoms: ' + npiNotes.join('; ') + '.</p>';
+        content += '<p>';
+        if (npiSevere.length > 0) content += '<strong>Severe:</strong> ' + joinList(npiSevere) + '. ';
+        if (npiMod.length > 0) content += '<strong>Moderate:</strong> ' + joinList(npiMod) + '. ';
+        if (npiMild.length > 0) content += '<strong>Mild:</strong> ' + joinList(npiMild) + '. ';
+        content += '</p>';
+
+        if (npiAbsent.length > 0) {
+          content += '<p>Not reported: ' + joinList(npiAbsent) + '.</p>';
         }
 
-        content += '<p><em>These symptoms can be distressing for both the person and their family. Understanding which symptoms are present, and how they affect you both, is important for providing the most appropriate support.</em></p>';
+        if (maxDist >= 3) {
+          content += '<p>The informant indicated up to <strong>' + distLabels[maxDist] + '</strong> levels of personal distress in relation to these symptoms.</p>';
+        }
+
+        content += '<p><em>These symptoms can be distressing for both the person and their family. Understanding which are present helps guide the most appropriate support.</em></p>';
       } else {
         content += '<p><em>No neuropsychiatric symptoms were reported by the informant, which is reassuring.</em></p>';
       }
@@ -9183,6 +9429,28 @@ BHM.Report = (function () {
     if (arr.length === 0) return '';
     if (arr.length === 1) return arr[0];
     return arr.slice(0, -1).join(', ') + ', and ' + arr[arr.length - 1];
+  }
+
+  /** Convert first-person text to second person (I/me/my → you/your) */
+  function toSecondPerson(text) {
+    var s = text;
+    // Longer phrases first to avoid partial matches
+    s = s.replace(/\bI feel\b/g, 'you feel');
+    s = s.replace(/\bI can\b/g, 'you can');
+    s = s.replace(/\bI choose\b/g, 'you choose');
+    s = s.replace(/\bI look\b/g, 'you look');
+    s = s.replace(/\bI enjoy\b/g, 'you enjoy');
+    s = s.replace(/\bI would\b/g, 'you would');
+    s = s.replace(/\bI want\b/g, 'you want');
+    s = s.replace(/\bI have\b/g, 'you have');
+    s = s.replace(/\bI do\b/g, 'you do');
+    s = s.replace(/\bI am\b/g, 'you are');
+    s = s.replace(/\bI\b/g, 'you');
+    s = s.replace(/\bMy\b/g, 'Your');
+    s = s.replace(/\bmy\b/g, 'your');
+    s = s.replace(/\bmyself\b/g, 'yourself');
+    s = s.replace(/\bme\b/g, 'you');
+    return s;
   }
 
   return { update: update, TEMPLATE_VERSION: TEMPLATE_VERSION };
