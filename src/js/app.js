@@ -15,11 +15,19 @@ BHM.App = (function () {
       console.log('BHM: Restored session from localStorage');
     }
 
+    // ── Initialise theme picker ──
+    if (BHM.Themes && BHM.Themes.init) BHM.Themes.init();
+
+    // ── Initialise snippet library ──
+    if (BHM.Snippets && BHM.Snippets.init) BHM.Snippets.init();
+
     // ── Render all instrument forms ──
     renderAll();
 
     // ── Bind UI controls ──
+    bindResetSession();
     bindReportPanel();
+    bindSnippetPanel();
     bindExportButtons();
     bindTabEvents();
 
@@ -29,11 +37,15 @@ BHM.App = (function () {
     // destroy the textarea the user is actively typing in).
     BHM.State.subscribe(function (changedPath) {
       if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
+      if (changedPath && changedPath.indexOf('snippetInserts.') === 0) return;
       BHM.Report.update();
     });
 
     // ── Initial report generation ──
     BHM.Report.update();
+
+    // ── Show disclaimer splash on every fresh page load ──
+    showDisclaimer();
 
     console.log('BHM: App ready');
   }
@@ -73,6 +85,37 @@ BHM.App = (function () {
     BHM.Export.renderAuditTab(document.getElementById('auditContent'));
   }
 
+  // ── Disclaimer / splash screen ──
+  function showDisclaimer() {
+    var modalEl = document.getElementById('disclaimerModal');
+    if (!modalEl) return;
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    var acceptBtn = document.getElementById('disclaimerAcceptBtn');
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', function () {
+        modal.hide();
+      });
+    }
+  }
+
+  // ── Reset session (clear all data) ──
+  function bindResetSession() {
+    var btn = document.getElementById('resetSessionBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (!confirm('Start a new session?\n\nThis will clear ALL entered data, scores, clinical notes, and snippet customisations.\n\nMake sure you have exported anything you need first.')) return;
+      // Double-confirm for safety
+      if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+      // Preserve theme preference across session reset
+      var savedTheme = localStorage.getItem('bhm-theme');
+      localStorage.clear();
+      if (savedTheme) localStorage.setItem('bhm-theme', savedTheme);
+      location.reload();
+    });
+  }
+
   // ── Report side panel toggle ──
   function bindReportPanel() {
     var panel = document.getElementById('reportSidePanel');
@@ -91,6 +134,27 @@ BHM.App = (function () {
 
     closeBtn.addEventListener('click', function () {
       panel.classList.add('collapsed');
+    });
+  }
+
+  // ── Snippet panel toggle ──
+  function bindSnippetPanel() {
+    var panel = document.getElementById('snippetPanel');
+    var toggleBtn = document.getElementById('toggleSnippetPanel');
+    if (!panel || !toggleBtn) return;
+
+    // Render snippet panel content
+    if (BHM.Snippets && BHM.Snippets.renderPanel) BHM.Snippets.renderPanel(panel);
+
+    toggleBtn.addEventListener('click', function () {
+      panel.classList.toggle('collapsed');
+      // Adjust toggle icon
+      var icon = toggleBtn.querySelector('i');
+      if (panel.classList.contains('collapsed')) {
+        icon.className = 'bi bi-bookmarks';
+      } else {
+        icon.className = 'bi bi-bookmarks-fill';
+      }
     });
   }
 
@@ -117,11 +181,13 @@ BHM.App = (function () {
       });
     }
 
-    // Re-render report when switching to report tab
+    // Re-render report + snippet panel when switching to report tab
     var reportTab = document.getElementById('tab-report');
     if (reportTab) {
       reportTab.addEventListener('shown.bs.tab', function () {
         BHM.Report.update();
+        var sp = document.getElementById('snippetPanel');
+        if (sp && BHM.Snippets && BHM.Snippets.renderPanel) BHM.Snippets.renderPanel(sp);
       });
     }
 

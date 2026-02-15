@@ -22,6 +22,7 @@ done
 
 # ── Collect all JS in load order ──
 JS_FILES=(
+  "$SRC/js/themes.js"
   "$SRC/js/state.js"
   "$SRC/js/components/clickableGrid.js"
   "$SRC/js/instruments/session.js"
@@ -38,6 +39,7 @@ JS_FILES=(
   "$SRC/js/instruments/clinicalInterview.js"
   "$SRC/js/instruments/rbansNorms.js"
   "$SRC/js/instruments/rbans.js"
+  "$SRC/js/snippets.js"
   "$SRC/js/instruments/cdr.js"
   "$SRC/js/instruments/diamondLewy.js"
   "$SRC/js/scoring/scoring.js"
@@ -64,9 +66,21 @@ cat > "$OUTPUT" << 'HTMLHEAD'
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>brainHEALTH Manchester — Assessment App</title>
-  <!-- Bootstrap 5 CSS from CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
+  <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Early theme application (prevents flash of wrong theme) -->
+  <script>
+  (function(){
+    var t=localStorage.getItem('bhm-theme')||'default';
+    var link=document.getElementById('bootstrapCSS');
+    var bw={cosmo:1,flatly:1,journal:1,lux:1,minty:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(bw[t])link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';
+    var dk={dark:1,dracula:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(dk[t])document.documentElement.setAttribute('data-bs-theme','dark');
+    if(t==='dracula')document.documentElement.setAttribute('data-bhm-theme','dracula');
+  })();
+  </script>
   <style>
 HTMLHEAD
 
@@ -90,6 +104,13 @@ sed -n '/<body>/,/<\/body>/p' "$SRC/index.html" | \
 cat >> "$OUTPUT" << 'JSTAG'
   <script>
 JSTAG
+
+# Inline snippets.json as a JS variable (before other scripts)
+echo "" >> "$OUTPUT"
+echo "/* ── Default Snippets (from snippets.json) ── */" >> "$OUTPUT"
+echo -n "var BHM_DEFAULT_SNIPPETS = " >> "$OUTPUT"
+cat "$SRC/snippets.json" >> "$OUTPUT"
+echo ";" >> "$OUTPUT"
 
 for file in "${JS_FILES[@]}"; do
   echo "" >> "$OUTPUT"

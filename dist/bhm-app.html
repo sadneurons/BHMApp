@@ -4,13 +4,141 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>brainHEALTH Manchester — Assessment App</title>
-  <!-- Bootstrap 5 CSS from CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
+  <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Early theme application (prevents flash of wrong theme) -->
+  <script>
+  (function(){
+    var t=localStorage.getItem('bhm-theme')||'default';
+    var link=document.getElementById('bootstrapCSS');
+    var bw={cosmo:1,flatly:1,journal:1,lux:1,minty:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(bw[t])link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';
+    var dk={dark:1,dracula:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(dk[t])document.documentElement.setAttribute('data-bs-theme','dark');
+    if(t==='dracula')document.documentElement.setAttribute('data-bhm-theme','dracula');
+  })();
+  </script>
   <style>
 /* ═══════════════════════════════════════════════════════
    BHM Assessment App — Custom Styles
    ═══════════════════════════════════════════════════════ */
+
+/* ── Dracula Theme Overrides ── */
+[data-bhm-theme="dracula"] {
+  --bs-body-bg: #282a36;
+  --bs-body-color: #f8f8f2;
+  --bs-primary: #bd93f9;
+  --bs-primary-rgb: 189,147,249;
+  --bs-secondary: #6272a4;
+  --bs-secondary-rgb: 98,114,164;
+  --bs-success: #50fa7b;
+  --bs-success-rgb: 80,250,123;
+  --bs-info: #8be9fd;
+  --bs-info-rgb: 139,233,253;
+  --bs-warning: #f1fa8c;
+  --bs-warning-rgb: 241,250,140;
+  --bs-danger: #ff5555;
+  --bs-danger-rgb: 255,85,85;
+  --bs-link-color: #8be9fd;
+  --bs-link-hover-color: #bd93f9;
+  --bs-tertiary-bg: #44475a;
+  --bs-border-color: #44475a;
+}
+[data-bhm-theme="dracula"] .navbar {
+  background: #44475a !important;
+}
+[data-bhm-theme="dracula"] .nav-tabs {
+  background: #282a36 !important;
+  border-color: #44475a;
+}
+[data-bhm-theme="dracula"] .nav-tabs .nav-link {
+  color: #f8f8f2;
+}
+[data-bhm-theme="dracula"] .nav-tabs .nav-link.active {
+  background: #44475a;
+  color: #bd93f9;
+  border-color: #44475a #44475a #282a36;
+}
+[data-bhm-theme="dracula"] .nav-pills .nav-link.active {
+  background: #bd93f9;
+  color: #282a36;
+}
+[data-bhm-theme="dracula"] .card,
+[data-bhm-theme="dracula"] .modal-content {
+  background: #383a59;
+  border-color: #44475a;
+  color: #f8f8f2;
+}
+[data-bhm-theme="dracula"] .form-control,
+[data-bhm-theme="dracula"] .form-select {
+  background: #44475a;
+  border-color: #6272a4;
+  color: #f8f8f2;
+}
+[data-bhm-theme="dracula"] .form-control:focus,
+[data-bhm-theme="dracula"] .form-select:focus {
+  border-color: #bd93f9;
+  box-shadow: 0 0 0 0.2rem rgba(189,147,249,0.25);
+}
+[data-bhm-theme="dracula"] .table {
+  --bs-table-bg: #282a36;
+  --bs-table-color: #f8f8f2;
+  --bs-table-border-color: #44475a;
+  --bs-table-striped-bg: #323443;
+}
+[data-bhm-theme="dracula"] .btn-primary {
+  --bs-btn-bg: #bd93f9;
+  --bs-btn-border-color: #bd93f9;
+  --bs-btn-color: #282a36;
+  --bs-btn-hover-bg: #a87df5;
+  --bs-btn-hover-border-color: #a87df5;
+  --bs-btn-hover-color: #282a36;
+}
+[data-bhm-theme="dracula"] .btn-outline-light {
+  --bs-btn-color: #f8f8f2;
+  --bs-btn-border-color: #6272a4;
+  --bs-btn-hover-bg: #44475a;
+  --bs-btn-hover-border-color: #6272a4;
+}
+[data-bhm-theme="dracula"] .alert-info {
+  background: #2d3250;
+  border-color: #6272a4;
+  color: #8be9fd;
+}
+[data-bhm-theme="dracula"] .badge.bg-warning {
+  background: #f1fa8c !important;
+  color: #282a36 !important;
+}
+[data-bhm-theme="dracula"] .snippet-panel {
+  background: #1e1f29;
+  border-color: #44475a;
+}
+[data-bhm-theme="dracula"] .clinician-insert {
+  background: #2d2d3f !important;
+  border-color: #6272a4 !important;
+}
+[data-bhm-theme="dracula"] .clinician-insert textarea {
+  background: #44475a !important;
+  color: #f8f8f2 !important;
+  border-color: #6272a4 !important;
+}
+[data-bhm-theme="dracula"] .dropdown-menu {
+  background: #383a59;
+  border-color: #44475a;
+}
+[data-bhm-theme="dracula"] .dropdown-item {
+  color: #f8f8f2;
+}
+[data-bhm-theme="dracula"] .dropdown-item:hover,
+[data-bhm-theme="dracula"] .dropdown-item:focus {
+  background: #44475a;
+  color: #bd93f9;
+}
+[data-bhm-theme="dracula"] .dropdown-item.active {
+  background: #bd93f9;
+  color: #282a36;
+}
 
 /* ── Brand / Logo placeholder ── */
 .brand-logo-placeholder {
@@ -347,7 +475,7 @@
 /* ── Print styles ── */
 @media print {
   .navbar, .main-tabs, .report-side-panel, #patientSubTabs, #informantSubTabs,
-  .no-print, .btn, .dropdown, #storageModeBadge {
+  .no-print, .btn, .dropdown, #storageModeBadge, #disclaimerModal, .modal-backdrop {
     display: none !important;
   }
   .report-full {
@@ -723,6 +851,154 @@
   cursor: not-allowed;
 }
 
+/* ── Report tab layout — panel + scrollable report side by side ── */
+.report-tab-layout {
+  height: calc(100vh - 160px);
+  overflow: hidden;
+}
+.report-scroll-area {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* ── Snippet Panel (left side of Report tab) ── */
+.snippet-panel {
+  width: 260px;
+  min-width: 260px;
+  border-right: 1px solid #dee2e6;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s, min-width 0.2s;
+  height: 100%;
+}
+.snippet-panel.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+.snippet-panel-header {
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid #dee2e6;
+  background: #eef1f5;
+}
+.snippet-search {
+  margin: 8px 10px;
+  width: calc(100% - 20px);
+  font-size: 0.82rem;
+}
+.snippet-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+}
+.snippet-cat-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #6c757d;
+  padding: 8px 4px 3px;
+  letter-spacing: 0.04em;
+}
+.snippet-card {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  cursor: grab;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.snippet-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 1px 4px rgba(13,110,253,0.15);
+}
+.snippet-card.dragging {
+  opacity: 0.5;
+  border-color: #0d6efd;
+}
+.snippet-card-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #212529;
+  line-height: 1.3;
+}
+.snippet-card-preview {
+  font-size: 0.72rem;
+  color: #6c757d;
+  line-height: 1.3;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.snippet-panel-footer {
+  padding: 8px 10px;
+  border-top: 1px solid #dee2e6;
+  background: #eef1f5;
+}
+
+/* ── Snippet Drop Zones (in report body) ── */
+.snippet-drop-zone {
+  margin: 0.4rem 0 0.75rem;
+  padding: 6px 10px;
+  border: 1px dashed #b8c4d0;
+  border-radius: 5px;
+  background: #f4f7fa;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  min-height: 32px;
+}
+.snippet-drop-zone.drop-ready {
+  border-color: #0d6efd;
+  background: #e8f0fe;
+}
+.snippet-drop-zone.drop-hover {
+  border-color: #0d6efd;
+  background: #d4e5fd;
+  box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
+}
+.snippet-drop-zone.has-content {
+  background: #fff;
+  border-style: solid;
+  border-color: #c3d4e6;
+}
+.snippet-drop-label {
+  font-size: 0.76rem;
+  color: #7a8a9e;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+.snippet-drop-content {
+  font-size: 0.85rem;
+  color: #333;
+  line-height: 1.55;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+/* Hide snippet UI chrome when printing */
+@media print {
+  .snippet-panel, .snippet-drop-label, .snippet-drop-zone:not(.has-content) { display: none !important; }
+  .snippet-drop-zone.has-content { border: none; padding: 0; margin: 0.3rem 0; background: none; }
+  .clinician-insert { display: none !important; }
+  .dictation-btn { display: none !important; }
+}
+
+/* ── Snippet toggle button in Report tab ── */
+.snippet-toggle-btn {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  z-index: 5;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.78rem;
+  padding: 3px 8px;
+}
+
 /* ── RBANS Results ── */
 .rbans-results-table th {
   font-size: 0.82rem;
@@ -751,6 +1027,61 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════
+       DISCLAIMER / SPLASH SCREEN
+       ═══════════════════════════════════════════════════════ -->
+  <div class="modal fade" id="disclaimerModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="disclaimerTitle">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-primary text-white">
+          <h4 class="modal-title" id="disclaimerTitle"><i class="bi bi-shield-check me-2"></i>brainHEALTH Manchester — Assessment App</h4>
+        </div>
+        <div class="modal-body" style="font-size:0.92rem;line-height:1.6">
+
+          <div class="alert alert-info mb-3">
+            <h5 class="alert-heading mb-2"><i class="bi bi-info-circle me-1"></i>Clinical Documentation Tool</h5>
+            <p class="mb-0">This application is a <strong>clinical documentation and transcription aid</strong>. It digitises standardised paper questionnaires and generates structured reports to assist clinicians. It does <strong>not</strong> diagnose, monitor, treat, or make clinical decisions.</p>
+          </div>
+
+          <h5><i class="bi bi-clipboard-check me-2"></i>Not a Software as a Medical Device (SaMD)</h5>
+          <p>Under the <strong>UK Medical Devices Regulations 2002</strong> (SI 2002/618, as amended) and the <strong>MHRA Guidance on Medical Device Stand-Alone Software (v1.10f)</strong>, this application does not meet the definition of a medical device because it:</p>
+          <ul>
+            <li><strong>Reproduces paper documents in digital format</strong> — the MHRA guidance states that software which "just reproduces a paper document in digital format" is unlikely to be a medical device, as "it is down to the health care professional to make the decisions based on the advice displayed".</li>
+            <li><strong>Does not provide automated clinical decision-making</strong> — scoring algorithms implement published, standardised scoring methods (e.g. PSQI, GAD-7, CDR, RBANS). They do not generate novel diagnoses, prognoses, or treatment recommendations.</li>
+            <li><strong>Does not replace clinical judgement</strong> — all interpretation, diagnosis, and treatment decisions remain entirely with the qualified clinician.</li>
+            <li><strong>Does not monitor, prevent, or treat disease</strong> — it is not intended for any of the medical purposes defined in the UK MDR 2002.</li>
+          </ul>
+          <p class="text-muted" style="font-size:0.82rem">
+            <strong>References:</strong> UK MDR 2002 (SI 2002/618); MHRA "Medical device stand-alone software including apps (including IVDMDs)" v1.10f; MEDDEV 2.1/6.
+            <br>Full guidance: <a href="https://www.gov.uk/government/publications/software-and-artificial-intelligence-ai-as-a-medical-device" target="_blank" rel="noopener">gov.uk/government/publications/software-and-artificial-intelligence-ai-as-a-medical-device</a>
+          </p>
+
+          <hr>
+
+          <h5><i class="bi bi-lock me-2"></i>Your Data Stays Local</h5>
+          <ul>
+            <li>All patient data is stored <strong>exclusively in this browser's local storage</strong> on this computer.</li>
+            <li><strong>No data is transmitted</strong> to any server, cloud service, or third party.</li>
+            <li>Data <strong>persists between sessions</strong> (closing and reopening the browser) but is tied to this specific browser and machine.</li>
+            <li>Use the <strong class="text-danger"><i class="bi bi-arrow-counterclockwise"></i> New Session</strong> button in the top bar to clear all data when starting a new patient.</li>
+            <li>You are responsible for <strong>exporting or printing</strong> any data you need to retain before clearing a session.</li>
+          </ul>
+
+          <hr>
+
+          <h5><i class="bi bi-person-workspace me-2"></i>Intended Use</h5>
+          <p class="mb-1">This tool is intended for use by <strong>qualified healthcare professionals</strong> within a clinical setting. It is provided as-is for documentation support and does not substitute professional clinical assessment, judgement, or responsibility.</p>
+
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-primary btn-lg px-5" id="disclaimerAcceptBtn">
+            <i class="bi bi-check-circle me-2"></i>I Understand — Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
        TOP NAVBAR / HEADER
        ═══════════════════════════════════════════════════════ -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
@@ -761,12 +1092,21 @@
         <span class="d-none d-md-inline">brainHEALTH Manchester</span>
       </a>
       <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-danger btn-sm" id="resetSessionBtn" title="Clear all data and start a new session">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>New Session
+        </button>
         <span class="badge bg-warning text-dark" id="storageModeBadge">
           <i class="bi bi-exclamation-triangle me-1"></i>Local Mode — Not saved to server
         </span>
         <button class="btn btn-outline-light btn-sm" id="toggleReportPanelBtn" title="Toggle Report Panel">
           <i class="bi bi-layout-sidebar-reverse"></i> Report
         </button>
+        <div class="dropdown">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Theme">
+            <i class="bi bi-palette me-1"></i><span id="currentThemeLabel">Default</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" id="themeMenu"></ul>
+        </div>
         <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Export">
           <i class="bi bi-download"></i>
         </button>
@@ -925,7 +1265,16 @@
 
         <!-- ══════ REPORT TAB ══════ -->
         <div class="tab-pane fade" id="panel-report" role="tabpanel">
-          <div id="reportFullContent"></div>
+          <div class="d-flex position-relative report-tab-layout">
+            <!-- Snippet side panel (left, fixed in place) -->
+            <div class="snippet-panel" id="snippetPanel"></div>
+            <!-- Toggle button -->
+            <button class="btn btn-outline-primary btn-sm snippet-toggle-btn" id="toggleSnippetPanel" title="Toggle snippet library">
+              <i class="bi bi-bookmarks"></i>
+            </button>
+            <!-- Report content (right, independently scrollable) -->
+            <div class="flex-grow-1 report-scroll-area ps-4" id="reportFullContent"></div>
+          </div>
         </div>
 
         <!-- ══════ AUDIT TAB ══════ -->
@@ -963,6 +1312,203 @@
 
   <!-- App modules (load order matters) -->
   <script>
+
+/* ── Default Snippets (from snippets.json) ── */
+var BHM_DEFAULT_SNIPPETS = [
+  {
+    "id": "lp-explanation",
+    "title": "Lumbar Puncture Explanation",
+    "category": "Investigations",
+    "text": "A lumbar puncture (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20–30 minutes, and most people find it straightforward. You may be asked to lie flat for a period afterwards to reduce the chance of a headache. Your clinician will discuss the risks and benefits with you in more detail before the procedure."
+  },
+  {
+    "id": "blood-biomarkers",
+    "title": "Blood Biomarker Explanation",
+    "category": "Investigations",
+    "text": "We have arranged blood tests that look for specific markers associated with brain health. These include proteins such as phosphorylated tau (p-tau) and neurofilament light chain (NfL), which can provide information about whether changes related to Alzheimer's disease or other neurological conditions may be occurring. Blood-based biomarkers are a relatively new and evolving area of clinical practice. The results are interpreted alongside all other assessment findings and are not used in isolation to make a diagnosis."
+  },
+  {
+    "id": "mri-explanation",
+    "title": "MRI Brain Scan Explanation",
+    "category": "Investigations",
+    "text": "An MRI (magnetic resonance imaging) scan of the brain uses a strong magnet and radio waves to create detailed pictures of the brain's structure. It can show whether there has been any shrinkage in particular areas, whether there are signs of previous strokes or small vessel disease, and whether any other structural changes are present. The scan does not use radiation. It typically takes 20–40 minutes, and you will need to lie still inside a scanner. If you have any metal implants or are claustrophobic, please let us know in advance."
+  },
+  {
+    "id": "what-is-mci",
+    "title": "What is Mild Cognitive Impairment (MCI)?",
+    "category": "Diagnoses",
+    "text": "Mild cognitive impairment (MCI) means that there are changes in thinking or memory that are greater than would be expected for your age, but that are not severe enough to significantly affect your daily life. MCI does not necessarily mean you will develop dementia — some people remain stable, some improve, and some do progress over time. Regular monitoring can help us understand how things change for you. There are positive steps you can take to support your brain health, including physical activity, social engagement, managing cardiovascular risk factors, and staying mentally active."
+  },
+  {
+    "id": "what-is-dementia",
+    "title": "What is Dementia?",
+    "category": "Diagnoses",
+    "text": "Dementia is an umbrella term for a group of conditions that cause a progressive decline in thinking, memory, and the ability to carry out everyday activities. There are several different types — the most common being Alzheimer's disease, vascular dementia, dementia with Lewy bodies, and frontotemporal dementia. Each type has somewhat different features and progression. A diagnosis of dementia does not define who you are, and there are many things that can be done to support you and your family, including medication, practical support, and planning for the future."
+  },
+  {
+    "id": "alzheimers-explanation",
+    "title": "Alzheimer's Disease Explanation",
+    "category": "Diagnoses",
+    "text": "Alzheimer's disease is the most common cause of dementia. It is caused by a build-up of abnormal proteins in the brain — amyloid plaques and tau tangles — which gradually damage brain cells and the connections between them. The earliest symptom is usually difficulty with memory for recent events, though other areas of thinking can also be affected. The condition is progressive, meaning it tends to get worse over time, but the rate of change varies greatly from person to person. Treatments are available that can help manage symptoms, and research into new therapies is ongoing."
+  },
+  {
+    "id": "dlb-explanation",
+    "title": "Dementia with Lewy Bodies Explanation",
+    "category": "Diagnoses",
+    "text": "Dementia with Lewy bodies (DLB) is caused by tiny deposits of protein (called Lewy bodies) that build up inside nerve cells in the brain. It can cause fluctuating alertness, visual hallucinations, movement difficulties similar to Parkinson's disease, and changes in sleep. Memory problems may be less prominent early on compared to Alzheimer's disease. Some medications used for other conditions can worsen symptoms in DLB, so accurate diagnosis is important. Treatments are available that can help manage symptoms, and your care team will work with you to find the most appropriate approach."
+  },
+  {
+    "id": "lifestyle-brain-health",
+    "title": "Lifestyle and Brain Health",
+    "category": "Lifestyle",
+    "text": "Research shows that certain lifestyle factors can support brain health and may reduce the risk of cognitive decline. These include regular physical activity (aim for at least 150 minutes of moderate exercise per week), a balanced diet rich in fruits, vegetables, fish, and olive oil (such as the Mediterranean diet), maintaining social connections, keeping mentally active, managing blood pressure, cholesterol, and blood sugar, limiting alcohol intake, not smoking, protecting your hearing, and ensuring good-quality sleep. Even small changes in these areas can make a meaningful difference over time."
+  },
+  {
+    "id": "driving-advice",
+    "title": "Driving and DVLA",
+    "category": "Practical",
+    "text": "If you have received a diagnosis of dementia, you are legally required to inform the DVLA (Driver and Vehicle Licensing Agency). A diagnosis does not necessarily mean you must stop driving immediately — the DVLA will assess your situation and may arrange a driving assessment. If you have been diagnosed with mild cognitive impairment, you are not currently required to notify the DVLA, but you should consider whether your driving has been affected and discuss this with your clinician. You should also inform your car insurance provider of any relevant diagnosis."
+  },
+  {
+    "id": "lasting-power-attorney",
+    "title": "Lasting Power of Attorney",
+    "category": "Practical",
+    "text": "A Lasting Power of Attorney (LPA) is a legal document that lets you appoint someone you trust to make decisions on your behalf, should you become unable to make them yourself in the future. There are two types: one for health and welfare decisions, and one for property and financial affairs. It is a good idea to set these up while you have the capacity to do so, regardless of your current level of difficulty. You can arrange an LPA through a solicitor or via the Office of the Public Guardian website (gov.uk/power-of-attorney)."
+  }
+]
+;
+
+/* ── themes.js ── */
+/* ═══════════════════════════════════════════════════════
+   BHM.Themes — Theme picker (Bootstrap + Bootswatch + Dracula)
+   ═══════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+
+BHM.Themes = (function () {
+  'use strict';
+
+  var BOOTSTRAP_CDN = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+  var BOOTSWATCH_CDN = 'https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/';
+
+  var THEMES = [
+    // ── Core ──
+    { id: 'default',    name: 'Default',    group: 'Core',  dark: false, css: BOOTSTRAP_CDN },
+    { id: 'dark',       name: 'Dark',       group: 'Core',  dark: true,  css: BOOTSTRAP_CDN },
+    { id: 'dracula',    name: 'Dracula',    group: 'Core',  dark: true,  css: BOOTSTRAP_CDN },
+    // ── Light themes (Bootswatch) ──
+    { id: 'cosmo',      name: 'Cosmo',      group: 'Light', dark: false, css: BOOTSWATCH_CDN + 'cosmo/bootstrap.min.css' },
+    { id: 'flatly',     name: 'Flatly',     group: 'Light', dark: false, css: BOOTSWATCH_CDN + 'flatly/bootstrap.min.css' },
+    { id: 'journal',    name: 'Journal',    group: 'Light', dark: false, css: BOOTSWATCH_CDN + 'journal/bootstrap.min.css' },
+    { id: 'lux',        name: 'Lux',        group: 'Light', dark: false, css: BOOTSWATCH_CDN + 'lux/bootstrap.min.css' },
+    { id: 'minty',      name: 'Minty',      group: 'Light', dark: false, css: BOOTSWATCH_CDN + 'minty/bootstrap.min.css' },
+    // ── Dark themes (Bootswatch) ──
+    { id: 'cyborg',     name: 'Cyborg',     group: 'Dark',  dark: true,  css: BOOTSWATCH_CDN + 'cyborg/bootstrap.min.css' },
+    { id: 'slate',      name: 'Slate',      group: 'Dark',  dark: true,  css: BOOTSWATCH_CDN + 'slate/bootstrap.min.css' },
+    { id: 'solar',      name: 'Solar',      group: 'Dark',  dark: true,  css: BOOTSWATCH_CDN + 'solar/bootstrap.min.css' },
+    { id: 'superhero',  name: 'Superhero',  group: 'Dark',  dark: true,  css: BOOTSWATCH_CDN + 'superhero/bootstrap.min.css' },
+    { id: 'vapor',      name: 'Vapor',      group: 'Dark',  dark: true,  css: BOOTSWATCH_CDN + 'vapor/bootstrap.min.css' }
+  ];
+
+  var _current = localStorage.getItem('bhm-theme') || 'default';
+
+  function getTheme(id) {
+    for (var i = 0; i < THEMES.length; i++) {
+      if (THEMES[i].id === id) return THEMES[i];
+    }
+    return THEMES[0]; // fallback to default
+  }
+
+  function apply(themeId) {
+    var theme = getTheme(themeId);
+    _current = theme.id;
+    localStorage.setItem('bhm-theme', theme.id);
+
+    // Swap CSS
+    var link = document.getElementById('bootstrapCSS');
+    if (link) link.href = theme.css;
+
+    // Dark mode attribute
+    if (theme.dark) {
+      document.documentElement.setAttribute('data-bs-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-bs-theme');
+    }
+
+    // Dracula custom attribute
+    if (theme.id === 'dracula') {
+      document.documentElement.setAttribute('data-bhm-theme', 'dracula');
+    } else {
+      document.documentElement.removeAttribute('data-bhm-theme');
+    }
+
+    // Update label
+    var label = document.getElementById('currentThemeLabel');
+    if (label) label.textContent = theme.name;
+
+    // Re-render menu to show active state
+    renderMenu();
+  }
+
+  function renderMenu() {
+    var menu = document.getElementById('themeMenu');
+    if (!menu) return;
+    menu.innerHTML = '';
+
+    var lastGroup = '';
+    for (var i = 0; i < THEMES.length; i++) {
+      var t = THEMES[i];
+
+      // Group divider
+      if (t.group !== lastGroup) {
+        if (lastGroup !== '') {
+          var divider = document.createElement('li');
+          divider.innerHTML = '<hr class="dropdown-divider">';
+          menu.appendChild(divider);
+        }
+        var header = document.createElement('li');
+        header.innerHTML = '<h6 class="dropdown-header">' + t.group + ' Themes</h6>';
+        menu.appendChild(header);
+        lastGroup = t.group;
+      }
+
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.className = 'dropdown-item d-flex align-items-center' + (t.id === _current ? ' active' : '');
+      a.href = '#';
+      a.setAttribute('data-theme', t.id);
+
+      // Icon: moon for dark, sun for light, active checkmark
+      var icon = t.dark ? 'bi-moon-fill' : 'bi-sun';
+      if (t.id === 'dracula') icon = 'bi-brush';
+      a.innerHTML = '<i class="bi ' + icon + ' me-2"></i>' + t.name +
+        (t.id === _current ? '<i class="bi bi-check2 ms-auto"></i>' : '');
+
+      (function (id) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          apply(id);
+        });
+      })(t.id);
+
+      li.appendChild(a);
+      menu.appendChild(li);
+    }
+  }
+
+  function init() {
+    // Apply current theme (early script handles CSS, this handles DOM elements)
+    var theme = getTheme(_current);
+    var label = document.getElementById('currentThemeLabel');
+    if (label) label.textContent = theme.name;
+    renderMenu();
+  }
+
+  return {
+    init: init,
+    apply: apply,
+    current: function () { return _current; }
+  };
+})();
 
 /* ── state.js ── */
 /* ═══════════════════════════════════════════════════════
@@ -6473,6 +7019,457 @@ BHM.Instruments.RBANS = (function () {
   };
 })();
 
+/* ── snippets.js ── */
+/* ═══════════════════════════════════════════════════════
+   BHM.Snippets — Boilerplate text snippet library
+   Hybrid: hardcoded defaults (from build) + localStorage overrides
+   Drag-and-drop from side panel into report drop zones
+   ═══════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+
+/* Default snippets are inlined at build time as BHM_DEFAULT_SNIPPETS.
+   During dev (served from src/), fall back to an empty array. */
+var BHM_DEFAULT_SNIPPETS = (typeof BHM_DEFAULT_SNIPPETS !== 'undefined') ? BHM_DEFAULT_SNIPPETS : [];
+
+BHM.Snippets = (function () {
+  'use strict';
+
+  var LS_KEY = 'bhm_snippets_v1';
+  var _snippets = [];  // current working set
+
+  // ── Initialise ──
+  function init() {
+    var stored = null;
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) stored = JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      _snippets = stored;
+    } else {
+      _snippets = JSON.parse(JSON.stringify(BHM_DEFAULT_SNIPPETS));
+    }
+  }
+
+  function save() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(_snippets)); } catch (e) { /* ignore */ }
+  }
+
+  // ── CRUD ──
+  function getAll() { return _snippets; }
+
+  function getById(id) {
+    for (var i = 0; i < _snippets.length; i++) {
+      if (_snippets[i].id === id) return _snippets[i];
+    }
+    return null;
+  }
+
+  function getCategories() {
+    var cats = {};
+    for (var i = 0; i < _snippets.length; i++) {
+      var c = _snippets[i].category || 'Uncategorised';
+      if (!cats[c]) cats[c] = [];
+      cats[c].push(_snippets[i]);
+    }
+    return cats;
+  }
+
+  function add(snippet) {
+    if (!snippet.id) snippet.id = 'snip_' + Date.now();
+    _snippets.push(snippet);
+    save();
+  }
+
+  function update(id, fields) {
+    var s = getById(id);
+    if (!s) return;
+    for (var k in fields) { if (fields.hasOwnProperty(k)) s[k] = fields[k]; }
+    save();
+  }
+
+  function remove(id) {
+    _snippets = _snippets.filter(function (s) { return s.id !== id; });
+    save();
+  }
+
+  function resetToDefaults() {
+    _snippets = JSON.parse(JSON.stringify(BHM_DEFAULT_SNIPPETS));
+    save();
+  }
+
+  // ── Import / Export ──
+  function exportJSON() {
+    var blob = new Blob([JSON.stringify(_snippets, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'bhm-snippets.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var data = JSON.parse(e.target.result);
+        if (Array.isArray(data)) {
+          _snippets = data;
+          save();
+          if (cb) cb(null, _snippets.length);
+        } else {
+          if (cb) cb('File does not contain a valid snippet array.');
+        }
+      } catch (err) {
+        if (cb) cb('Invalid JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ═══════════════════════════════════════════
+  //  SNIPPET PANEL (left side of Report tab)
+  // ═══════════════════════════════════════════
+  function renderPanel(container) {
+    container.innerHTML = '';
+
+    // Header
+    var hdr = document.createElement('div');
+    hdr.className = 'snippet-panel-header';
+    hdr.innerHTML = '<h6 class="mb-0"><i class="bi bi-bookmarks me-1"></i>Snippets</h6>';
+    container.appendChild(hdr);
+
+    // Search box
+    var search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'form-control form-control-sm snippet-search';
+    search.placeholder = 'Filter snippets\u2026';
+    search.addEventListener('input', function () {
+      filterSnippetList(container, search.value);
+    });
+    container.appendChild(search);
+
+    // Snippet list (grouped by category)
+    var listWrap = document.createElement('div');
+    listWrap.className = 'snippet-list';
+    renderSnippetList(listWrap, '');
+    container.appendChild(listWrap);
+
+    // Footer actions
+    var footer = document.createElement('div');
+    footer.className = 'snippet-panel-footer';
+
+    var manageBtn = document.createElement('button');
+    manageBtn.className = 'btn btn-outline-secondary btn-sm w-100 mb-1';
+    manageBtn.innerHTML = '<i class="bi bi-gear me-1"></i>Manage Snippets';
+    manageBtn.addEventListener('click', function () { openManager(); });
+    footer.appendChild(manageBtn);
+
+    container.appendChild(footer);
+  }
+
+  function renderSnippetList(container, filter) {
+    container.innerHTML = '';
+    var cats = getCategories();
+    var filterLower = (filter || '').toLowerCase();
+    var anyVisible = false;
+
+    for (var cat in cats) {
+      if (!cats.hasOwnProperty(cat)) continue;
+      var items = cats[cat];
+      var filtered = items.filter(function (s) {
+        if (!filterLower) return true;
+        return s.title.toLowerCase().indexOf(filterLower) >= 0 ||
+               s.text.toLowerCase().indexOf(filterLower) >= 0 ||
+               cat.toLowerCase().indexOf(filterLower) >= 0;
+      });
+      if (filtered.length === 0) continue;
+      anyVisible = true;
+
+      var catHeader = document.createElement('div');
+      catHeader.className = 'snippet-cat-header';
+      catHeader.textContent = cat;
+      container.appendChild(catHeader);
+
+      for (var i = 0; i < filtered.length; i++) {
+        container.appendChild(createSnippetCard(filtered[i]));
+      }
+    }
+
+    if (!anyVisible) {
+      var empty = document.createElement('div');
+      empty.className = 'text-muted text-center p-3';
+      empty.style.fontSize = '0.82rem';
+      empty.textContent = filter ? 'No matching snippets.' : 'No snippets yet.';
+      container.appendChild(empty);
+    }
+  }
+
+  function filterSnippetList(panel, filter) {
+    var listWrap = panel.querySelector('.snippet-list');
+    if (listWrap) renderSnippetList(listWrap, filter);
+  }
+
+  function createSnippetCard(snippet) {
+    var card = document.createElement('div');
+    card.className = 'snippet-card';
+    card.draggable = true;
+    card.title = 'Drag into a report drop zone';
+    card.setAttribute('data-snippet-id', snippet.id);
+
+    var title = document.createElement('div');
+    title.className = 'snippet-card-title';
+    title.innerHTML = '<i class="bi bi-grip-vertical me-1 text-muted"></i>' + esc(snippet.title);
+    card.appendChild(title);
+
+    var preview = document.createElement('div');
+    preview.className = 'snippet-card-preview';
+    preview.textContent = snippet.text.length > 80 ? snippet.text.substring(0, 80) + '\u2026' : snippet.text;
+    card.appendChild(preview);
+
+    // Drag start
+    card.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', snippet.text);
+      e.dataTransfer.setData('application/x-bhm-snippet', snippet.id);
+      e.dataTransfer.effectAllowed = 'copy';
+      card.classList.add('dragging');
+      // Highlight all drop zones
+      var zones = document.querySelectorAll('.snippet-drop-zone');
+      for (var z = 0; z < zones.length; z++) zones[z].classList.add('drop-ready');
+    });
+
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      var zones = document.querySelectorAll('.snippet-drop-zone');
+      for (var z = 0; z < zones.length; z++) zones[z].classList.remove('drop-ready', 'drop-hover');
+    });
+
+    return card;
+  }
+
+  // ═══════════════════════════════════════════
+  //  DROP ZONES (in report sections)
+  // ═══════════════════════════════════════════
+  function createDropZone(sectionKey) {
+    var statePath = 'snippetInserts.' + sectionKey;
+    var existing = BHM.State.get(statePath) || '';
+
+    var zone = document.createElement('div');
+    zone.className = 'snippet-drop-zone' + (existing ? ' has-content' : '');
+    zone.setAttribute('data-snippet-section', sectionKey);
+
+    // Label row
+    var label = document.createElement('div');
+    label.className = 'snippet-drop-label';
+    if (!existing) {
+      label.innerHTML = '<i class="bi bi-tag me-1"></i>Patient information — drag a snippet here';
+    } else {
+      label.innerHTML = '<i class="bi bi-tag-fill me-1"></i>Patient information';
+      var clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'btn btn-sm btn-link text-danger p-0 ms-2';
+      clearBtn.style.fontSize = '0.75rem';
+      clearBtn.innerHTML = '<i class="bi bi-x-circle"></i> clear';
+      clearBtn.addEventListener('click', function () {
+        BHM.State.set(statePath, '');
+        // Re-render the report to update the zone
+        if (BHM.Report && BHM.Report.update) BHM.Report.update();
+      });
+      label.appendChild(clearBtn);
+    }
+    zone.appendChild(label);
+
+    // Content area (shows dropped text)
+    if (existing) {
+      var content = document.createElement('div');
+      content.className = 'snippet-drop-content';
+      content.textContent = existing;
+      zone.appendChild(content);
+    }
+
+    // Drop handlers
+    zone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      zone.classList.add('drop-hover');
+    });
+
+    zone.addEventListener('dragleave', function () {
+      zone.classList.remove('drop-hover');
+    });
+
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.classList.remove('drop-hover');
+      var text = e.dataTransfer.getData('text/plain');
+      if (text) {
+        // Append if there's already content
+        var cur = BHM.State.get(statePath) || '';
+        var newVal = cur ? cur + '\n\n' + text : text;
+        BHM.State.set(statePath, newVal);
+        if (BHM.Report && BHM.Report.update) BHM.Report.update();
+      }
+    });
+
+    return zone;
+  }
+
+  // ═══════════════════════════════════════════
+  //  SNIPPET MANAGER (modal)
+  // ═══════════════════════════════════════════
+  function openManager() {
+    // Remove existing modal if any
+    var old = document.getElementById('snippetManagerModal');
+    if (old) old.remove();
+
+    var modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'snippetManagerModal';
+    modal.setAttribute('tabindex', '-1');
+    modal.innerHTML =
+      '<div class="modal-dialog modal-lg modal-dialog-scrollable">' +
+        '<div class="modal-content">' +
+          '<div class="modal-header">' +
+            '<h5 class="modal-title"><i class="bi bi-bookmarks me-2"></i>Manage Snippets</h5>' +
+            '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>' +
+          '</div>' +
+          '<div class="modal-body" id="snippetManagerBody"></div>' +
+          '<div class="modal-footer">' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm" id="snippetExportBtn"><i class="bi bi-download me-1"></i>Export</button>' +
+            '<label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-upload me-1"></i>Import<input type="file" accept=".json" id="snippetImportInput" style="display:none"></label>' +
+            '<button type="button" class="btn btn-outline-warning btn-sm" id="snippetResetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Defaults</button>' +
+            '<button type="button" class="btn btn-primary btn-sm" id="snippetAddBtn"><i class="bi bi-plus-circle me-1"></i>Add Snippet</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+    renderManagerList();
+
+    // Bind footer actions
+    document.getElementById('snippetExportBtn').addEventListener('click', exportJSON);
+    document.getElementById('snippetImportInput').addEventListener('change', function () {
+      if (this.files[0]) {
+        importJSON(this.files[0], function (err, count) {
+          if (err) { alert(err); return; }
+          alert('Imported ' + count + ' snippets.');
+          renderManagerList();
+          refreshPanelIfVisible();
+        });
+      }
+    });
+    document.getElementById('snippetResetBtn').addEventListener('click', function () {
+      if (confirm('Reset all snippets to the built-in defaults? Any custom snippets will be lost.')) {
+        resetToDefaults();
+        renderManagerList();
+        refreshPanelIfVisible();
+      }
+    });
+    document.getElementById('snippetAddBtn').addEventListener('click', function () {
+      add({ title: 'New Snippet', category: 'Uncategorised', text: '' });
+      renderManagerList();
+      refreshPanelIfVisible();
+      // Scroll to bottom to show new item
+      var body = document.getElementById('snippetManagerBody');
+      if (body) body.scrollTop = body.scrollHeight;
+    });
+
+    var bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+
+    modal.addEventListener('hidden.bs.modal', function () {
+      modal.remove();
+      refreshPanelIfVisible();
+    });
+  }
+
+  function renderManagerList() {
+    var body = document.getElementById('snippetManagerBody');
+    if (!body) return;
+    body.innerHTML = '';
+
+    var snippets = getAll();
+    if (snippets.length === 0) {
+      body.innerHTML = '<p class="text-muted text-center">No snippets. Click "Add Snippet" or "Reset to Defaults".</p>';
+      return;
+    }
+
+    for (var i = 0; i < snippets.length; i++) {
+      body.appendChild(createManagerItem(snippets[i]));
+    }
+  }
+
+  function createManagerItem(snippet) {
+    var item = document.createElement('div');
+    item.className = 'card mb-2';
+    item.innerHTML =
+      '<div class="card-body p-2">' +
+        '<div class="row g-2 mb-1">' +
+          '<div class="col-md-5"><input type="text" class="form-control form-control-sm" data-field="title" value="' + escAttr(snippet.title) + '" placeholder="Title"></div>' +
+          '<div class="col-md-4"><input type="text" class="form-control form-control-sm" data-field="category" value="' + escAttr(snippet.category || '') + '" placeholder="Category"></div>' +
+          '<div class="col-md-3 text-end"><button type="button" class="btn btn-outline-danger btn-sm" data-action="delete"><i class="bi bi-trash me-1"></i>Delete</button></div>' +
+        '</div>' +
+        '<textarea class="form-control form-control-sm" data-field="text" rows="3" placeholder="Snippet text\u2026">' + esc(snippet.text) + '</textarea>' +
+      '</div>';
+
+    // Bind changes
+    var inputs = item.querySelectorAll('[data-field]');
+    for (var j = 0; j < inputs.length; j++) {
+      (function (inp) {
+        inp.addEventListener('input', function () {
+          var fields = {};
+          fields[inp.getAttribute('data-field')] = inp.value;
+          update(snippet.id, fields);
+        });
+      })(inputs[j]);
+    }
+
+    // Delete
+    item.querySelector('[data-action="delete"]').addEventListener('click', function () {
+      if (confirm('Delete "' + snippet.title + '"?')) {
+        remove(snippet.id);
+        renderManagerList();
+        refreshPanelIfVisible();
+      }
+    });
+
+    return item;
+  }
+
+  function refreshPanelIfVisible() {
+    var panel = document.getElementById('snippetPanel');
+    if (panel) renderPanel(panel);
+  }
+
+  // ── Helpers ──
+  function esc(str) {
+    var div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+  function escAttr(str) {
+    return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  return {
+    init: init,
+    getAll: getAll,
+    getById: getById,
+    getCategories: getCategories,
+    add: add,
+    update: update,
+    remove: remove,
+    resetToDefaults: resetToDefaults,
+    exportJSON: exportJSON,
+    importJSON: importJSON,
+    renderPanel: renderPanel,
+    createDropZone: createDropZone,
+    openManager: openManager
+  };
+})();
+
 /* ── cdr.js ── */
 /* CDR Instrument - Clinical Dementia Rating Scale
    Assessment interview worksheet + Scoring grid/calculator
@@ -8235,7 +9232,9 @@ BHM.Report = (function () {
     nextSteps.innerHTML = '<h4>Next Steps and Signposting</h4>' +
       '<p>This report summarises the information gathered during your assessment. ' +
       'The findings will be discussed with you and any next steps agreed. ' +
-      'If you have concerns about any of the areas covered, please speak to your GP or care team.</p>';
+      'If you have concerns about any of the areas covered, please speak to your GP or care team.</p>' +
+      '<div data-snippet-zone="nextSteps"></div>' +
+      insertHTML('section_nextSteps', 'Clinical notes — Next Steps');
     wrapper.appendChild(nextSteps);
 
     var footer = document.createElement('div');
@@ -8248,6 +9247,16 @@ BHM.Report = (function () {
 
     // Bind all clinician insert textareas
     bindInserts(wrapper);
+
+    // Replace snippet drop zone placeholders with real DOM elements
+    if (BHM.Snippets && BHM.Snippets.createDropZone) {
+      var placeholders = wrapper.querySelectorAll('[data-snippet-zone]');
+      for (var pi = 0; pi < placeholders.length; pi++) {
+        var key = placeholders[pi].getAttribute('data-snippet-zone');
+        var dropZone = BHM.Snippets.createDropZone(key);
+        placeholders[pi].parentNode.replaceChild(dropZone, placeholders[pi]);
+      }
+    }
 
     if (BHM.Charts && BHM.Charts.renderReportCharts) BHM.Charts.renderReportCharts(wrapper);
   }
@@ -8283,10 +9292,12 @@ BHM.Report = (function () {
 
   // ─── Helpers ───
 
-  // Section wrapper — includes optional clinician insert at bottom
+  // Section wrapper — includes optional snippet drop zone + clinician insert at bottom
   function section(title, content, compact, insertKey) {
     var h = compact ? '<h6>' + title + '</h6>' + content : '<h4>' + title + '</h4>' + content;
     if (!compact && insertKey) {
+      // Snippet drop zone placeholder (replaced with real DOM element in updateFullReport)
+      h += '<div data-snippet-zone="' + insertKey + '"></div>';
       h += insertHTML('section_' + insertKey, 'Clinical notes — ' + title);
     }
     return h;
@@ -10070,11 +11081,19 @@ BHM.App = (function () {
       console.log('BHM: Restored session from localStorage');
     }
 
+    // ── Initialise theme picker ──
+    if (BHM.Themes && BHM.Themes.init) BHM.Themes.init();
+
+    // ── Initialise snippet library ──
+    if (BHM.Snippets && BHM.Snippets.init) BHM.Snippets.init();
+
     // ── Render all instrument forms ──
     renderAll();
 
     // ── Bind UI controls ──
+    bindResetSession();
     bindReportPanel();
+    bindSnippetPanel();
     bindExportButtons();
     bindTabEvents();
 
@@ -10084,11 +11103,15 @@ BHM.App = (function () {
     // destroy the textarea the user is actively typing in).
     BHM.State.subscribe(function (changedPath) {
       if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
+      if (changedPath && changedPath.indexOf('snippetInserts.') === 0) return;
       BHM.Report.update();
     });
 
     // ── Initial report generation ──
     BHM.Report.update();
+
+    // ── Show disclaimer splash on every fresh page load ──
+    showDisclaimer();
 
     console.log('BHM: App ready');
   }
@@ -10128,6 +11151,37 @@ BHM.App = (function () {
     BHM.Export.renderAuditTab(document.getElementById('auditContent'));
   }
 
+  // ── Disclaimer / splash screen ──
+  function showDisclaimer() {
+    var modalEl = document.getElementById('disclaimerModal');
+    if (!modalEl) return;
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    var acceptBtn = document.getElementById('disclaimerAcceptBtn');
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', function () {
+        modal.hide();
+      });
+    }
+  }
+
+  // ── Reset session (clear all data) ──
+  function bindResetSession() {
+    var btn = document.getElementById('resetSessionBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (!confirm('Start a new session?\n\nThis will clear ALL entered data, scores, clinical notes, and snippet customisations.\n\nMake sure you have exported anything you need first.')) return;
+      // Double-confirm for safety
+      if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+      // Preserve theme preference across session reset
+      var savedTheme = localStorage.getItem('bhm-theme');
+      localStorage.clear();
+      if (savedTheme) localStorage.setItem('bhm-theme', savedTheme);
+      location.reload();
+    });
+  }
+
   // ── Report side panel toggle ──
   function bindReportPanel() {
     var panel = document.getElementById('reportSidePanel');
@@ -10146,6 +11200,27 @@ BHM.App = (function () {
 
     closeBtn.addEventListener('click', function () {
       panel.classList.add('collapsed');
+    });
+  }
+
+  // ── Snippet panel toggle ──
+  function bindSnippetPanel() {
+    var panel = document.getElementById('snippetPanel');
+    var toggleBtn = document.getElementById('toggleSnippetPanel');
+    if (!panel || !toggleBtn) return;
+
+    // Render snippet panel content
+    if (BHM.Snippets && BHM.Snippets.renderPanel) BHM.Snippets.renderPanel(panel);
+
+    toggleBtn.addEventListener('click', function () {
+      panel.classList.toggle('collapsed');
+      // Adjust toggle icon
+      var icon = toggleBtn.querySelector('i');
+      if (panel.classList.contains('collapsed')) {
+        icon.className = 'bi bi-bookmarks';
+      } else {
+        icon.className = 'bi bi-bookmarks-fill';
+      }
     });
   }
 
@@ -10172,11 +11247,13 @@ BHM.App = (function () {
       });
     }
 
-    // Re-render report when switching to report tab
+    // Re-render report + snippet panel when switching to report tab
     var reportTab = document.getElementById('tab-report');
     if (reportTab) {
       reportTab.addEventListener('shown.bs.tab', function () {
         BHM.Report.update();
+        var sp = document.getElementById('snippetPanel');
+        if (sp && BHM.Snippets && BHM.Snippets.renderPanel) BHM.Snippets.renderPanel(sp);
       });
     }
 

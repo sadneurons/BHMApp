@@ -49,7 +49,9 @@ BHM.Report = (function () {
     nextSteps.innerHTML = '<h4>Next Steps and Signposting</h4>' +
       '<p>This report summarises the information gathered during your assessment. ' +
       'The findings will be discussed with you and any next steps agreed. ' +
-      'If you have concerns about any of the areas covered, please speak to your GP or care team.</p>';
+      'If you have concerns about any of the areas covered, please speak to your GP or care team.</p>' +
+      '<div data-snippet-zone="nextSteps"></div>' +
+      insertHTML('section_nextSteps', 'Clinical notes — Next Steps');
     wrapper.appendChild(nextSteps);
 
     var footer = document.createElement('div');
@@ -62,6 +64,16 @@ BHM.Report = (function () {
 
     // Bind all clinician insert textareas
     bindInserts(wrapper);
+
+    // Replace snippet drop zone placeholders with real DOM elements
+    if (BHM.Snippets && BHM.Snippets.createDropZone) {
+      var placeholders = wrapper.querySelectorAll('[data-snippet-zone]');
+      for (var pi = 0; pi < placeholders.length; pi++) {
+        var key = placeholders[pi].getAttribute('data-snippet-zone');
+        var dropZone = BHM.Snippets.createDropZone(key);
+        placeholders[pi].parentNode.replaceChild(dropZone, placeholders[pi]);
+      }
+    }
 
     if (BHM.Charts && BHM.Charts.renderReportCharts) BHM.Charts.renderReportCharts(wrapper);
   }
@@ -97,10 +109,12 @@ BHM.Report = (function () {
 
   // ─── Helpers ───
 
-  // Section wrapper — includes optional clinician insert at bottom
+  // Section wrapper — includes optional snippet drop zone + clinician insert at bottom
   function section(title, content, compact, insertKey) {
     var h = compact ? '<h6>' + title + '</h6>' + content : '<h4>' + title + '</h4>' + content;
     if (!compact && insertKey) {
+      // Snippet drop zone placeholder (replaced with real DOM element in updateFullReport)
+      h += '<div data-snippet-zone="' + insertKey + '"></div>';
       h += insertHTML('section_' + insertKey, 'Clinical notes — ' + title);
     }
     return h;

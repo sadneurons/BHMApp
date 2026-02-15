@@ -1,0 +1,62 @@
+[
+  {
+    "id": "lp-explanation",
+    "title": "Lumbar Puncture Explanation",
+    "category": "Investigations",
+    "text": "A lumbar puncture (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20-30 minutes, and most people find it straightforward. "
+  },
+  {
+    "id": "blood-biomarkers",
+    "title": "Blood Biomarker Explanation",
+    "category": "Investigations",
+    "text": "We have arranged blood tests that look for specific markers associated with brain health. These include proteins such as phosphorylated tau (p-tau) and neurofilament light chain (NfL), which can provide information about whether changes related to Alzheimer's disease or other neurological conditions may be occurring. Blood-based biomarkers are a relatively new and evolving area of clinical practice. The results are interpreted alongside all other assessment findings and are not used in isolation to make a diagnosis."
+  },
+  {
+    "id": "mri-explanation",
+    "title": "MRI Brain Scan Explanation",
+    "category": "Investigations",
+    "text": "An MRI (magnetic resonance imaging) scan of the brain uses a strong magnet and radio waves to create detailed pictures of the brain's structure. It can show whether there has been any shrinkage in particular areas, whether there are signs of previous strokes or small vessel disease, and whether any other structural changes are present. The scan does not use radiation. It typically takes 20–40 minutes, and you will need to lie still inside a scanner. If you have any metal implants or are claustrophobic, please let us know in advance."
+  },
+  {
+    "id": "what-is-mci",
+    "title": "What is Mild Cognitive Impairment (MCI)?",
+    "category": "Diagnoses",
+    "text": "Mild cognitive impairment (MCI) means that there are changes in thinking or memory that are greater than would be expected for your age, but that are not severe enough to significantly affect your daily life. MCI does not necessarily mean you will develop dementia — some people remain stable, some improve, and some do progress over time. Regular monitoring can help us understand how things change for you. There are positive steps you can take to support your brain health, including physical activity, social engagement, managing cardiovascular risk factors, and staying mentally active."
+  },
+  {
+    "id": "what-is-dementia",
+    "title": "What is Dementia?",
+    "category": "Diagnoses",
+    "text": "Dementia is an umbrella term for a group of conditions that cause a progressive decline in thinking, memory, and the ability to carry out everyday activities. There are several different types — the most common being Alzheimer's disease, vascular dementia, dementia with Lewy bodies, and frontotemporal dementia. Each type has somewhat different features and progression. A diagnosis of dementia does not define who you are, and there are many things that can be done to support you and your family, including medication, practical support, and planning for the future."
+  },
+  {
+    "id": "alzheimers-explanation",
+    "title": "Alzheimer's Disease Explanation",
+    "category": "Diagnoses",
+    "text": "Alzheimer's disease is the most common cause of dementia. It is caused by a build-up of abnormal proteins in the brain — amyloid plaques and tau tangles — which gradually damage brain cells and the connections between them. The earliest symptom is usually difficulty with memory for recent events, though other areas of thinking can also be affected. The condition is progressive, meaning it tends to get worse over time, but the rate of change varies greatly from person to person. Treatments are available that can help manage symptoms, and research into new therapies is ongoing."
+  },
+  {
+    "id": "dlb-explanation",
+    "title": "Dementia with Lewy Bodies Explanation",
+    "category": "Diagnoses",
+    "text": "Dementia with Lewy bodies (DLB) is caused by tiny deposits of protein (called Lewy bodies) that build up inside nerve cells in the brain. It can cause fluctuating alertness, visual hallucinations, movement difficulties similar to Parkinson's disease, and changes in sleep. Memory problems may be less prominent early on compared to Alzheimer's disease. Some medications used for other conditions can worsen symptoms in DLB, so accurate diagnosis is important. Treatments are available that can help manage symptoms, and your care team will work with you to find the most appropriate approach."
+  },
+  {
+    "id": "lifestyle-brain-health",
+    "title": "Lifestyle and Brain Health",
+    "category": "Lifestyle",
+    "text": "Research shows that certain lifestyle factors can support brain health and may reduce the risk of cognitive decline. These include regular physical activity (aim for at least 150 minutes of moderate exercise per week), a balanced diet rich in fruits, vegetables, fish, and olive oil (such as the Mediterranean diet), maintaining social connections, keeping mentally active, managing blood pressure, cholesterol, and blood sugar, limiting alcohol intake, not smoking, protecting your hearing, and ensuring good-quality sleep. Even small changes in these areas can make a meaningful difference over time."
+  },
+  {
+    "id": "driving-advice",
+    "title": "Driving and DVLA",
+    "category": "Practical",
+    "text": "If you have received a diagnosis of dementia, you are legally required to inform the DVLA (Driver and Vehicle Licensing Agency). A diagnosis does not necessarily mean you must stop driving immediately — the DVLA will assess your situation and may arrange a driving assessment. If you have been diagnosed with mild cognitive impairment, you are not currently required to notify the DVLA, but you should consider whether your driving has been affected and discuss this with your clinician. You should also inform your car insurance provider of any relevant diagnosis."
+  },
+  {
+    "id": "lasting-power-attorney",
+    "title": "Lasting Power of Attorney",
+    "category": "Practical",
+    "text": "A Lasting Power of Attorney (LPA) is a legal document that lets you appoint someone you trust to make decisions on your behalf, should you become unable to make them yourself in the future. There are two types: one for health and welfare decisions, and one for property and financial affairs. It is a good idea to set these up while you have the capacity to do so, regardless of your current level of difficulty. You can arrange an LPA through a solicitor or via the Office of the Public Guardian website (gov.uk/power-of-attorney)."
+  }
+]

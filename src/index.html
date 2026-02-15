@@ -4,13 +4,80 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>brainHEALTH Manchester — Assessment App</title>
-  <!-- Bootstrap 5 CSS from CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
+  <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Early theme application (prevents flash of wrong theme) -->
+  <script>
+  (function(){
+    var t=localStorage.getItem('bhm-theme')||'default';
+    var link=document.getElementById('bootstrapCSS');
+    var bw={cosmo:1,flatly:1,journal:1,lux:1,minty:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(bw[t])link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';
+    var dk={dark:1,dracula:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
+    if(dk[t])document.documentElement.setAttribute('data-bs-theme','dark');
+    if(t==='dracula')document.documentElement.setAttribute('data-bhm-theme','dracula');
+  })();
+  </script>
   <!-- Custom styles -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       DISCLAIMER / SPLASH SCREEN
+       ═══════════════════════════════════════════════════════ -->
+  <div class="modal fade" id="disclaimerModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="disclaimerTitle">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-primary text-white">
+          <h4 class="modal-title" id="disclaimerTitle"><i class="bi bi-shield-check me-2"></i>brainHEALTH Manchester — Assessment App</h4>
+        </div>
+        <div class="modal-body" style="font-size:0.92rem;line-height:1.6">
+
+          <div class="alert alert-info mb-3">
+            <h5 class="alert-heading mb-2"><i class="bi bi-info-circle me-1"></i>Clinical Documentation Tool</h5>
+            <p class="mb-0">This application is a <strong>clinical documentation and transcription aid</strong>. It digitises standardised paper questionnaires and generates structured reports to assist clinicians. It does <strong>not</strong> diagnose, monitor, treat, or make clinical decisions.</p>
+          </div>
+
+          <h5><i class="bi bi-clipboard-check me-2"></i>Not a Software as a Medical Device (SaMD)</h5>
+          <p>Under the <strong>UK Medical Devices Regulations 2002</strong> (SI 2002/618, as amended) and the <strong>MHRA Guidance on Medical Device Stand-Alone Software (v1.10f)</strong>, this application does not meet the definition of a medical device because it:</p>
+          <ul>
+            <li><strong>Reproduces paper documents in digital format</strong> — the MHRA guidance states that software which "just reproduces a paper document in digital format" is unlikely to be a medical device, as "it is down to the health care professional to make the decisions based on the advice displayed".</li>
+            <li><strong>Does not provide automated clinical decision-making</strong> — scoring algorithms implement published, standardised scoring methods (e.g. PSQI, GAD-7, CDR, RBANS). They do not generate novel diagnoses, prognoses, or treatment recommendations.</li>
+            <li><strong>Does not replace clinical judgement</strong> — all interpretation, diagnosis, and treatment decisions remain entirely with the qualified clinician.</li>
+            <li><strong>Does not monitor, prevent, or treat disease</strong> — it is not intended for any of the medical purposes defined in the UK MDR 2002.</li>
+          </ul>
+          <p class="text-muted" style="font-size:0.82rem">
+            <strong>References:</strong> UK MDR 2002 (SI 2002/618); MHRA "Medical device stand-alone software including apps (including IVDMDs)" v1.10f; MEDDEV 2.1/6.
+            <br>Full guidance: <a href="https://www.gov.uk/government/publications/software-and-artificial-intelligence-ai-as-a-medical-device" target="_blank" rel="noopener">gov.uk/government/publications/software-and-artificial-intelligence-ai-as-a-medical-device</a>
+          </p>
+
+          <hr>
+
+          <h5><i class="bi bi-lock me-2"></i>Your Data Stays Local</h5>
+          <ul>
+            <li>All patient data is stored <strong>exclusively in this browser's local storage</strong> on this computer.</li>
+            <li><strong>No data is transmitted</strong> to any server, cloud service, or third party.</li>
+            <li>Data <strong>persists between sessions</strong> (closing and reopening the browser) but is tied to this specific browser and machine.</li>
+            <li>Use the <strong class="text-danger"><i class="bi bi-arrow-counterclockwise"></i> New Session</strong> button in the top bar to clear all data when starting a new patient.</li>
+            <li>You are responsible for <strong>exporting or printing</strong> any data you need to retain before clearing a session.</li>
+          </ul>
+
+          <hr>
+
+          <h5><i class="bi bi-person-workspace me-2"></i>Intended Use</h5>
+          <p class="mb-1">This tool is intended for use by <strong>qualified healthcare professionals</strong> within a clinical setting. It is provided as-is for documentation support and does not substitute professional clinical assessment, judgement, or responsibility.</p>
+
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-primary btn-lg px-5" id="disclaimerAcceptBtn">
+            <i class="bi bi-check-circle me-2"></i>I Understand — Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════════
        TOP NAVBAR / HEADER
@@ -23,12 +90,21 @@
         <span class="d-none d-md-inline">brainHEALTH Manchester</span>
       </a>
       <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-danger btn-sm" id="resetSessionBtn" title="Clear all data and start a new session">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>New Session
+        </button>
         <span class="badge bg-warning text-dark" id="storageModeBadge">
           <i class="bi bi-exclamation-triangle me-1"></i>Local Mode — Not saved to server
         </span>
         <button class="btn btn-outline-light btn-sm" id="toggleReportPanelBtn" title="Toggle Report Panel">
           <i class="bi bi-layout-sidebar-reverse"></i> Report
         </button>
+        <div class="dropdown">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Theme">
+            <i class="bi bi-palette me-1"></i><span id="currentThemeLabel">Default</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" id="themeMenu"></ul>
+        </div>
         <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Export">
           <i class="bi bi-download"></i>
         </button>
@@ -187,7 +263,16 @@
 
         <!-- ══════ REPORT TAB ══════ -->
         <div class="tab-pane fade" id="panel-report" role="tabpanel">
-          <div id="reportFullContent"></div>
+          <div class="d-flex position-relative report-tab-layout">
+            <!-- Snippet side panel (left, fixed in place) -->
+            <div class="snippet-panel" id="snippetPanel"></div>
+            <!-- Toggle button -->
+            <button class="btn btn-outline-primary btn-sm snippet-toggle-btn" id="toggleSnippetPanel" title="Toggle snippet library">
+              <i class="bi bi-bookmarks"></i>
+            </button>
+            <!-- Report content (right, independently scrollable) -->
+            <div class="flex-grow-1 report-scroll-area ps-4" id="reportFullContent"></div>
+          </div>
         </div>
 
         <!-- ══════ AUDIT TAB ══════ -->
@@ -224,6 +309,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
   <!-- App modules (load order matters) -->
+  <script src="js/themes.js"></script>
   <script src="js/state.js"></script>
   <script src="js/components/clickableGrid.js"></script>
   <script src="js/instruments/session.js"></script>
@@ -240,6 +326,7 @@
   <script src="js/instruments/clinicalInterview.js"></script>
   <script src="js/instruments/rbansNorms.js"></script>
   <script src="js/instruments/rbans.js"></script>
+  <script src="js/snippets.js"></script>
   <script src="js/instruments/cdr.js"></script>
   <script src="js/instruments/diamondLewy.js"></script>
   <script src="js/scoring/scoring.js"></script>
