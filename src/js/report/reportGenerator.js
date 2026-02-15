@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════
    BHM.Report — Live plain-language report generator
-   Reworked: removed single-bar charts, added radar for
-   MBI-C/NPI-Q, full RBANS section with table + narratives
+   Granular item-level feedback with MI tone throughout
+   v2.1 — per-section clinician notes, generic language
    ═══════════════════════════════════════════════════════ */
 var BHM = window.BHM || {};
 
@@ -9,7 +9,7 @@ BHM.Report = (function () {
   'use strict';
 
   var S = BHM.State;
-  var TEMPLATE_VERSION = '1.1.0';
+  var TEMPLATE_VERSION = '2.1.0';
 
   function update() {
     updateSidePanel();
@@ -30,7 +30,6 @@ BHM.Report = (function () {
     var wrapper = document.createElement('div');
     wrapper.className = 'report-full';
 
-    // Header
     var header = document.createElement('div');
     header.className = 'report-header';
     var name = S.get('patient.name') || '[Patient Name]';
@@ -42,50 +41,38 @@ BHM.Report = (function () {
       '<p class="text-muted mb-0">Date: ' + esc(date) + '</p>';
     wrapper.appendChild(header);
 
-    // Report body
     var bodyDiv = document.createElement('div');
     bodyDiv.innerHTML = generateHTML(false);
     wrapper.appendChild(bodyDiv);
 
-    // Clinician editable inserts
-    wrapper.appendChild(createClinicianInsert('Overall Summary', 'clinicianInserts.overallSummary'));
-    wrapper.appendChild(createClinicianInsert('What We Agreed Today', 'clinicianInserts.agreedToday'));
-    wrapper.appendChild(createClinicianInsert('Safety and Follow-up', 'clinicianInserts.safetyFollowUp'));
-
-    // Next steps
     var nextSteps = document.createElement('div');
     nextSteps.innerHTML = '<h4>Next Steps and Signposting</h4>' +
       '<p>This report summarises the information gathered during your assessment. ' +
-      'Your clinician will discuss the findings with you and agree any next steps. ' +
-      'If you have concerns about any of the areas covered, please speak to your clinician or GP.</p>';
+      'The findings will be discussed with you and any next steps agreed. ' +
+      'If you have concerns about any of the areas covered, please speak to your GP or care team.</p>';
     wrapper.appendChild(nextSteps);
 
-    // Footer
     var footer = document.createElement('div');
     footer.className = 'report-footer mt-4 pt-2 border-top text-muted';
     footer.style.fontSize = '0.75rem';
     footer.innerHTML = 'Report template v' + TEMPLATE_VERSION + ' | App v' + S.VERSION +
       ' | Generated: ' + new Date().toLocaleString();
     wrapper.appendChild(footer);
-
     container.appendChild(wrapper);
 
-    // Render charts into the report
-    if (BHM.Charts && BHM.Charts.renderReportCharts) {
-      BHM.Charts.renderReportCharts(wrapper);
-    }
+    // Bind all clinician insert textareas
+    bindInserts(wrapper);
+
+    if (BHM.Charts && BHM.Charts.renderReportCharts) BHM.Charts.renderReportCharts(wrapper);
   }
 
-  // ─── Generate report HTML sections ───
   function generateHTML(compact) {
     var html = '';
-
     html += section('About This Report',
       '<p>This report was generated from questionnaire responses completed ' +
       (S.get('meta.sourceMode') === 'live' ? 'during your appointment' : 'from your paper booklet responses') +
       '. It provides a summary of the information gathered, written in plain language. ' +
-      'The scores and descriptions below are based on standardised questionnaires and are intended to help you and your clinician understand the results.</p>',
-      compact);
+      'The scores and descriptions below are based on standardised questionnaires and are intended to help you understand the results.</p>', compact, 'about');
 
     html += sleepSection(compact);
     html += moodSection(compact);
@@ -99,215 +86,499 @@ BHM.Report = (function () {
     html += rbansSection(compact);
     html += lewySection(compact);
 
+    // Global inserts at the end (only full report)
+    if (!compact) {
+      html += insertHTML('overallSummary', 'Overall Summary');
+      html += insertHTML('agreedToday', 'What We Agreed Today');
+      html += insertHTML('safetyFollowUp', 'Safety and Follow-up');
+    }
     return html;
   }
 
-  // ─── Section helpers ───
-  function section(title, content, compact) {
-    if (compact) return '<h6>' + title + '</h6>' + content;
-    return '<h4>' + title + '</h4>' + content;
+  // ─── Helpers ───
+
+  // Section wrapper — includes optional clinician insert at bottom
+  function section(title, content, compact, insertKey) {
+    var h = compact ? '<h6>' + title + '</h6>' + content : '<h4>' + title + '</h4>' + content;
+    if (!compact && insertKey) {
+      h += insertHTML('section_' + insertKey, 'Clinical notes — ' + title);
+    }
+    return h;
+  }
+
+  // HTML for a clinician insert textarea (rendered in the HTML string)
+  function insertHTML(key, label) {
+    var statePath = 'clinicianInserts.' + key;
+    var current = S.get(statePath) || '';
+    return '<div class="clinician-insert" style="margin:0.75rem 0 1.25rem;padding:8px 12px;background:#fffbe6;border:1px dashed #e0c36a;border-radius:6px;">' +
+      '<div style="font-size:0.78rem;color:#8a7530;margin-bottom:4px;font-weight:600">' + esc(label) + ' <span style="font-weight:400">(editable — will be preserved)</span></div>' +
+      '<textarea data-insert-key="' + esc(statePath) + '" ' +
+        'style="width:100%;min-height:48px;border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-size:0.85rem;resize:vertical;font-family:inherit;background:#fff;"' +
+        ' placeholder="Type clinical notes here...">' + esc(current) + '</textarea></div>';
+  }
+
+  // Bind event listeners for all clinician inserts after innerHTML is set
+  function bindInserts(container) {
+    var textareas = container.querySelectorAll('textarea[data-insert-key]');
+    for (var i = 0; i < textareas.length; i++) {
+      (function (ta) {
+        ta.addEventListener('input', function () {
+          S.set(ta.getAttribute('data-insert-key'), ta.value);
+        });
+      })(textareas[i]);
+    }
   }
 
   function scoreBadge(value, max, thresholds) {
     if (value === null || value === undefined) return '<span class="score-badge" style="background:#e9ecef">Not yet scored</span>';
     var cls = 'score-good';
-    if (thresholds) {
-      if (value > thresholds.poor) cls = 'score-poor';
-      else if (value > thresholds.moderate) cls = 'score-moderate';
-    }
+    if (thresholds) { if (value > thresholds.poor) cls = 'score-poor'; else if (value > thresholds.moderate) cls = 'score-moderate'; }
     return '<span class="score-badge ' + cls + '">' + value + (max ? '/' + max : '') + '</span>';
   }
-
-  // helper: styled table for report
   function rptTh(text, align) {
-    return '<th style="padding:5px 8px;border:1px solid #dee2e6;background:#e8edf3;font-weight:600;font-size:0.84rem;' +
-      (align ? 'text-align:' + align : 'text-align:left') + '">' + text + '</th>';
+    return '<th style="padding:5px 8px;border:1px solid #dee2e6;background:#e8edf3;font-weight:600;font-size:0.84rem;' + (align ? 'text-align:' + align : 'text-align:left') + '">' + text + '</th>';
   }
   function rptTd(text, align, bold) {
-    return '<td style="padding:4px 8px;border:1px solid #dee2e6;font-size:0.86rem;' +
-      (align ? 'text-align:' + align : '') + (bold ? ';font-weight:600' : '') + '">' + text + '</td>';
+    return '<td style="padding:4px 8px;border:1px solid #dee2e6;font-size:0.86rem;' + (align ? 'text-align:' + align : '') + (bold ? ';font-weight:600' : '') + '">' + text + '</td>';
   }
 
+  // frequency label for PSQI items (0-3)
+  var FREQ = ['not during the past month', 'less than once a week', 'once or twice a week', 'three or more times a week'];
+  var QUALITY = ['very good', 'fairly good', 'fairly bad', 'very bad'];
+  var PROBLEM = ['no problem at all', 'only a very slight problem', 'somewhat of a problem', 'a very big problem'];
+  var GAD_FREQ = ['not at all', 'several days', 'more than half the days', 'nearly every day'];
+
   // ═══════════════════════════════════════════
-  //  SLEEP
+  //  SLEEP (PSQI + Epworth)
   // ═══════════════════════════════════════════
   function sleepSection(compact) {
     var psqi = S.getScore('psqi');
     var epworth = S.getScore('epworth');
+    var d = S.getSession().instruments.psqi || {};
     var content = '';
 
     if (psqi && psqi.globalTotal !== null) {
       content += '<p><strong>Pittsburgh Sleep Quality Index (PSQI):</strong> ' +
         scoreBadge(psqi.globalTotal, 21, { moderate: 5, poor: 10 }) + '</p>';
-      if (psqi.globalTotal <= 5) {
-        content += '<p>Your responses suggest you have been sleeping reasonably well over the past month.</p>';
+
+      // Overall quality
+      if (d.q9_quality !== undefined && d.q9_quality !== null) {
+        content += '<p>Over the past month, you rated your overall sleep quality as <strong>' + QUALITY[d.q9_quality] + '</strong>. ';
       } else {
-        content += '<p>Your responses suggest your sleep has been disrupted over the past month. ';
-        var compNames = ['Subjective Quality', 'Sleep Latency', 'Sleep Duration', 'Sleep Efficiency',
-          'Sleep Disturbance', 'Sleep Medication', 'Daytime Dysfunction'];
-        var compKeys = ['subjectiveQuality', 'sleepLatency', 'sleepDuration', 'sleepEfficiency',
-          'sleepDisturbance', 'sleepMedication', 'daytimeDysfunction'];
-        var highComps = [];
-        for (var i = 0; i < compKeys.length; i++) {
-          if (psqi.components[compKeys[i]] >= 2) highComps.push(compNames[i]);
-        }
-        if (highComps.length > 0) {
-          content += 'The areas that contributed most were: ' + highComps.join(', ') + '.</p>';
-        } else {
-          content += '</p>';
+        content += '<p>Over the past month, ';
+      }
+
+      // Bedtime/waketime/hours
+      if (d.q1_bedtime) content += 'You reported typically going to bed at <strong>' + esc(d.q1_bedtime) + '</strong>';
+      if (d.q3_waketime) content += ' and waking at <strong>' + esc(d.q3_waketime) + '</strong>';
+      if (d.q4_sleep_hours) content += ', getting approximately <strong>' + d.q4_sleep_hours + ' hours</strong> of actual sleep';
+      content += '. ';
+
+      // Latency
+      if (d.q2_latency_min) {
+        content += 'It usually took you about <strong>' + esc(String(d.q2_latency_min)) + ' minutes</strong> to fall asleep. ';
+      }
+      content += '</p>';
+
+      // Specific sleep disturbances
+      var distItems = [
+        { k: 'q5a', t: 'not being able to get to sleep within 30 minutes' },
+        { k: 'q5b', t: 'waking up in the middle of the night or early morning' },
+        { k: 'q5c', t: 'having to get up to use the bathroom' },
+        { k: 'q5d', t: 'not being able to breathe comfortably' },
+        { k: 'q5e', t: 'coughing or snoring loudly' },
+        { k: 'q5f', t: 'feeling too cold' },
+        { k: 'q5g', t: 'feeling too hot' },
+        { k: 'q5h', t: 'having bad dreams' },
+        { k: 'q5i', t: 'having pain' }
+      ];
+
+      var frequent = [], occasional = [];
+      for (var i = 0; i < distItems.length; i++) {
+        var v = d[distItems[i].k];
+        if (v !== undefined && v !== null) {
+          if (Number(v) >= 3) frequent.push(distItems[i].t);
+          else if (Number(v) >= 2) occasional.push(distItems[i].t);
         }
       }
-      // PSQI has 7 meaningful components — keep chart
+
+      if (frequent.length > 0) {
+        content += '<p>You reported having trouble sleeping <strong>three or more times a week</strong> because of ' + joinList(frequent) + '. ';
+        if (occasional.length > 0) {
+          content += 'You also had difficulty <strong>once or twice a week</strong> with ' + joinList(occasional) + '. ';
+        }
+        content += '</p>';
+      } else if (occasional.length > 0) {
+        content += '<p>You reported having trouble sleeping <strong>once or twice a week</strong> because of ' + joinList(occasional) + '.</p>';
+      }
+
+      // Medication
+      if (d.q6_medication !== undefined && Number(d.q6_medication) > 0) {
+        content += '<p>You indicated that you have taken sleep medication <strong>' + FREQ[d.q6_medication] + '</strong>.</p>';
+      }
+
+      // Daytime dysfunction
+      if (d.q7_drowsiness !== undefined && Number(d.q7_drowsiness) >= 2) {
+        content += '<p>You reported having trouble staying awake while driving, eating, or during social activity <strong>' + FREQ[d.q7_drowsiness] + '</strong>. ';
+      }
+      if (d.q8_enthusiasm !== undefined && Number(d.q8_enthusiasm) >= 1) {
+        content += 'Keeping up enthusiasm to get things done has been <strong>' + PROBLEM[d.q8_enthusiasm] + '</strong>. ';
+      }
+      if ((d.q7_drowsiness !== undefined && Number(d.q7_drowsiness) >= 2) || (d.q8_enthusiasm !== undefined && Number(d.q8_enthusiasm) >= 1)) {
+        content += '</p>';
+      }
+
+      // MI summary
+      if (psqi.globalTotal <= 5) {
+        content += '<p><em>It sounds like your sleep has been going reasonably well over the past month, which is a real positive for your overall health and wellbeing.</em></p>';
+      } else {
+        content += '<p><em>It sounds like sleep has been a challenge recently. The good news is that there are practical strategies that can help, and it is worth exploring what might make the biggest difference for you.</em></p>';
+      }
+
       if (!compact) content += '<div class="chart-container" id="chart-psqi"></div>';
     } else {
       content += '<p class="text-muted">PSQI not yet completed.</p>';
     }
 
+    // Epworth
+    var ed = S.getSession().instruments.epworth || {};
     if (epworth && epworth.total !== null) {
       content += '<p><strong>Epworth Sleepiness Scale:</strong> ' +
         scoreBadge(epworth.total, 24, { moderate: 10, poor: 14 }) + '</p>';
-      if (epworth.total <= 10) {
-        content += '<p>Your daytime sleepiness is within the normal range.</p>';
-      } else if (epworth.total <= 14) {
-        content += '<p>You reported mild excessive daytime sleepiness. This means you may feel more sleepy during the day than is typical.</p>';
-      } else {
-        content += '<p>You reported significant daytime sleepiness. This may affect your daily activities and is worth discussing with your clinician.</p>';
+
+      var situations = [
+        { k: 'e1', t: 'sitting and reading' },
+        { k: 'e2', t: 'watching TV' },
+        { k: 'e3', t: 'sitting inactive in a public place' },
+        { k: 'e4', t: 'as a passenger in a car for an hour' },
+        { k: 'e5', t: 'lying down to rest in the afternoon' },
+        { k: 'e6', t: 'sitting and talking to someone' },
+        { k: 'e7', t: 'sitting quietly after lunch without alcohol' },
+        { k: 'e8', t: 'in a car while stopped in traffic' }
+      ];
+
+      var high = [], moderate = [];
+      for (var ei = 0; ei < situations.length; ei++) {
+        var ev = ed[situations[ei].k];
+        if (ev !== undefined && ev !== null) {
+          if (Number(ev) === 3) high.push(situations[ei].t);
+          else if (Number(ev) === 2) moderate.push(situations[ei].t);
+        }
       }
-      // No chart — single number, badge is sufficient
+
+      if (high.length > 0) {
+        content += '<p>You reported a <strong>high chance of dozing</strong> while ' + joinList(high) + '. ';
+        if (moderate.length > 0) content += 'You also noted a <strong>moderate chance</strong> while ' + joinList(moderate) + '. ';
+        content += '</p>';
+      } else if (moderate.length > 0) {
+        content += '<p>You reported a <strong>moderate chance of dozing</strong> while ' + joinList(moderate) + '.</p>';
+      }
+
+      if (epworth.total <= 10) {
+        content += '<p><em>Your daytime sleepiness appears to be within the normal range, which is reassuring.</em></p>';
+      } else {
+        content += '<p><em>You mentioned feeling sleepier during the day than might be expected. This is worth exploring further, as addressing the underlying cause can make a real difference to how you feel day-to-day.</em></p>';
+      }
     } else {
       content += '<p class="text-muted">Epworth not yet completed.</p>';
     }
 
-    return section('Sleep', content, compact);
+    return section('Sleep', content, compact, 'sleep');
   }
 
   // ═══════════════════════════════════════════
-  //  MOOD & WORRY
+  //  MOOD & WORRY (GAD-7 + GDS-15)
   // ═══════════════════════════════════════════
   function moodSection(compact) {
     var gad = S.getScore('gad7');
     var dep = S.getScore('depression');
+    var gd = S.getSession().instruments.gad7 || {};
+    var dd = S.getSession().instruments.depression || {};
     var content = '';
 
+    // GAD-7
     if (gad && gad.total !== null) {
-      content += '<p><strong>Anxiety (GAD-7):</strong> ' +
-        scoreBadge(gad.total, 21, { moderate: 9, poor: 14 }) + '</p>';
-      if (gad.total <= 4) {
-        content += '<p>Your anxiety scores are in the minimal range, suggesting worry and nervousness have not been a significant problem recently.</p>';
-      } else if (gad.total <= 9) {
-        content += '<p>Your responses indicate mild levels of anxiety over the past two weeks.</p>';
-      } else if (gad.total <= 14) {
-        content += '<p>Your responses suggest moderate anxiety. You may be experiencing worry or nervousness that is affecting your daily life.</p>';
-      } else {
-        content += '<p>Your responses indicate severe anxiety levels. It is important to discuss this with your clinician.</p>';
+      content += '<p><strong>Anxiety (GAD-7):</strong> ' + scoreBadge(gad.total, 21, { moderate: 9, poor: 14 }) + '</p>';
+
+      var gadItems = [
+        { k: 'g1', t: 'feeling nervous, anxious, or on edge' },
+        { k: 'g2', t: 'not being able to stop or control worrying' },
+        { k: 'g3', t: 'worrying too much about different things' },
+        { k: 'g4', t: 'trouble relaxing' },
+        { k: 'g5', t: 'being so restless that it is hard to sit still' },
+        { k: 'g6', t: 'becoming easily annoyed or irritable' },
+        { k: 'g7', t: 'feeling afraid, as if something awful might happen' }
+      ];
+
+      var gadFreq = {}, gadAny = false;
+      for (var gi = 0; gi < gadItems.length; gi++) {
+        var gv = gd[gadItems[gi].k];
+        if (gv !== undefined && gv !== null && Number(gv) > 0) {
+          var freq = GAD_FREQ[Number(gv)];
+          if (!gadFreq[freq]) gadFreq[freq] = [];
+          gadFreq[freq].push(gadItems[gi].t);
+          gadAny = true;
+        }
       }
+
+      if (gadAny) {
+        content += '<p>Over the past two weeks, you reported: ';
+        var parts = [];
+        if (gadFreq['nearly every day']) parts.push('<strong>nearly every day</strong> — ' + joinList(gadFreq['nearly every day']));
+        if (gadFreq['more than half the days']) parts.push('<strong>more than half the days</strong> — ' + joinList(gadFreq['more than half the days']));
+        if (gadFreq['several days']) parts.push('<strong>several days</strong> — ' + joinList(gadFreq['several days']));
+        content += parts.join('; ') + '.</p>';
+      }
+
       if (gad.impairment) {
         var impLabels = { not_difficult: 'not at all difficult', somewhat: 'somewhat difficult', very: 'very difficult', extremely: 'extremely difficult' };
-        content += '<p>You rated the impact on your daily functioning as <em>' + (impLabels[gad.impairment] || gad.impairment) + '</em>.</p>';
+        content += '<p>You rated the impact of these difficulties on your daily functioning as <em>' + (impLabels[gad.impairment] || gad.impairment) + '</em>.</p>';
       }
-      // No chart — single score, badge + text sufficient
+
+      if (gad.total <= 4) {
+        content += '<p><em>It is encouraging that worry and nervousness have not been a significant problem for you recently. This is a real strength to build on.</em></p>';
+      } else if (gad.total <= 9) {
+        content += '<p><em>You have been experiencing some mild anxiety. Many people find that small, practical steps — such as relaxation techniques or talking things through — can help manage these feelings.</em></p>';
+      } else {
+        content += '<p><em>It sounds like anxiety has been having a noticeable impact on your life. There are effective approaches that can help, and it is worth exploring what kind of support might be most beneficial for you.</em></p>';
+      }
     } else {
       content += '<p class="text-muted">GAD-7 not yet completed.</p>';
     }
 
+    // GDS-15
     if (dep && dep.total !== null) {
-      content += '<p><strong>Depression Screen (GDS-15):</strong> ' +
-        scoreBadge(dep.total, 15, { moderate: 4, poor: 8 }) + '</p>';
-      if (dep.total <= 4) {
-        content += '<p>Your responses do not suggest significant symptoms of depression.</p>';
-      } else if (dep.total <= 8) {
-        content += '<p>Your responses suggest mild depressive symptoms. This may mean you have been feeling a little low recently.</p>';
-      } else if (dep.total <= 11) {
-        content += '<p>Your responses suggest moderate depressive symptoms. It would be helpful to discuss how you have been feeling.</p>';
-      } else {
-        content += '<p>Your responses indicate significant depressive symptoms. Please discuss this with your clinician.</p>';
+      content += '<p><strong>Depression Screen (GDS-15):</strong> ' + scoreBadge(dep.total, 15, { moderate: 4, poor: 8 }) + '</p>';
+
+      var depItems = BHM.Instruments.Depression.getItems();
+      var endorsed = [];
+      for (var di = 0; di < depItems.length; di++) {
+        var dv = dd[depItems[di].key];
+        if (dv !== undefined && dv === depItems[di].depressiveAnswer) {
+          var stmt = depItems[di].label.replace(/^\d+\s*/, '');
+          endorsed.push(stmt);
+        }
       }
-      // No chart — single score
+
+      if (endorsed.length > 0) {
+        content += '<p>Your responses indicated that: ';
+        var stmts = [];
+        for (var ei2 = 0; ei2 < endorsed.length; ei2++) {
+          var s = endorsed[ei2];
+          s = s.replace(/^Are you basically satisfied/, 'you are not fully satisfied');
+          s = s.replace(/^Have you dropped/, 'you have dropped');
+          s = s.replace(/^Do you feel that your life is empty/, 'you feel your life is empty');
+          s = s.replace(/^Do you often feel bored/, 'you often feel bored');
+          s = s.replace(/^Are you in good spirits/, 'you are not in good spirits');
+          s = s.replace(/^Are you afraid/, 'you are afraid');
+          s = s.replace(/^Do you feel happy/, 'you do not feel happy');
+          s = s.replace(/^Do you often feel helpless/, 'you often feel helpless');
+          s = s.replace(/^Do you prefer to stay at home/, 'you prefer to stay at home');
+          s = s.replace(/^Do you feel you have more problems/, 'you feel you have more problems');
+          s = s.replace(/^Do you think it is wonderful/, 'you do not feel it is wonderful');
+          s = s.replace(/^Do you feel pretty worthless/, 'you feel worthless');
+          s = s.replace(/^Do you feel full of energy/, 'you do not feel full of energy');
+          s = s.replace(/^Do you feel that your situation is hopeless/, 'you feel your situation is hopeless');
+          s = s.replace(/^Do you think that most people/, 'you think most people');
+          s = s.replace(/\?$/, '');
+          stmts.push(s.charAt(0).toLowerCase() + s.slice(1));
+        }
+        content += stmts.join('; ') + '.</p>';
+      }
+
+      if (dep.total <= 4) {
+        content += '<p><em>Your responses do not suggest significant symptoms of low mood. It is good to hear that you are generally managing well in this area.</em></p>';
+      } else if (dep.total <= 8) {
+        content += '<p><em>You have described some feelings that suggest your mood may have dipped a little recently. This is something that many people experience, and talking through how you have been feeling can often be a helpful first step.</em></p>';
+      } else {
+        content += '<p><em>It sounds like you have been going through a difficult time emotionally. Please know that support is available, and there are effective ways to help with these feelings.</em></p>';
+      }
     } else {
       content += '<p class="text-muted">Depression screen not yet completed.</p>';
     }
 
-    return section('Mood and Worry', content, compact);
+    return section('Mood and Worry', content, compact, 'mood');
   }
 
   // ═══════════════════════════════════════════
-  //  ALCOHOL
+  //  ALCOHOL (AUDIT)
   // ═══════════════════════════════════════════
   function alcoholSection(compact) {
     var audit = S.getScore('auditTool');
+    var ad = S.getSession().instruments.auditTool || {};
     var content = '';
 
     if (audit && audit.total !== null) {
-      content += '<p><strong>AUDIT Score:</strong> ' +
-        scoreBadge(audit.total, 40, { moderate: 7, poor: 15 }) + '</p>';
-      if (audit.total <= 7) {
-        content += '<p>Your alcohol use is within the low-risk range.</p>';
-      } else if (audit.total <= 15) {
-        content += '<p>Your responses suggest an increasing risk level of alcohol use. It may be worth reviewing your drinking habits.</p>';
-      } else if (audit.total <= 19) {
-        content += '<p>Your responses suggest a higher-risk level of alcohol use. We recommend discussing this further.</p>';
-      } else {
-        content += '<p>Your responses suggest a level of alcohol use that may indicate dependence. Please discuss this with your clinician.</p>';
+      content += '<p><strong>AUDIT Score:</strong> ' + scoreBadge(audit.total, 40, { moderate: 7, poor: 15 }) + '</p>';
+
+      var freqLabels = ['never', 'monthly or less', '2 to 4 times per month', '2 to 3 times per week', '4 or more times per week'];
+      var unitLabels = ['0 to 2', '3 to 4', '5 to 6', '7 to 9', '10 or more'];
+      var bingeLabels = ['never', 'less than monthly', 'monthly', 'weekly', 'daily or almost daily'];
+
+      if (ad.a1 !== undefined && ad.a1 !== null) {
+        if (Number(ad.a1) === 0) {
+          content += '<p>You reported that you <strong>never</strong> drink alcohol.</p>';
+        } else {
+          content += '<p>You reported having a drink containing alcohol <strong>' + freqLabels[Number(ad.a1)] + '</strong>';
+          if (ad.a2 !== undefined && ad.a2 !== null) {
+            content += ', typically having <strong>' + unitLabels[Number(ad.a2)] + ' units</strong> on a drinking day';
+          }
+          content += '. ';
+
+          if (ad.a3 !== undefined && Number(ad.a3) > 0) {
+            content += 'You have had 6 or more units on a single occasion <strong>' + bingeLabels[Number(ad.a3)] + '</strong>. ';
+          }
+          content += '</p>';
+
+          var concerns = [];
+          if (ad.a4 !== undefined && Number(ad.a4) > 0) concerns.push('you found you were not able to stop drinking once you had started (' + bingeLabels[Number(ad.a4)] + ')');
+          if (ad.a5 !== undefined && Number(ad.a5) > 0) concerns.push('you failed to do what was normally expected because of drinking (' + bingeLabels[Number(ad.a5)] + ')');
+          if (ad.a6 !== undefined && Number(ad.a6) > 0) concerns.push('you needed a morning drink to get going (' + bingeLabels[Number(ad.a6)] + ')');
+          if (ad.a7 !== undefined && Number(ad.a7) > 0) concerns.push('you had feelings of guilt or remorse after drinking (' + bingeLabels[Number(ad.a7)] + ')');
+          if (ad.a8 !== undefined && Number(ad.a8) > 0) concerns.push('you were unable to remember what happened the night before because of drinking (' + bingeLabels[Number(ad.a8)] + ')');
+
+          if (concerns.length > 0) {
+            content += '<p>In the past year, you indicated that ' + joinList(concerns) + '.</p>';
+          }
+
+          if (ad.a9 !== undefined && Number(ad.a9) > 0) {
+            content += '<p>You reported that ' + (Number(ad.a9) === 4 ? 'you or someone else has been injured during the last year' : 'you or someone else has been injured, though not in the last year') + ' as a result of drinking.</p>';
+          }
+          if (ad.a10 !== undefined && Number(ad.a10) > 0) {
+            content += '<p>A relative, friend, or health worker has expressed concern about your drinking' +
+              (Number(ad.a10) === 4 ? ' during the last year' : ', though not in the last year') + '.</p>';
+          }
+        }
       }
-      // No chart — single score
+
+      if (audit.total <= 7) {
+        content += '<p><em>Your alcohol use falls within the low-risk range. Maintaining these habits is a positive step for your long-term health.</em></p>';
+      } else if (audit.total <= 15) {
+        content += '<p><em>Your responses suggest your alcohol use is at a level that could be worth reviewing. Even small changes can make a meaningful difference to your health, and support is available if you are interested in exploring this.</em></p>';
+      } else {
+        content += '<p><em>Your responses suggest that alcohol may be having a significant impact on your life. There are effective support options available, and it is worth discussing what might be most helpful for you.</em></p>';
+      }
     } else {
       content += '<p class="text-muted">AUDIT not yet completed.</p>';
     }
 
-    return section('Alcohol', content, compact);
+    return section('Alcohol', content, compact, 'alcohol');
   }
 
   // ═══════════════════════════════════════════
-  //  DIET
+  //  DIET (Mediterranean Diet Score)
   // ═══════════════════════════════════════════
   function dietSection(compact) {
     var dietScore = S.getScore('diet');
+    var dd = S.getSession().instruments.diet || {};
     var content = '';
 
     if (dietScore && dietScore.total !== null) {
-      content += '<p><strong>Mediterranean Diet Score:</strong> ' +
-        scoreBadge(dietScore.total, 14, { moderate: -1, poor: -1 }) + '</p>';
-      if (dietScore.total >= 10) {
-        content += '<p>Your diet appears to follow the Mediterranean pattern well, which is associated with good brain and heart health.</p>';
-      } else if (dietScore.total >= 7) {
-        content += '<p>Your diet has some Mediterranean features. There may be small changes you could make to improve your diet for brain health.</p>';
-      } else {
-        content += '<p>Your diet does not closely follow a Mediterranean pattern at present. A Mediterranean-style diet is associated with better brain health outcomes.</p>';
+      content += '<p><strong>Mediterranean Diet Score:</strong> ' + scoreBadge(dietScore.total, 14, { moderate: -1, poor: -1 }) + '</p>';
+
+      var dietItems = [
+        { k: 'md1',  yes: 'olive oil is your main cooking fat', no: 'olive oil is not your main cooking fat' },
+        { k: 'md2',  yes: 'you use 4 or more tablespoons of olive oil each day', no: 'you use less than 4 tablespoons of olive oil each day' },
+        { k: 'md3',  yes: 'you eat 2 or more servings of vegetables each day', no: 'you eat fewer than 2 servings of vegetables daily' },
+        { k: 'md4',  yes: 'you eat 3 or more servings of fruit each day', no: 'you eat fewer than 3 servings of fruit daily' },
+        { k: 'md5',  yes: 'you eat less than 1 serving of red meat per day', no: 'you eat 1 or more servings of red meat per day' },
+        { k: 'md6',  yes: 'you consume less than 1 serving of butter, margarine, or cream per day', no: 'you consume 1 or more servings of butter, margarine, or cream daily' },
+        { k: 'md7',  yes: 'you drink fewer than 1 sweetened carbonated drink per day', no: 'you drink 1 or more sweetened carbonated drinks per day' },
+        { k: 'md8',  yes: 'you drink 3 or more glasses of wine per week', no: 'you drink fewer than 3 glasses of wine per week' },
+        { k: 'md9',  yes: 'you eat 3 or more servings of legumes per week', no: 'you eat fewer than 3 servings of legumes per week' },
+        { k: 'md10', yes: 'you eat 3 or more servings of fish or seafood per week', no: 'you eat fewer than 3 servings of fish or seafood per week' },
+        { k: 'md11', yes: 'you eat fewer than 3 commercial sweets or pastries per week', no: 'you eat 3 or more commercial sweets or pastries per week' },
+        { k: 'md12', yes: 'you eat 1 or more servings of nuts per week', no: 'you eat fewer than 1 serving of nuts per week' },
+        { k: 'md13', yes: 'you routinely choose chicken, turkey, or rabbit over red meat', no: 'you do not routinely choose poultry over red meat' },
+        { k: 'md14', yes: 'you eat pasta, vegetable, or rice dishes flavoured with garlic, tomato, leek, or onion twice a week or more', no: 'you eat these Mediterranean-style dishes less than twice a week' }
+      ];
+
+      var strengths = [], gaps = [];
+      for (var di = 0; di < dietItems.length; di++) {
+        var v = dd[dietItems[di].k];
+        if (v === 'yes') strengths.push(dietItems[di].yes);
+        else if (v === 'no') gaps.push(dietItems[di].no);
       }
-      // No chart — single score
+
+      if (strengths.length > 0) {
+        content += '<p>Some positive aspects of your current diet: ' + joinList(strengths) + '.</p>';
+      }
+      if (gaps.length > 0) {
+        content += '<p>Some areas where your diet could move closer to a Mediterranean pattern: ' + joinList(gaps) + '.</p>';
+      }
+
+      if (dietScore.total >= 10) {
+        content += '<p><em>Your diet already follows a Mediterranean pattern well, which is linked to better brain and heart health. That is a real strength to build on and maintain.</em></p>';
+      } else if (dietScore.total >= 7) {
+        content += '<p><em>Your diet has some good Mediterranean features already. Even small, gradual changes — such as adding a little more fish, vegetables, or olive oil — can further support your brain health over time.</em></p>';
+      } else {
+        content += '<p><em>There may be some straightforward changes you could consider to move your diet closer to a Mediterranean pattern, which is associated with better brain health outcomes. A dietitian or other specialist can help think about what would work best for you.</em></p>';
+      }
     } else {
       content += '<p class="text-muted">Diet questionnaire not yet completed.</p>';
     }
 
-    return section('Diet Pattern', content, compact);
+    return section('Diet Pattern', content, compact, 'diet');
   }
 
   // ═══════════════════════════════════════════
-  //  QUALITY OF LIFE
+  //  QUALITY OF LIFE (CASP-19)
   // ═══════════════════════════════════════════
   function qolSection(compact) {
     var casp = S.getScore('casp19');
+    var cd = S.getSession().instruments.casp19 || {};
     var content = '';
 
     if (casp && casp.total !== null) {
-      content += '<p><strong>Quality of Life (CASP-19):</strong> ' +
-        scoreBadge(casp.total, 57, { moderate: -1, poor: -1 }) + '</p>';
-      content += '<p>Your quality of life score is ' + casp.total + ' out of 57. Higher scores indicate better perceived quality of life.</p>';
-      if (casp.domainTotals) {
-        content += '<p>Domain breakdown: ';
-        var parts = [];
-        for (var d in casp.domainTotals) {
-          if (casp.domainTotals.hasOwnProperty(d)) parts.push(d + ': ' + casp.domainTotals[d]);
+      content += '<p><strong>Quality of Life (CASP-19):</strong> ' + scoreBadge(casp.total, 57, { moderate: -1, poor: -1 }) + '</p>';
+      content += '<p>This questionnaire asks about four aspects of quality of life: Control, Autonomy, Pleasure, and Self-realisation.</p>';
+
+      var items = BHM.Instruments.CASP19.getItems();
+      var COLS = ['often', 'sometimes', 'not often', 'never'];
+
+      var domains = {};
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!domains[item.domain]) domains[item.domain] = { concerns: [], positives: [] };
+        var v = cd[item.key];
+        if (v === undefined || v === null) continue;
+        var colIdx = Number(v);
+        var freqWord = COLS[colIdx];
+        var stmt = item.label.charAt(0).toLowerCase() + item.label.slice(1);
+
+        if (item.reverse) {
+          if (colIdx <= 1) domains[item.domain].concerns.push('you ' + freqWord + ' feel that ' + stmt);
+        } else {
+          if (colIdx >= 2) domains[item.domain].concerns.push('you ' + freqWord + ' feel that ' + stmt);
+          else domains[item.domain].positives.push(stmt);
         }
-        content += parts.join(', ') + '</p>';
       }
-      // CASP-19 has 4 meaningful domains — keep chart
+
+      for (var dom in domains) {
+        if (!domains.hasOwnProperty(dom)) continue;
+        var dInfo = domains[dom];
+        var domScore = casp.domainTotals ? casp.domainTotals[dom] : null;
+        content += '<p><strong>' + dom + '</strong>' + (domScore !== null ? ' (score: ' + domScore + ')' : '') + ': ';
+        if (dInfo.concerns.length > 0) {
+          content += 'You noted that ' + joinList(dInfo.concerns) + '. ';
+        }
+        if (dInfo.positives.length > 0 && dInfo.concerns.length === 0) {
+          content += 'Positively, you indicated that you often ' + joinList(dInfo.positives) + '. ';
+        }
+        if (dInfo.concerns.length === 0 && dInfo.positives.length === 0) {
+          content += 'No notable concerns were identified in this area. ';
+        }
+        content += '</p>';
+      }
+
+      content += '<p><em>Quality of life is personal and multifaceted. It can be helpful to think about which areas matter most to you and what might help you get more of what you value.</em></p>';
+
       if (!compact) content += '<div class="chart-container" id="chart-casp19"></div>';
     } else {
       content += '<p class="text-muted">CASP-19 not yet completed.</p>';
     }
 
-    return section('Quality of Life', content, compact);
+    return section('Quality of Life', content, compact, 'qol');
   }
 
   // ═══════════════════════════════════════════
@@ -315,185 +586,389 @@ BHM.Report = (function () {
   // ═══════════════════════════════════════════
   function hearingSection(compact) {
     var hearingScore = S.getScore('hearing');
+    var hd = S.getSession().instruments.hearing || {};
     var content = '';
 
     if (hearingScore) {
       content += '<p><strong>Hearing difficulties reported in:</strong> ' + hearingScore.affectedCount + ' of 17 situations</p>';
+
       if (hearingScore.affectedCount > 0) {
-        content += '<p>You reported hearing difficulties in several situations. ';
-        var top1 = S.get('instruments.hearing.top1');
-        var top2 = S.get('instruments.hearing.top2');
-        var top3 = S.get('instruments.hearing.top3');
-        var tops = [top1, top2, top3].filter(function (t) { return t && t.trim(); });
-        if (tops.length > 0) {
-          content += 'Your top priorities were: ' + tops.join('; ') + '.</p>';
-        } else {
-          content += '</p>';
+        var situations = BHM.Instruments.Hearing ? BHM.Instruments.Hearing.getSituations() : [];
+        var affected = [];
+        for (var i = 0; i < situations.length; i++) {
+          if (hd[situations[i].key] === 'yes') {
+            var txt = situations[i].label.replace(/^\d+\.\s*/, '').replace(/\.$/, '').toLowerCase();
+            affected.push(txt);
+          }
         }
+        if (affected.length > 0) {
+          content += '<p>You reported that your hearing affects you in the following situations: ' + joinList(affected) + '.</p>';
+        }
+
+        var top1 = hd.top1, top2 = hd.top2, top3 = hd.top3;
+        var tops = [top1, top2, top3].filter(function (t) { return t && String(t).trim(); });
+        if (tops.length > 0) {
+          content += '<p>The situations you identified as most important to you were numbers ' + tops.join(', ') + '.</p>';
+        }
+
+        var earSymptoms = [];
+        if (hd.tinnitus === 'yes') earSymptoms.push('tinnitus (ringing, hissing, or other noises in the ears)');
+        if (hd.hyperacusis === 'yes') earSymptoms.push('sensitivity to everyday loud sounds');
+        if (hd.pain === 'yes') earSymptoms.push('ear pain');
+        if (earSymptoms.length > 0) {
+          content += '<p>You also reported experiencing ' + joinList(earSymptoms) + '.</p>';
+        }
+
+        if (hd.hearingAids === 'Yes') {
+          content += '<p>You currently wear hearing aids. ';
+          if (hd.hearingAidProblems && hd.hearingAidProblems.trim()) {
+            content += 'You noted the following issues: ' + esc(hd.hearingAidProblems) + '.';
+          }
+          content += '</p>';
+        } else if (hd.hearingAids === 'No') {
+          if (hd.wantHearingAids === 'Yes') {
+            content += '<p>You do not currently wear hearing aids but indicated you would be interested if they might help.</p>';
+          }
+        }
+
+        content += '<p><em>Hearing plays an important role in communication, social connection, and overall wellbeing. Addressing hearing difficulties can have a positive impact on many areas of life, and there are good options available.</em></p>';
       } else {
-        content += '<p>You did not report significant hearing difficulties.</p>';
+        content += '<p><em>You did not report significant hearing difficulties, which is positive.</em></p>';
       }
     } else {
       content += '<p class="text-muted">Hearing section not yet completed.</p>';
     }
 
-    return section('Hearing', content, compact);
+    return section('Hearing', content, compact, 'hearing');
   }
 
   // ═══════════════════════════════════════════
-  //  INFORMANT (MBI-C + NPI-Q) — with radar charts
+  //  INFORMANT (MBI-C + NPI-Q)
   // ═══════════════════════════════════════════
   function informantSection(compact) {
     var mbic = S.getScore('mbiC');
     var npiq = S.getScore('npiQ');
     var content = '';
 
-    // ── MBI-C ──
+    // MBI-C
     if (mbic && mbic.total !== null) {
       content += '<p><strong>Mild Behavioural Impairment (MBI-C) Total:</strong> ' + mbic.total + '</p>';
-      if (mbic.total === 0) {
-        content += '<p>No behavioural changes were reported by the informant.</p>';
+
+      if (mbic.total > 0) {
+        var domains = BHM.Instruments.MBIC.getDomains();
+        var domainShort = ['motivation and drive', 'mood and anxiety', 'impulse control and behaviour', 'social appropriateness', 'beliefs and perception'];
+        var mbicData = S.getSession().instruments.mbiC || {};
+        var domainNotes = [];
+
+        for (var d = 0; d < domains.length; d++) {
+          var dom = domains[d];
+          var endorsed = [];
+          for (var j = 0; j < dom.items.length; j++) {
+            var v = mbicData[dom.items[j].key];
+            if (v !== undefined && v !== null && Number(v) > 0) {
+              var sev = Number(v) === 1 ? 'mildly' : Number(v) === 2 ? 'moderately' : 'severely';
+              var lbl = dom.items[j].label;
+              lbl = lbl.replace(/^(Does the person|Has the person|Has she\/he|Is the person|Does she\/he)\s*/i, '').replace(/\?$/, '');
+              endorsed.push(sev + ': ' + lbl.charAt(0).toLowerCase() + lbl.slice(1));
+            }
+          }
+          if (endorsed.length > 0) {
+            domainNotes.push({ domain: domainShort[d], items: endorsed });
+          }
+        }
+
+        if (domainNotes.length > 0) {
+          content += '<p>The informant reported the following behavioural changes:</p><ul>';
+          for (var dn = 0; dn < domainNotes.length; dn++) {
+            content += '<li><strong>' + domainNotes[dn].domain.charAt(0).toUpperCase() + domainNotes[dn].domain.slice(1) + ':</strong> ';
+            content += domainNotes[dn].items.join('; ') + '.</li>';
+          }
+          content += '</ul>';
+        }
+
+        content += '<p><em>Changes in behaviour can sometimes be among the earliest signs of changes in brain health. Documenting these observations is helpful for monitoring over time and will be taken into account alongside other assessment findings.</em></p>';
       } else {
-        content += '<p>Some behavioural changes were noted by the informant. The total MBI-C score was ' + mbic.total + '.</p>';
+        content += '<p><em>No behavioural changes were reported by the informant, which is reassuring.</em></p>';
       }
-      // Radar chart — 5 domains (windrose)
       if (!compact) content += '<div class="chart-container" id="chart-mbic"></div>';
     } else {
       content += '<p class="text-muted">MBI-C not yet completed.</p>';
     }
 
-    // ── NPI-Q ──
+    // NPI-Q
     if (npiq) {
-      content += '<p><strong>NPI-Q:</strong> ' + npiq.count + ' symptom(s) reported, severity total ' +
-        npiq.severityTotal + ', distress total ' + npiq.distressTotal + '</p>';
+      content += '<p><strong>NPI-Q:</strong> ' + npiq.count + ' symptom(s) reported, severity total ' + npiq.severityTotal + ', distress total ' + npiq.distressTotal + '</p>';
+
       if (npiq.count > 0) {
         var symptoms = BHM.Instruments.NPIQ.getSymptoms();
-        var present = [];
-        for (var i = 0; i < symptoms.length; i++) {
-          if (S.get('instruments.npiQ.' + symptoms[i].key + '_present') === 'yes') {
-            present.push(symptoms[i].label);
+        var npiData = S.getSession().instruments.npiQ || {};
+        var sevLabels = { 1: 'mild', 2: 'moderate', 3: 'severe' };
+        var distLabels = { 0: 'no distress', 1: 'minimal', 2: 'mild', 3: 'moderate', 4: 'severe', 5: 'extreme' };
+        var npiNotes = [];
+
+        for (var si = 0; si < symptoms.length; si++) {
+          if (npiData[symptoms[si].key + '_present'] === 'yes') {
+            var sev = npiData[symptoms[si].key + '_severity'];
+            var dist = npiData[symptoms[si].key + '_distress'];
+            var note = '<strong>' + symptoms[si].label + '</strong>';
+            if (sev !== undefined && sev !== null) note += ' (' + (sevLabels[Number(sev)] || '') + ' severity';
+            if (dist !== undefined && dist !== null) note += ', ' + (distLabels[Number(dist)] || '') + ' carer distress';
+            note += ')';
+            npiNotes.push(note);
           }
         }
-        if (present.length > 0) {
-          content += '<p>Symptoms reported: ' + present.join(', ') + '.</p>';
+
+        if (npiNotes.length > 0) {
+          content += '<p>The informant reported the following neuropsychiatric symptoms: ' + npiNotes.join('; ') + '.</p>';
         }
+
+        content += '<p><em>These symptoms can be distressing for both the person and their family. Understanding which symptoms are present, and how they affect you both, is important for providing the most appropriate support.</em></p>';
       } else {
-        content += '<p>No neuropsychiatric symptoms were reported by the informant.</p>';
+        content += '<p><em>No neuropsychiatric symptoms were reported by the informant, which is reassuring.</em></p>';
       }
-      // Radar chart — severity vs distress across 12 symptoms (windrose)
       if (!compact && npiq.count > 0) content += '<div class="chart-container" id="chart-npiq"></div>';
     } else {
       content += '<p class="text-muted">NPI-Q not yet completed.</p>';
     }
 
-    return section('Changes Noticed by Family or Friends', content, compact);
+    return section('Changes Noticed by Family or Friends', content, compact, 'informant');
   }
 
   // ═══════════════════════════════════════════
-  //  CLINICAL INTERVIEW
+  //  CLINICAL INTERVIEW — granular NLP summary
   // ═══════════════════════════════════════════
   function clinicalSection(compact) {
-    var clin = S.getSession().instruments.clinical || {};
-    if (!clin.interviewDate && !clin.keyPositives && !clin.safetyConcerns) {
-      return section('Clinician Interview Summary',
-        '<p class="text-muted">Clinical interview not yet completed.</p>', compact);
-    }
+    var c = S.getSession().instruments.clinical || {};
     var content = '';
-    if (clin.keyPositives) content += '<p><strong>Key findings:</strong> ' + esc(clin.keyPositives) + '</p>';
-    if (clin.safetyConcerns) content += '<p><strong>Safety concerns:</strong> ' + esc(clin.safetyConcerns) + '</p>';
-    return section('Clinician Interview Summary', content, compact);
+    var hasAnything = false;
+
+    // ── A. Memory ──
+    var CI = BHM.Instruments.ClinicalInterview;
+    var memItems = CI ? CI.getMemItems() : [];
+    var memPresent = [], memAbsent = 0;
+    for (var mi = 0; mi < memItems.length; mi++) {
+      var mk = memItems[mi].key;
+      if (c[mk] === 'yes') {
+        var freq = c[mk + '_freq'];
+        var onset = c[mk + '_onset'];
+        var desc = memItems[mi].label.toLowerCase();
+        var txt = desc;
+        if (freq) txt += ' (' + freq + ')';
+        if (onset) txt += ' — onset: ' + esc(onset);
+        memPresent.push(txt);
+      } else if (c[mk] === 'no') {
+        memAbsent++;
+      }
+    }
+    if (memPresent.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Memory and new learning:</strong> Difficulties were reported with ' + joinList(memPresent) + '.</p>';
+    } else if (memAbsent === memItems.length) {
+      hasAnything = true;
+      content += '<p><strong>Memory and new learning:</strong> No difficulties were reported in this area.</p>';
+    }
+    if (c.memoryNotes && c.memoryNotes.trim()) {
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Examples:</strong> ' + esc(c.memoryNotes) + '</p>';
+    }
+
+    // ── B. Language ──
+    var langItems = CI ? CI.getLangItems() : [];
+    var langPresent = [], langAbsent = 0;
+    for (var li = 0; li < langItems.length; li++) {
+      var lk = langItems[li].key;
+      if (c[lk] === 'yes') {
+        var lfreq = c[lk + '_freq'];
+        var ltxt = langItems[li].label.toLowerCase();
+        if (lfreq) ltxt += ' (' + lfreq + ')';
+        langPresent.push(ltxt);
+      } else if (c[lk] === 'no') {
+        langAbsent++;
+      }
+    }
+    if (langPresent.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Word-finding and language:</strong> Difficulties were noted with ' + joinList(langPresent) + '.';
+      if (c.primaryLanguage) content += ' Primary language: ' + esc(c.primaryLanguage) + '.';
+      if (c.langDifficulty && c.langDifficulty !== 'No' && c.langDifficulty !== '') {
+        content += ' A longstanding language difficulty was noted (' + esc(c.langDifficulty) + ').';
+      }
+      content += '</p>';
+    } else if (langAbsent === langItems.length) {
+      hasAnything = true;
+      content += '<p><strong>Word-finding and language:</strong> No difficulties were reported.';
+      if (c.primaryLanguage) content += ' Primary language: ' + esc(c.primaryLanguage) + '.';
+      content += '</p>';
+    }
+    if (c.languageNotes && c.languageNotes.trim()) {
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Notes:</strong> ' + esc(c.languageNotes) + '</p>';
+    }
+
+    // ── C. Wayfinding / visuospatial ──
+    var visItems = CI ? CI.getVisItems() : [];
+    var visPresent = [], visStopped = [], visSafety = [];
+    for (var vi = 0; vi < visItems.length; vi++) {
+      var vk = visItems[vi].key;
+      var lbl = visItems[vi].label.toLowerCase().replace(/^gets /, '').replace(/^difficulty /, 'difficulty ');
+      if (c[vk + '_present'] === 'yes') visPresent.push(lbl);
+      if (c[vk + '_stopped'] === 'yes') visStopped.push(lbl);
+      if (c[vk + '_safety'] === 'yes') visSafety.push(lbl);
+    }
+    if (visPresent.length > 0 || visStopped.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Wayfinding and visuospatial skills:</strong> ';
+      if (visPresent.length > 0) content += 'Current difficulties were reported with ' + joinList(visPresent) + '. ';
+      if (visStopped.length > 0) content += 'The person has stopped: ' + joinList(visStopped) + '. ';
+      if (visSafety.length > 0) content += '<strong>Safety concerns</strong> were flagged for ' + joinList(visSafety) + '. ';
+      content += '</p>';
+    }
+    if (c.visuospatialNotes && c.visuospatialNotes.trim()) {
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Examples:</strong> ' + esc(c.visuospatialNotes) + '</p>';
+    }
+
+    // ── D. Personal history ──
+    var dParts = [];
+    if (c.birthPlace) dParts.push('born in ' + esc(c.birthPlace));
+    if (c.livingSituation) dParts.push('currently ' + esc(c.livingSituation).toLowerCase());
+    if (c.siblings) dParts.push(esc(c.siblings) + ' siblings');
+    if (c.relationships) dParts.push('relationship status: ' + esc(c.relationships));
+    if (c.children) dParts.push('children: ' + esc(c.children));
+    if (c.military === 'Yes') dParts.push('history of military service');
+    if (dParts.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Personal background:</strong> ' + dParts[0].charAt(0).toUpperCase() + dParts[0].slice(1);
+      if (dParts.length > 1) content += '; ' + dParts.slice(1).join('; ');
+      content += '.</p>';
+    }
+    if (c.trauma === 'Yes' && c.traumaDetails) {
+      content += '<p>History of trauma was disclosed: ' + esc(c.traumaDetails) + '.</p>';
+    }
+
+    // ── E. Head injury ──
+    if (c.headInjury === 'Yes') {
+      hasAnything = true;
+      content += '<p><strong>Head injury:</strong> A history of head injury was reported.';
+      if (c.headInjuryMech) content += ' Mechanism: ' + esc(c.headInjuryMech) + '.';
+      if (c.headInjuryLOC && c.headInjuryLOC !== 'No' && c.headInjuryLOC !== '') content += ' Loss of consciousness: ' + esc(c.headInjuryLOC) + '.';
+      if (c.headInjuryPTA && c.headInjuryPTA !== 'No' && c.headInjuryPTA !== '') content += ' Post-traumatic amnesia: ' + esc(c.headInjuryPTA) + '.';
+      if (c.repeatedConcussions === 'Yes') content += ' Repeated concussions reported' + (c.concussionCount ? ' (approximately ' + c.concussionCount + ')' : '') + '.';
+      if (c.contactSports === 'Yes') content += ' Contact sports history: ' + esc(c.contactSportsDetails || 'yes') + '.';
+      if (c.headInjuryOngoing && c.headInjuryOngoing.trim()) content += ' Ongoing symptoms: ' + esc(c.headInjuryOngoing) + '.';
+      content += '</p>';
+    } else if (c.headInjury === 'No') {
+      hasAnything = true;
+      content += '<p><strong>Head injury:</strong> No significant history of head injury.</p>';
+    }
+
+    // ── F. Premorbid personality ──
+    var persItems = CI ? CI.getPersonalityItems() : [];
+    var persParts = [];
+    for (var pi = 0; pi < persItems.length; pi++) {
+      var pv = c[persItems[pi].key];
+      if (pv && pv !== 'typical') {
+        persParts.push(pv + ' ' + persItems[pi].label.toLowerCase());
+      }
+    }
+    if (c.persConflict) persParts.push('handles conflict: ' + c.persConflict.toLowerCase());
+    if (c.persMood) persParts.push('baseline mood: ' + c.persMood.toLowerCase());
+    if (c.persSocial) persParts.push('social engagement: ' + c.persSocial.toLowerCase());
+    if (persParts.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Premorbid personality:</strong> ' + persParts.join('; ') + '.</p>';
+    }
+
+    // ── G. Education and occupation ──
+    var edParts = [];
+    if (c.highestQual) edParts.push('highest qualification: ' + esc(c.highestQual));
+    if (c.schoolLeaveAge) edParts.push('left school at age ' + c.schoolLeaveAge);
+    if (c.yearsEdu) edParts.push(c.yearsEdu + ' years of education');
+    if (c.academicPerf) edParts.push('self-rated academic performance: ' + c.academicPerf.toLowerCase());
+    if (c.peakOccupation) edParts.push('peak occupation: ' + esc(c.peakOccupation));
+    if (c.occStatus) edParts.push('currently ' + esc(c.occStatus).toLowerCase());
+    if (c.workDomain) edParts.push('work domain: ' + esc(c.workDomain).toLowerCase());
+    if (c.learningDiff && c.learningDiff !== 'No' && c.learningDiff !== '') edParts.push('learning difficulty: ' + esc(c.learningDiff));
+    if (edParts.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Education and occupation:</strong> ' + edParts.join('; ') + '.</p>';
+    }
+
+    // ── H. Substance use ──
+    var subParts = [];
+    if (c.alcUnitsWk) subParts.push('alcohol: ' + esc(c.alcUnitsWk) + ' units/week');
+    if (c.alcPast === 'Past harmful use') subParts.push('past harmful alcohol use' + (c.alcPastDetails ? ' (' + esc(c.alcPastDetails) + ')' : ''));
+    if (c.tobacco) subParts.push('tobacco: ' + esc(c.tobacco).toLowerCase() + (c.tobaccoPacks ? ', ' + esc(c.tobaccoPacks) + ' packs/day' : '') + (c.tobaccoYears ? ' for ' + esc(c.tobaccoYears) + ' years' : ''));
+    if (c.cannabis && c.cannabis !== 'Never' && c.cannabis !== '') subParts.push('cannabis: ' + esc(c.cannabis).toLowerCase());
+    if (c.otherSubstances && c.otherSubstances !== 'None' && c.otherSubstances !== '') subParts.push('other substances: ' + esc(c.otherSubstances).toLowerCase());
+    if (c.substanceHarms && c.substanceHarms !== 'No' && c.substanceHarms !== '') subParts.push('harms reported: ' + esc(c.substanceHarms).toLowerCase());
+    if (subParts.length > 0) {
+      hasAnything = true;
+      content += '<p><strong>Substance use:</strong> ' + subParts.join('; ') + '.</p>';
+    }
+    if (c.substanceNotes && c.substanceNotes.trim()) {
+      content += '<p style="margin-left:1rem;font-style:italic;font-size:0.88rem"><strong>Notes:</strong> ' + esc(c.substanceNotes) + '</p>';
+    }
+
+    // ── I. Clinician summary ──
+    if (c.keyPositives && c.keyPositives.trim()) {
+      hasAnything = true;
+      content += '<p><strong>Key findings:</strong> ' + esc(c.keyPositives) + '</p>';
+    }
+    if (c.safetyConcerns && c.safetyConcerns.trim()) {
+      hasAnything = true;
+      content += '<p><strong>Safety concerns:</strong> ' + esc(c.safetyConcerns) + '</p>';
+    }
+
+    if (!hasAnything) {
+      content = '<p class="text-muted">Clinical interview not yet completed.</p>';
+    } else {
+      content += '<p><em>This information was gathered during a semi-structured clinical interview and provides important context for interpreting the assessment findings. It will be considered alongside all other results when forming an overall impression.</em></p>';
+    }
+
+    return section('Clinical Interview', content, compact, 'clinical');
   }
 
   // ═══════════════════════════════════════════
-  //  STAGING (CDR) — with radar chart
+  //  STAGING (CDR)
   // ═══════════════════════════════════════════
   function stagingSection(compact) {
     var cdr = S.getScore('cdr');
     var content = '';
-
     if (cdr && cdr.total !== null) {
-      content += '<p><strong>Clinical Dementia Rating (CDR) Total:</strong> ' +
-        scoreBadge(cdr.total, 3, { moderate: 0.5, poor: 1 }) + '</p>';
-      content += '<p><strong>CDR Sum of Boxes (CDR-SB):</strong> ' +
-        scoreBadge(cdr.sumOfBoxes, 18, { moderate: 2.5, poor: 4 }) + '</p>';
-
-      if (cdr.total === 0) {
-        content += '<p>The CDR rating indicates no dementia. No significant cognitive decline from the person\'s previous usual level was identified across the domains assessed.</p>';
-      } else if (cdr.total === 0.5) {
-        content += '<p>The CDR rating of 0.5 indicates questionable or very mild impairment. There may be some subtle changes in one or more areas that are worth monitoring.</p>';
-      } else if (cdr.total === 1) {
-        content += '<p>The CDR rating of 1 indicates mild dementia. Difficulties were noted across several domains that are likely affecting daily activities to some degree.</p>';
-      } else if (cdr.total === 2) {
-        content += '<p>The CDR rating of 2 indicates moderate dementia. Significant difficulties were noted across several areas, with a clear impact on daily functioning and independence.</p>';
-      } else if (cdr.total === 3) {
-        content += '<p>The CDR rating of 3 indicates severe dementia. Major difficulties were noted across all areas, with substantial loss of independent function.</p>';
-      }
-
-      if (cdr.severity) {
-        content += '<p>Based on the Sum of Boxes score (' + cdr.sumOfBoxes + '), this is classified as <strong>' + cdr.severity + '</strong> (Bryant et al 2012).</p>';
-      }
-
-      // Domain breakdown table
+      content += '<p><strong>Clinical Dementia Rating (CDR) Total:</strong> ' + scoreBadge(cdr.total, 3, { moderate: 0.5, poor: 1 }) + '</p>';
+      content += '<p><strong>CDR Sum of Boxes (CDR-SB):</strong> ' + scoreBadge(cdr.sumOfBoxes, 18, { moderate: 2.5, poor: 4 }) + '</p>';
+      if (cdr.total === 0) content += '<p>The CDR rating indicates no dementia. No significant cognitive decline from the person\'s previous usual level was identified across the domains assessed.</p>';
+      else if (cdr.total === 0.5) content += '<p>The CDR rating of 0.5 indicates questionable or very mild impairment. There may be some subtle changes in one or more areas that are worth monitoring.</p>';
+      else if (cdr.total === 1) content += '<p>The CDR rating of 1 indicates mild dementia. Difficulties were noted across several domains that are likely affecting daily activities to some degree.</p>';
+      else if (cdr.total === 2) content += '<p>The CDR rating of 2 indicates moderate dementia. Significant difficulties were noted across several areas, with a clear impact on daily functioning and independence.</p>';
+      else if (cdr.total === 3) content += '<p>The CDR rating of 3 indicates severe dementia. Major difficulties were noted across all areas, with substantial loss of independent function.</p>';
+      if (cdr.severity) content += '<p>Based on the Sum of Boxes score (' + cdr.sumOfBoxes + '), this is classified as <strong>' + cdr.severity + '</strong> (Bryant et al 2012).</p>';
       if (cdr.domainScores) {
         content += '<p>Domain ratings: ';
-        var parts = [];
-        var labels = { memory: 'Memory', orientation: 'Orientation', judgment: 'Judgment', community: 'Community Affairs', homeHobbies: 'Home & Hobbies', personalCare: 'Personal Care' };
-        for (var key in cdr.domainScores) {
-          if (cdr.domainScores.hasOwnProperty(key)) parts.push(labels[key] + ': ' + cdr.domainScores[key]);
-        }
+        var parts = [], labels = { memory: 'Memory', orientation: 'Orientation', judgment: 'Judgment', community: 'Community Affairs', homeHobbies: 'Home & Hobbies', personalCare: 'Personal Care' };
+        for (var key in cdr.domainScores) { if (cdr.domainScores.hasOwnProperty(key)) parts.push(labels[key] + ': ' + cdr.domainScores[key]); }
         content += parts.join(', ') + '</p>';
       }
-
-      // CDR radar chart — 6 domains
       if (!compact) content += '<div class="chart-container" id="chart-cdr"></div>';
     } else {
       content += '<p class="text-muted">CDR assessment not yet completed.</p>';
     }
-
-    return section('Staging', content, compact);
+    return section('Staging', content, compact, 'staging');
   }
 
   // ═══════════════════════════════════════════
-  //  RBANS — Full report with table + narratives + chart
+  //  RBANS
   // ═══════════════════════════════════════════
   function rbansSection(compact) {
     var rb = S.getScore('rbans');
+    if (!rb || !rb.indices) return section('Neuropsychological Assessment', '<p class="text-muted">RBANS not yet completed.</p>', compact, 'rbans');
+    var idx = rb.indices, cent = rb.centiles, raw = S.getSession().instruments.rbans || {};
     var content = '';
-
-    if (!rb || !rb.indices) {
-      return section('Neuropsychological Assessment',
-        '<p class="text-muted">RBANS not yet completed.</p>', compact);
-    }
-
-    var idx = rb.indices;
-    var cent = rb.centiles;
-    var raw = S.getSession().instruments.rbans || {};
-
-    // ── TOPF ──
-    if (rb.fsiq) {
-      content += '<p><strong>Premorbid Functioning (TOPF):</strong> Estimated pre-morbid IQ approximately <strong>' + rb.fsiq + '</strong>.</p>';
-    }
-
-    // ── Overall summary ──
-    content += '<p><strong>Total Scale Score:</strong> ' +
-      scoreBadge(idx.totalScale, null, { moderate: 84, poor: 69 }) +
-      ' (' + cent.totalScale + 'th percentile)</p>';
-
-    if (idx.totalScale >= 90) {
-      content += '<p>Your overall cognitive performance on the RBANS fell within the average range or better.</p>';
-    } else if (idx.totalScale >= 80) {
-      content += '<p>Your overall cognitive performance was in the low average range, which may reflect subtle difficulties across domains.</p>';
-    } else if (idx.totalScale >= 70) {
-      content += '<p>Your overall cognitive performance was in the borderline range, suggesting difficulties across multiple domains.</p>';
-    } else {
-      content += '<p>Your overall cognitive performance was well below the expected range, indicating significant difficulties.</p>';
-    }
-
-    // ── Domain Index Scores table ──
-    content += '<table style="width:100%;border-collapse:collapse;margin:0.75rem 0">';
-    content += '<thead><tr>' + rptTh('Domain') + rptTh('Index', 'center') + rptTh('Centile', 'center') +
-      rptTh('Classification', 'center') + '</tr></thead><tbody>';
-
+    if (rb.fsiq) content += '<p><strong>Premorbid Functioning (TOPF):</strong> Estimated pre-morbid IQ approximately <strong>' + rb.fsiq + '</strong>.</p>';
+    content += '<p><strong>Total Scale Score:</strong> ' + scoreBadge(idx.totalScale, null, { moderate: 84, poor: 69 }) + ' (' + cent.totalScale + 'th percentile)</p>';
+    if (idx.totalScale >= 90) content += '<p>Your overall cognitive performance on the RBANS fell within the average range or better.</p>';
+    else if (idx.totalScale >= 80) content += '<p>Your overall cognitive performance was in the low average range, which may reflect subtle difficulties across domains.</p>';
+    else if (idx.totalScale >= 70) content += '<p>Your overall cognitive performance was in the borderline range, suggesting difficulties across multiple domains.</p>';
+    else content += '<p>Your overall cognitive performance was well below the expected range, indicating significant difficulties.</p>';
+    content += '<table style="width:100%;border-collapse:collapse;margin:0.75rem 0"><thead><tr>' + rptTh('Domain') + rptTh('Index', 'center') + rptTh('Centile', 'center') + rptTh('Classification', 'center') + '</tr></thead><tbody>';
     var domainList = [
       { label: 'Immediate Memory', i: idx.immediateMemory, c: cent.immediateMemory },
       { label: 'Visuospatial/Constructional', i: idx.visuospatial, c: cent.visuospatial },
@@ -501,173 +976,64 @@ BHM.Report = (function () {
       { label: 'Attention', i: idx.attention, c: cent.attention },
       { label: 'Delayed Memory', i: idx.delayedMemory, c: cent.delayedMemory }
     ];
-
-    for (var d = 0; d < domainList.length; d++) {
-      var dm = domainList[d];
-      var cls = classifyIndex(dm.i);
-      content += '<tr>' + rptTd(dm.label, null, true) + rptTd(dm.i, 'center') +
-        rptTd(dm.c + '%', 'center') + rptTd(cls, 'center') + '</tr>';
-    }
-
-    // Total row (highlighted)
-    var totalCls = classifyIndex(idx.totalScale);
-    content += '<tr style="background:#e8edf3;font-weight:600">' +
-      rptTd('Total Scale', null, true) + rptTd(idx.totalScale, 'center') +
-      rptTd(cent.totalScale + '%', 'center') + rptTd(totalCls, 'center') + '</tr>';
-
+    for (var d2 = 0; d2 < domainList.length; d2++) { var dm = domainList[d2]; content += '<tr>' + rptTd(dm.label, null, true) + rptTd(dm.i, 'center') + rptTd(dm.c + '%', 'center') + rptTd(classifyIndex(dm.i), 'center') + '</tr>'; }
+    content += '<tr style="background:#e8edf3;font-weight:600">' + rptTd('Total Scale', null, true) + rptTd(idx.totalScale, 'center') + rptTd(cent.totalScale + '%', 'center') + rptTd(classifyIndex(idx.totalScale), 'center') + '</tr>';
     content += '</tbody></table>';
-
-    // ── RBANS Profile Chart ──
     if (!compact) content += '<div class="chart-container" id="chart-rbans"></div>';
-
-    // ── Domain-by-domain narratives ──
     content += '<div style="margin-top:1rem">';
-
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Immediate Memory</h5>';
-    content += '<p>You scored ' + (raw.listlearning || '--') + '/40 on the word list learning task which is a sensitive indicator of your ability to remember new words. ';
-    content += 'You scored ' + (raw.storylearning || '--') + '/24 on the short story learning task which is similar. ';
-    content += 'This gives an Immediate Memory Index Score of <strong>' + idx.immediateMemory + '</strong>. ';
-    content += 'This means that ' + cent.immediateMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
-
+    content += '<p>You scored ' + (raw.listlearning || '--') + '/40 on the word list learning task which is a sensitive indicator of your ability to remember new words. You scored ' + (raw.storylearning || '--') + '/24 on the short story learning task which is similar. This gives an Immediate Memory Index Score of <strong>' + idx.immediateMemory + '</strong>. This means that ' + cent.immediateMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Visuospatial Function</h5>';
-    content += '<p>You scored ' + (raw.lineorientation || '--') + '/20 on the line orientation task which tests visual perceptual ability. ';
-    content += 'You scored ' + (raw.figurecopy || '--') + '/20 on the figure copy task which tests visual working memory and motor skill. ';
-    content += 'This gives a Visuospatial/Constructional Index Score of <strong>' + idx.visuospatial + '</strong>. ';
-    content += 'This means that ' + cent.visuospatial + '% of healthy people in your age group score worse than you on this subtest.</p>';
-
+    content += '<p>You scored ' + (raw.lineorientation || '--') + '/20 on the line orientation task which tests visual perceptual ability. You scored ' + (raw.figurecopy || '--') + '/20 on the figure copy task which tests visual working memory and motor skill. This gives a Visuospatial/Constructional Index Score of <strong>' + idx.visuospatial + '</strong>. This means that ' + cent.visuospatial + '% of healthy people in your age group score worse than you on this subtest.</p>';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Language Function</h5>';
-    content += '<p>You scored ' + (raw.naming || '--') + '/10 on the naming task which is a specific measure of your ability to recall words. ';
-    content += 'You scored ' + (raw.semanticfluency || '--') + '/40 on the semantic fluency task which makes demands on your attention and executive function as well as memory. ';
-    content += 'This gives a Language Index Score of <strong>' + idx.language + '</strong>. ';
-    content += 'This means that ' + cent.language + '% of healthy people in your age group score worse than you on this subtest.</p>';
-
+    content += '<p>You scored ' + (raw.naming || '--') + '/10 on the naming task which is a specific measure of your ability to recall words. You scored ' + (raw.semanticfluency || '--') + '/40 on the semantic fluency task which makes demands on your attention and executive function as well as memory. This gives a Language Index Score of <strong>' + idx.language + '</strong>. This means that ' + cent.language + '% of healthy people in your age group score worse than you on this subtest.</p>';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Attention &amp; Concentration</h5>';
-    content += '<p>You scored ' + (raw.digitspan || '--') + '/16 on the digit span task which tests attention and working memory. ';
-    content += 'You scored ' + (raw.coding || '--') + '/89 on the digit-symbol coding task which tests attention and processing speed. ';
-    content += 'This gives an Attention Index Score of <strong>' + idx.attention + '</strong>. ';
-    content += 'This means that ' + cent.attention + '% of healthy people in your age group score worse than you on this subtest.</p>';
-
+    content += '<p>You scored ' + (raw.digitspan || '--') + '/16 on the digit span task which tests attention and working memory. You scored ' + (raw.coding || '--') + '/89 on the digit-symbol coding task which tests attention and processing speed. This gives an Attention Index Score of <strong>' + idx.attention + '</strong>. This means that ' + cent.attention + '% of healthy people in your age group score worse than you on this subtest.</p>';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Delayed Memory</h5>';
-    content += '<p>You scored ' + (raw.listrecall || '--') + '/10 on the free recall of ten words, a sensitive indicator of verbal learning and recall. ';
-    content += 'You scored ' + (raw.listrecog || '--') + '/20 on the cued recall task which taxes delayed memory. ';
-    content += 'Recalling the complex figure is difficult, and you scored ' + (raw.figurerecall || '--') + '/20. ';
-    content += 'You remembered ' + (raw.storyrecall || '--') + ' items out of a possible 12 from the short story. ';
-    content += 'This gives a Delayed Memory Index Score of <strong>' + idx.delayedMemory + '</strong>. ';
-    content += 'This means that ' + cent.delayedMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
-
+    content += '<p>You scored ' + (raw.listrecall || '--') + '/10 on the free recall of ten words, a sensitive indicator of verbal learning and recall. You scored ' + (raw.listrecog || '--') + '/20 on the cued recall task which taxes delayed memory. Recalling the complex figure is difficult, and you scored ' + (raw.figurerecall || '--') + '/20. You remembered ' + (raw.storyrecall || '--') + ' items out of a possible 12 from the short story. This gives a Delayed Memory Index Score of <strong>' + idx.delayedMemory + '</strong>. This means that ' + cent.delayedMemory + '% of healthy people in your age group score worse than you on this subtest.</p>';
     content += '<h5 style="color:#0d6efd;border-bottom:2px solid #0d6efd;padding-bottom:3px;font-size:0.95rem">Overall Scores</h5>';
-    content += '<p>The Total Scale Score is <strong>' + idx.totalScale + '</strong>. ';
-    content += 'This means that ' + cent.totalScale + '% of healthy people in your age group score worse than you overall.</p>';
-
+    content += '<p>The Total Scale Score is <strong>' + idx.totalScale + '</strong>. This means that ' + cent.totalScale + '% of healthy people in your age group score worse than you overall.</p>';
     content += '</div>';
-
-    // ── Supplementary indices (compact text) ──
     content += '<div style="margin-top:0.75rem;padding:8px 12px;background:#f8f9fa;border-radius:6px;font-size:0.84rem">';
-    content += '<strong>Supplementary Indices:</strong> ';
-    content += 'Effort — Silverberg = ' + rb.silverbergEI + ', Novitski = ' + rb.novitskiES + '. ';
-    content += 'Cortical–Subcortical Index = ' + rb.corticalSubcortical.toFixed(1) +
-      (rb.corticalSubcortical > 0 ? ' (cortical pattern)' : ' (subcortical pattern)') + '.';
-
-    // Duff norms summary
+    content += '<strong>Supplementary Indices:</strong> Effort — Silverberg = ' + rb.silverbergEI + ', Novitski = ' + rb.novitskiES + '. ';
+    content += 'Cortical–Subcortical Index = ' + rb.corticalSubcortical.toFixed(1) + (rb.corticalSubcortical > 0 ? ' (cortical pattern)' : ' (subcortical pattern)') + '.';
     if (rb.duff) {
-      content += '<br><strong>Duff demographically-corrected centiles:</strong> ';
-      content += 'Imm Memory ' + rb.duff.immCentile + '%, ';
-      content += 'Visuospatial ' + rb.duff.visuoCentile + '%, ';
-      content += 'Language ' + rb.duff.langCentile + '%, ';
-      content += 'Attention ' + rb.duff.attCentile + '%, ';
-      content += 'Delayed Memory ' + rb.duff.memCentile + '%, ';
-      content += 'Total ' + rb.duff.totalCentile + '%.';
+      content += '<br><strong>Duff demographically-corrected centiles:</strong> Imm Memory ' + rb.duff.immCentile + '%, Visuospatial ' + rb.duff.visuoCentile + '%, Language ' + rb.duff.langCentile + '%, Attention ' + rb.duff.attCentile + '%, Delayed Memory ' + rb.duff.memCentile + '%, Total ' + rb.duff.totalCentile + '%.';
     }
     content += '</div>';
-
-    return section('Neuropsychological Assessment (RBANS)', content, compact);
+    return section('Neuropsychological Assessment (RBANS)', content, compact, 'rbans');
   }
-
-  // RBANS classification helper
-  function classifyIndex(idx) {
-    if (idx >= 130) return 'Very Superior';
-    if (idx >= 120) return 'Superior';
-    if (idx >= 110) return 'High Average';
-    if (idx >= 90) return 'Average';
-    if (idx >= 80) return 'Low Average';
-    if (idx >= 70) return 'Borderline';
-    return 'Extremely Low';
-  }
+  function classifyIndex(idx) { if (idx >= 130) return 'Very Superior'; if (idx >= 120) return 'Superior'; if (idx >= 110) return 'High Average'; if (idx >= 90) return 'Average'; if (idx >= 80) return 'Low Average'; if (idx >= 70) return 'Borderline'; return 'Extremely Low'; }
 
   // ═══════════════════════════════════════════
-  //  LEWY BODY FEATURES (DIAMOND Lewy)
+  //  LEWY BODY (DIAMOND Lewy)
   // ═══════════════════════════════════════════
   function lewySection(compact) {
     var dl = S.getScore('diamondLewy');
+    if (!dl || dl.diagnosis === 'incomplete') return section('Lewy Body Features', '<p class="text-muted">DIAMOND Lewy assessment not yet completed.</p>', compact, 'lewy');
     var content = '';
-
-    if (!dl || dl.diagnosis === 'incomplete') {
-      return section('Lewy Body Features',
-        '<p class="text-muted">DIAMOND Lewy assessment not yet completed.</p>', compact);
-    }
-
     switch (dl.diagnosis) {
-      case 'probable':
-        content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-poor">Probable Dementia with Lewy Bodies (DLB)</span></p>';
-        break;
-      case 'possible':
-        content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-moderate">Possible Dementia with Lewy Bodies (DLB)</span></p>';
-        break;
-      case 'not_met':
-        content += '<p><strong>Diagnostic classification:</strong> DLB criteria not met.</p>';
-        break;
-      case 'no_dementia':
-        content += '<p><strong>Diagnostic classification:</strong> Essential criterion (progressive cognitive decline) not established.</p>';
-        break;
+      case 'probable': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-poor">Probable Dementia with Lewy Bodies (DLB)</span></p>'; break;
+      case 'possible': content += '<p><strong>Diagnostic classification:</strong> <span class="score-badge score-moderate">Possible Dementia with Lewy Bodies (DLB)</span></p>'; break;
+      case 'not_met': content += '<p><strong>Diagnostic classification:</strong> DLB criteria not met.</p>'; break;
+      case 'no_dementia': content += '<p><strong>Diagnostic classification:</strong> Essential criterion (progressive cognitive decline) not established.</p>'; break;
     }
-
-    content += '<p><strong>Core features present (' + dl.coreCount + '/4):</strong> ';
-    content += (dl.corePresent && dl.corePresent.length > 0) ? dl.corePresent.join(', ') : 'None identified';
-    content += '</p>';
-
+    content += '<p><strong>Core features present (' + dl.coreCount + '/4):</strong> ' + ((dl.corePresent && dl.corePresent.length > 0) ? dl.corePresent.join(', ') : 'None identified') + '</p>';
     content += '<p><strong>Indicative biomarkers:</strong> ' + dl.biomarkerCount + ' present</p>';
-
-    if (dl.supportiveCount > 0) {
-      content += '<p><strong>Supportive features (' + dl.supportiveCount + '):</strong> ';
-      if (dl.supportivePresent && dl.supportivePresent.length > 0) content += dl.supportivePresent.join(', ');
-      content += '</p>';
-    }
-
-    if (dl.diagnosis === 'probable') {
-      content += '<p>The assessment findings meet criteria for <em>probable</em> Dementia with Lewy Bodies based on the 4th DLB Consensus Criteria (McKeith et al., 2017). ' +
-        'This means the pattern of symptoms is consistent with this form of dementia. Your clinician will discuss what this means for your care.</p>';
-    } else if (dl.diagnosis === 'possible') {
-      content += '<p>The assessment findings meet criteria for <em>possible</em> Dementia with Lewy Bodies. ' +
-        'This means some features suggestive of this diagnosis were identified, but the full diagnostic criteria were not met. Further investigation may be helpful.</p>';
-    } else if (dl.diagnosis === 'not_met') {
-      content += '<p>While dementia was identified, the specific features needed for a diagnosis of Dementia with Lewy Bodies were not found during this assessment.</p>';
-    }
-
-    return section('Lewy Body Features', content, compact);
+    if (dl.supportiveCount > 0) { content += '<p><strong>Supportive features (' + dl.supportiveCount + '):</strong> ' + ((dl.supportivePresent && dl.supportivePresent.length > 0) ? dl.supportivePresent.join(', ') : '') + '</p>'; }
+    if (dl.diagnosis === 'probable') content += '<p>The assessment findings meet criteria for <em>probable</em> Dementia with Lewy Bodies based on the 4th DLB Consensus Criteria (McKeith et al., 2017). This means the pattern of symptoms is consistent with this form of dementia, and the implications will be discussed with you.</p>';
+    else if (dl.diagnosis === 'possible') content += '<p>The assessment findings meet criteria for <em>possible</em> Dementia with Lewy Bodies. This means some features suggestive of this diagnosis were identified, but the full diagnostic criteria were not met. Further investigation may be helpful.</p>';
+    else if (dl.diagnosis === 'not_met') content += '<p>While dementia was identified, the specific features needed for a diagnosis of Dementia with Lewy Bodies were not found during this assessment.</p>';
+    return section('Lewy Body Features', content, compact, 'lewy');
   }
 
-  // ─── Clinician insert box ───
-  function createClinicianInsert(title, statePath) {
-    var div = document.createElement('div');
-    div.className = 'clinician-insert';
-    div.innerHTML = '<strong>' + title + '</strong> <small class="text-muted">(clinician editable)</small>';
-    var ta = document.createElement('textarea');
-    ta.placeholder = 'Type here... This text will not be overwritten by report regeneration.';
-    var current = S.get(statePath);
-    if (current) ta.value = current;
-    ta.addEventListener('input', function () { S.set(statePath, this.value); });
-    div.appendChild(ta);
-    return div;
+  // ─── Utility ───
+  function esc(str) { var div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+  function joinList(arr) {
+    if (arr.length === 0) return '';
+    if (arr.length === 1) return arr[0];
+    return arr.slice(0, -1).join(', ') + ', and ' + arr[arr.length - 1];
   }
 
-  function esc(str) {
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  return {
-    update: update,
-    TEMPLATE_VERSION: TEMPLATE_VERSION
-  };
+  return { update: update, TEMPLATE_VERSION: TEMPLATE_VERSION };
 })();

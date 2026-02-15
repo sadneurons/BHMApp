@@ -24,7 +24,11 @@ BHM.App = (function () {
     bindTabEvents();
 
     // ── Subscribe to state changes for live report updates ──
-    BHM.State.subscribe(function () {
+    // Skip full report rebuild when the change is just a clinician‐notes
+    // textarea (those don't affect computed content, and rebuilding would
+    // destroy the textarea the user is actively typing in).
+    BHM.State.subscribe(function (changedPath) {
+      if (changedPath && changedPath.indexOf('clinicianInserts.') === 0) return;
       BHM.Report.update();
     });
 
