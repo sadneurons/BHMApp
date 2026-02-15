@@ -42,9 +42,9 @@ BHM.Themes = (function () {
     _current = theme.id;
     localStorage.setItem('bhm-theme', theme.id);
 
-    // Swap CSS
+    // Swap CSS (remove SRI hash — Bootswatch themes have different hashes)
     var link = document.getElementById('bootstrapCSS');
-    if (link) link.href = theme.css;
+    if (link) { link.removeAttribute('integrity'); link.href = theme.css; }
 
     // Dark mode attribute
     if (theme.dark) {

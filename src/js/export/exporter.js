@@ -38,11 +38,8 @@ BHM.Export = (function () {
       _exportVersion: 2,
       _exportedAt: new Date().toISOString(),
       session: session,
-      // User-customised snippets (stored separately in localStorage)
-      snippetCustomisations: (function () {
-        try { var raw = localStorage.getItem('bhm_snippets_v1'); return raw ? JSON.parse(raw) : null; }
-        catch (e) { return null; }
-      })(),
+      // User-customised snippets (from in-memory decrypted store)
+      snippetCustomisations: (BHM.Snippets && BHM.Snippets.getAll) ? BHM.Snippets.getAll() : null,
       // Theme preference
       themePreference: localStorage.getItem('bhm-theme') || 'default'
     };
@@ -331,10 +328,188 @@ BHM.Export = (function () {
     return div.innerHTML;
   }
 
+  // ═══════════════════════════════════════════════════════
+  //  IMPORT JSON SESSION
+  // ═══════════════════════════════════════════════════════
+
+  var MAX_IMPORT_SIZE = 5 * 1024 * 1024; // 5 MB
+  var _pendingImport = null;
+
+  function importJSON() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', function () {
+      if (!input.files || !input.files[0]) { cleanup(); return; }
+      var file = input.files[0];
+
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert('File is too large (max 5 MB). This does not appear to be a BHM export.');
+        cleanup();
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        cleanup();
+        try {
+          var data = JSON.parse(reader.result);
+          processImport(data, file.name);
+        } catch (e) {
+          alert('Invalid JSON file. Could not parse the selected file.');
+        }
+      };
+      reader.onerror = function () {
+        cleanup();
+        alert('Could not read the selected file.');
+      };
+      reader.readAsText(file);
+    });
+
+    input.click();
+
+    function cleanup() {
+      if (input.parentNode) document.body.removeChild(input);
+    }
+  }
+
+  function processImport(data, filename) {
+    var session, snippets, theme;
+
+    // Detect format: v2 bundle or legacy raw session
+    if (data._exportVersion && data.session) {
+      session = data.session;
+      snippets = data.snippetCustomisations;
+      theme = data.themePreference;
+    } else if (data.patient && data.instruments) {
+      session = data;
+    } else {
+      alert('This file does not appear to be a valid BHM session export.\n\nExpected a file exported via the "Export JSON" button.');
+      return;
+    }
+
+    // Basic structure validation
+    if (!session || typeof session !== 'object' || !session.patient || !session.instruments) {
+      alert('The session data in this file is malformed or incomplete.');
+      return;
+    }
+
+    // Store pending import and show confirmation modal
+    _pendingImport = { session: session, snippets: snippets, theme: theme };
+    showImportModal(session, data._exportedAt, filename);
+  }
+
+  function showImportModal(session, exportedAt, filename) {
+    var modalEl = document.getElementById('importModal');
+    var body = document.getElementById('importModalBody');
+    if (!modalEl || !body) {
+      if (confirm('Import session from "' + filename + '"?\n\nThis will replace ALL current data.')) {
+        confirmImport();
+      } else {
+        _pendingImport = null;
+      }
+      return;
+    }
+
+    var patName = (session.patient && session.patient.name) || 'Unknown';
+    var patDOB = (session.patient && session.patient.dob) || '';
+    var patSex = (session.patient && session.patient.sex) || '';
+    var docDate = (session.patient && session.patient.dateOfCompletion) || '';
+    var exportDate = exportedAt ? new Date(exportedAt).toLocaleString() : 'Unknown';
+
+    // Count instruments with data
+    var instCount = 0;
+    var inst = session.instruments || {};
+    for (var k in inst) {
+      if (inst.hasOwnProperty(k) && inst[k] && typeof inst[k] === 'object' && Object.keys(inst[k]).length > 0) {
+        instCount++;
+      }
+    }
+
+    var diagCount = (session.diagnoses && session.diagnoses.length) || 0;
+    var medCount = (session.medications && session.medications.list && session.medications.list.length) || 0;
+    var scanCount = (session.neuroimaging && session.neuroimaging.scans && session.neuroimaging.scans.length) || 0;
+
+    body.innerHTML =
+      '<div class="mb-3">' +
+        '<div class="d-flex align-items-center gap-2 mb-2">' +
+          '<i class="bi bi-file-earmark-code fs-3 text-primary"></i>' +
+          '<div><strong>' + escHtml(filename) + '</strong><br>' +
+            '<small class="text-muted">Exported ' + escHtml(exportDate) + '</small></div>' +
+        '</div>' +
+        '<table class="table table-sm mb-0">' +
+          '<tr><td class="fw-semibold">Patient</td><td>' + escHtml(patName) +
+            (patDOB ? ' <small class="text-muted">(DOB: ' + escHtml(patDOB) + ')</small>' : '') +
+            (patSex ? ' <small class="text-muted">[' + escHtml(patSex) + ']</small>' : '') + '</td></tr>' +
+          (docDate ? '<tr><td class="fw-semibold">Assessment date</td><td>' + escHtml(docDate) + '</td></tr>' : '') +
+          '<tr><td class="fw-semibold">Instruments</td><td>' + instCount + ' with data</td></tr>' +
+          (diagCount ? '<tr><td class="fw-semibold">Diagnoses</td><td>' + diagCount + '</td></tr>' : '') +
+          (medCount ? '<tr><td class="fw-semibold">Medications</td><td>' + medCount + '</td></tr>' : '') +
+          (scanCount ? '<tr><td class="fw-semibold">Scans</td><td>' + scanCount + '</td></tr>' : '') +
+        '</table>' +
+      '</div>' +
+      '<div class="alert alert-warning mb-0 py-2">' +
+        '<i class="bi bi-exclamation-triangle me-1"></i>' +
+        '<strong>This will replace all current data.</strong> Make sure you have exported the current session first if needed.' +
+      '</div>';
+
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+
+  function confirmImport() {
+    if (!_pendingImport) return;
+    var imp = _pendingImport;
+    _pendingImport = null;
+
+    // Close modal if open
+    var modalEl = document.getElementById('importModal');
+    if (modalEl) {
+      var bsModal = bootstrap.Modal.getInstance(modalEl);
+      if (bsModal) bsModal.hide();
+    }
+
+    // Restore session (async — handles encryption)
+    S.restoreSession(imp.session).then(function () {
+      // Restore snippet customisations if present and valid
+      var snippetPromise = Promise.resolve();
+      if (imp.snippets && Array.isArray(imp.snippets)) {
+        snippetPromise = restoreSnippets(imp.snippets);
+      }
+      return snippetPromise;
+    }).then(function () {
+      // Restore theme preference if present
+      if (imp.theme && typeof imp.theme === 'string') {
+        localStorage.setItem('bhm-theme', imp.theme);
+      }
+      // Reload to re-initialise everything cleanly
+      location.reload();
+    }).catch(function (err) {
+      console.error('BHM: Import failed', err);
+      alert('Import failed: ' + err.message);
+    });
+  }
+
+  function restoreSnippets(snippets) {
+    var json = JSON.stringify(snippets);
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      return BHM.Crypto.encrypt(json).then(function (enc) {
+        try { localStorage.setItem('bhm_snippets_v1', enc); } catch (e) { /* ignore */ }
+      });
+    }
+    try { localStorage.setItem('bhm_snippets_v1', json); } catch (e) { /* ignore */ }
+    return Promise.resolve();
+  }
+
   return {
     exportJSON: exportJSON,
     exportCSV: exportCSV,
     exportAudit: exportAudit,
+    importJSON: importJSON,
+    confirmImport: confirmImport,
     printReport: printReport,
     renderAuditTab: renderAuditTab
   };

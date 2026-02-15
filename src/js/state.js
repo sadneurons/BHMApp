@@ -135,6 +135,20 @@ BHM.State = (function () {
     notifyAll();
   }
 
+  // ── Restore a full session from an import (returns Promise) ──
+  function restoreSession(imported) {
+    _session = deepMerge(createEmptySession(), imported);
+    _session.meta.lastEdited = new Date().toISOString();
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      var json = JSON.stringify(_session);
+      return BHM.Crypto.encrypt(json).then(function (enc) {
+        try { localStorage.setItem(STORAGE_KEY, enc); } catch (e) { console.warn('BHM: restore save failed', e); }
+      });
+    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_session)); } catch (e) { console.warn('BHM: restore save failed', e); }
+    return Promise.resolve();
+  }
+
   // ── Deep merge utility ──
   function deepMerge(target, source) {
     var result = Object.assign({}, target);
@@ -268,6 +282,7 @@ BHM.State = (function () {
     subscribe: subscribe,
     save: save,
     load: load,
-    clearSession: clearSession
+    clearSession: clearSession,
+    restoreSession: restoreSession
   };
 })();

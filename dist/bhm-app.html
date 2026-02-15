@@ -14,7 +14,7 @@
     var t=localStorage.getItem('bhm-theme')||'default';
     var link=document.getElementById('bootstrapCSS');
     var bw={cosmo:1,flatly:1,journal:1,lux:1,minty:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
-    if(bw[t])link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';
+    if(bw[t]){link.removeAttribute('integrity');link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';}
     var dk={dark:1,dracula:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
     if(dk[t])document.documentElement.setAttribute('data-bs-theme','dark');
     if(t==='dracula')document.documentElement.setAttribute('data-bhm-theme','dracula');
@@ -1204,6 +1204,28 @@
   }
   .cd-icon { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════════
+   Keyboard Shortcuts Help
+   ═══════════════════════════════════════════════════════ */
+.kb-help-table td:first-child {
+  white-space: nowrap;
+  width: 1%;
+  padding-right: 1rem;
+}
+.kb-help-table kbd {
+  background: var(--bs-tertiary-bg, #e9ecef);
+  color: var(--bs-body-color, #212529);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.8em;
+  font-family: inherit;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+  min-width: 22px;
+  display: inline-block;
+  text-align: center;
+}
   </style>
 </head>
 <body>
@@ -1302,6 +1324,64 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════
+       KEYBOARD SHORTCUTS HELP MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div class="modal fade" id="keyboardHelpModal" tabindex="-1" aria-labelledby="keyboardHelpTitle">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="keyboardHelpTitle"><i class="bi bi-keyboard me-2"></i>Keyboard Shortcuts</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body py-2" style="font-size:0.88rem">
+          <table class="table table-sm mb-0 kb-help-table">
+            <thead><tr><th colspan="2" class="text-muted border-0 pt-0" style="font-size:0.78rem">NAVIGATION</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>1</kbd> – <kbd>8</kbd></td><td>Switch main tab</td></tr>
+              <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next sub-tab</td></tr>
+              <tr><td><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next main tab</td></tr>
+            </tbody>
+            <thead><tr><th colspan="2" class="text-muted pt-2" style="font-size:0.78rem">PANELS</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>R</kbd></td><td>Toggle report side panel</td></tr>
+              <tr><td><kbd>B</kbd></td><td>Toggle snippet bookmarks</td></tr>
+              <tr><td><kbd>Esc</kbd></td><td>Close panel or modal</td></tr>
+            </tbody>
+            <thead><tr><th colspan="2" class="text-muted pt-2" style="font-size:0.78rem">HELP</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
+            </tbody>
+          </table>
+          <p class="text-muted mt-2 mb-0" style="font-size:0.75rem"><i class="bi bi-info-circle me-1"></i>Shortcuts are disabled while typing in form fields. <kbd>Shift</kbd>+arrow works everywhere.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       IMPORT SESSION MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalTitle">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title" id="importModalTitle"><i class="bi bi-upload me-2"></i>Import Session</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="importModalBody">
+          <p class="text-muted">Loading...</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="importConfirmBtn">
+            <i class="bi bi-check-circle me-1"></i>Import &amp; Replace
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
        TOP NAVBAR / HEADER
        ═══════════════════════════════════════════════════════ -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
@@ -1327,11 +1407,15 @@
           </button>
           <ul class="dropdown-menu dropdown-menu-end" id="themeMenu"></ul>
         </div>
+        <button class="btn btn-outline-light btn-sm" id="showKeyboardHelp" title="Keyboard shortcuts (?)">
+          <i class="bi bi-keyboard"></i>
+        </button>
         <button class="btn btn-outline-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Export">
           <i class="bi bi-download"></i>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
           <li><a class="dropdown-item" href="#" id="exportJSON"><i class="bi bi-filetype-json me-2"></i>Export JSON</a></li>
+          <li><a class="dropdown-item" href="#" id="importJSON"><i class="bi bi-upload me-2"></i>Import JSON</a></li>
           <li><a class="dropdown-item" href="#" id="exportCSV"><i class="bi bi-filetype-csv me-2"></i>Export Scores CSV</a></li>
           <li><a class="dropdown-item" href="#" id="exportAudit"><i class="bi bi-journal-text me-2"></i>Export Audit Log</a></li>
           <li><hr class="dropdown-divider"></li>
@@ -2009,9 +2093,9 @@ BHM.Themes = (function () {
     _current = theme.id;
     localStorage.setItem('bhm-theme', theme.id);
 
-    // Swap CSS
+    // Swap CSS (remove SRI hash — Bootswatch themes have different hashes)
     var link = document.getElementById('bootstrapCSS');
-    if (link) link.href = theme.css;
+    if (link) { link.removeAttribute('integrity'); link.href = theme.css; }
 
     // Dark mode attribute
     if (theme.dark) {
@@ -2234,6 +2318,20 @@ BHM.State = (function () {
     notifyAll();
   }
 
+  // ── Restore a full session from an import (returns Promise) ──
+  function restoreSession(imported) {
+    _session = deepMerge(createEmptySession(), imported);
+    _session.meta.lastEdited = new Date().toISOString();
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      var json = JSON.stringify(_session);
+      return BHM.Crypto.encrypt(json).then(function (enc) {
+        try { localStorage.setItem(STORAGE_KEY, enc); } catch (e) { console.warn('BHM: restore save failed', e); }
+      });
+    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_session)); } catch (e) { console.warn('BHM: restore save failed', e); }
+    return Promise.resolve();
+  }
+
   // ── Deep merge utility ──
   function deepMerge(target, source) {
     var result = Object.assign({}, target);
@@ -2367,7 +2465,8 @@ BHM.State = (function () {
     subscribe: subscribe,
     save: save,
     load: load,
-    clearSession: clearSession
+    clearSession: clearSession,
+    restoreSession: restoreSession
   };
 })();
 
@@ -16223,11 +16322,8 @@ BHM.Export = (function () {
       _exportVersion: 2,
       _exportedAt: new Date().toISOString(),
       session: session,
-      // User-customised snippets (stored separately in localStorage)
-      snippetCustomisations: (function () {
-        try { var raw = localStorage.getItem('bhm_snippets_v1'); return raw ? JSON.parse(raw) : null; }
-        catch (e) { return null; }
-      })(),
+      // User-customised snippets (from in-memory decrypted store)
+      snippetCustomisations: (BHM.Snippets && BHM.Snippets.getAll) ? BHM.Snippets.getAll() : null,
       // Theme preference
       themePreference: localStorage.getItem('bhm-theme') || 'default'
     };
@@ -16516,10 +16612,188 @@ BHM.Export = (function () {
     return div.innerHTML;
   }
 
+  // ═══════════════════════════════════════════════════════
+  //  IMPORT JSON SESSION
+  // ═══════════════════════════════════════════════════════
+
+  var MAX_IMPORT_SIZE = 5 * 1024 * 1024; // 5 MB
+  var _pendingImport = null;
+
+  function importJSON() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', function () {
+      if (!input.files || !input.files[0]) { cleanup(); return; }
+      var file = input.files[0];
+
+      if (file.size > MAX_IMPORT_SIZE) {
+        alert('File is too large (max 5 MB). This does not appear to be a BHM export.');
+        cleanup();
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        cleanup();
+        try {
+          var data = JSON.parse(reader.result);
+          processImport(data, file.name);
+        } catch (e) {
+          alert('Invalid JSON file. Could not parse the selected file.');
+        }
+      };
+      reader.onerror = function () {
+        cleanup();
+        alert('Could not read the selected file.');
+      };
+      reader.readAsText(file);
+    });
+
+    input.click();
+
+    function cleanup() {
+      if (input.parentNode) document.body.removeChild(input);
+    }
+  }
+
+  function processImport(data, filename) {
+    var session, snippets, theme;
+
+    // Detect format: v2 bundle or legacy raw session
+    if (data._exportVersion && data.session) {
+      session = data.session;
+      snippets = data.snippetCustomisations;
+      theme = data.themePreference;
+    } else if (data.patient && data.instruments) {
+      session = data;
+    } else {
+      alert('This file does not appear to be a valid BHM session export.\n\nExpected a file exported via the "Export JSON" button.');
+      return;
+    }
+
+    // Basic structure validation
+    if (!session || typeof session !== 'object' || !session.patient || !session.instruments) {
+      alert('The session data in this file is malformed or incomplete.');
+      return;
+    }
+
+    // Store pending import and show confirmation modal
+    _pendingImport = { session: session, snippets: snippets, theme: theme };
+    showImportModal(session, data._exportedAt, filename);
+  }
+
+  function showImportModal(session, exportedAt, filename) {
+    var modalEl = document.getElementById('importModal');
+    var body = document.getElementById('importModalBody');
+    if (!modalEl || !body) {
+      if (confirm('Import session from "' + filename + '"?\n\nThis will replace ALL current data.')) {
+        confirmImport();
+      } else {
+        _pendingImport = null;
+      }
+      return;
+    }
+
+    var patName = (session.patient && session.patient.name) || 'Unknown';
+    var patDOB = (session.patient && session.patient.dob) || '';
+    var patSex = (session.patient && session.patient.sex) || '';
+    var docDate = (session.patient && session.patient.dateOfCompletion) || '';
+    var exportDate = exportedAt ? new Date(exportedAt).toLocaleString() : 'Unknown';
+
+    // Count instruments with data
+    var instCount = 0;
+    var inst = session.instruments || {};
+    for (var k in inst) {
+      if (inst.hasOwnProperty(k) && inst[k] && typeof inst[k] === 'object' && Object.keys(inst[k]).length > 0) {
+        instCount++;
+      }
+    }
+
+    var diagCount = (session.diagnoses && session.diagnoses.length) || 0;
+    var medCount = (session.medications && session.medications.list && session.medications.list.length) || 0;
+    var scanCount = (session.neuroimaging && session.neuroimaging.scans && session.neuroimaging.scans.length) || 0;
+
+    body.innerHTML =
+      '<div class="mb-3">' +
+        '<div class="d-flex align-items-center gap-2 mb-2">' +
+          '<i class="bi bi-file-earmark-code fs-3 text-primary"></i>' +
+          '<div><strong>' + escHtml(filename) + '</strong><br>' +
+            '<small class="text-muted">Exported ' + escHtml(exportDate) + '</small></div>' +
+        '</div>' +
+        '<table class="table table-sm mb-0">' +
+          '<tr><td class="fw-semibold">Patient</td><td>' + escHtml(patName) +
+            (patDOB ? ' <small class="text-muted">(DOB: ' + escHtml(patDOB) + ')</small>' : '') +
+            (patSex ? ' <small class="text-muted">[' + escHtml(patSex) + ']</small>' : '') + '</td></tr>' +
+          (docDate ? '<tr><td class="fw-semibold">Assessment date</td><td>' + escHtml(docDate) + '</td></tr>' : '') +
+          '<tr><td class="fw-semibold">Instruments</td><td>' + instCount + ' with data</td></tr>' +
+          (diagCount ? '<tr><td class="fw-semibold">Diagnoses</td><td>' + diagCount + '</td></tr>' : '') +
+          (medCount ? '<tr><td class="fw-semibold">Medications</td><td>' + medCount + '</td></tr>' : '') +
+          (scanCount ? '<tr><td class="fw-semibold">Scans</td><td>' + scanCount + '</td></tr>' : '') +
+        '</table>' +
+      '</div>' +
+      '<div class="alert alert-warning mb-0 py-2">' +
+        '<i class="bi bi-exclamation-triangle me-1"></i>' +
+        '<strong>This will replace all current data.</strong> Make sure you have exported the current session first if needed.' +
+      '</div>';
+
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+
+  function confirmImport() {
+    if (!_pendingImport) return;
+    var imp = _pendingImport;
+    _pendingImport = null;
+
+    // Close modal if open
+    var modalEl = document.getElementById('importModal');
+    if (modalEl) {
+      var bsModal = bootstrap.Modal.getInstance(modalEl);
+      if (bsModal) bsModal.hide();
+    }
+
+    // Restore session (async — handles encryption)
+    S.restoreSession(imp.session).then(function () {
+      // Restore snippet customisations if present and valid
+      var snippetPromise = Promise.resolve();
+      if (imp.snippets && Array.isArray(imp.snippets)) {
+        snippetPromise = restoreSnippets(imp.snippets);
+      }
+      return snippetPromise;
+    }).then(function () {
+      // Restore theme preference if present
+      if (imp.theme && typeof imp.theme === 'string') {
+        localStorage.setItem('bhm-theme', imp.theme);
+      }
+      // Reload to re-initialise everything cleanly
+      location.reload();
+    }).catch(function (err) {
+      console.error('BHM: Import failed', err);
+      alert('Import failed: ' + err.message);
+    });
+  }
+
+  function restoreSnippets(snippets) {
+    var json = JSON.stringify(snippets);
+    if (BHM.Crypto && BHM.Crypto.isUnlocked()) {
+      return BHM.Crypto.encrypt(json).then(function (enc) {
+        try { localStorage.setItem('bhm_snippets_v1', enc); } catch (e) { /* ignore */ }
+      });
+    }
+    try { localStorage.setItem('bhm_snippets_v1', json); } catch (e) { /* ignore */ }
+    return Promise.resolve();
+  }
+
   return {
     exportJSON: exportJSON,
     exportCSV: exportCSV,
     exportAudit: exportAudit,
+    importJSON: importJSON,
+    confirmImport: confirmImport,
     printReport: printReport,
     renderAuditTab: renderAuditTab
   };
@@ -17789,6 +18063,228 @@ BHM.DocxExport = (function () {
   };
 })();
 
+/* ── keyboard.js ── */
+/* ═══════════════════════════════════════════════════════
+   BHM.Keyboard — Keyboard shortcuts for power users
+   ═══════════════════════════════════════════════════════
+   Shortcuts (when not typing in an input):
+     1–8        Switch main tab
+     ← →        Previous / next sub-tab within current main tab
+     Shift+← →  Previous / next main tab
+     R          Toggle report side panel
+     B          Toggle snippet panel (bookmarks)
+     ?          Show keyboard shortcut help
+     Escape     Close any open modal or panel
+   ═══════════════════════════════════════════════════════ */
+var BHM = window.BHM || {};
+
+BHM.Keyboard = (function () {
+  'use strict';
+
+  // ── Main tab IDs in order ──
+  var MAIN_TABS = [
+    'tab-session',
+    'tab-patient',
+    'tab-informant',
+    'tab-rbans',
+    'tab-clinical',
+    'tab-diagnosis',
+    'tab-report',
+    'tab-audit'
+  ];
+
+  function isInputFocused() {
+    var el = document.activeElement;
+    if (!el) return false;
+    var tag = el.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+  }
+
+  function getActiveMainTabIndex() {
+    for (var i = 0; i < MAIN_TABS.length; i++) {
+      var el = document.getElementById(MAIN_TABS[i]);
+      if (el && el.classList.contains('active')) return i;
+    }
+    return 0;
+  }
+
+  function switchMainTab(index) {
+    if (index < 0 || index >= MAIN_TABS.length) return;
+    var el = document.getElementById(MAIN_TABS[index]);
+    if (el) {
+      var tab = new bootstrap.Tab(el);
+      tab.show();
+      el.focus();
+    }
+  }
+
+  // ── Sub-tab navigation ──
+
+  function getSubTabPills() {
+    var activeIdx = getActiveMainTabIndex();
+    var tabId = MAIN_TABS[activeIdx];
+    var panelId = tabId.replace('tab-', 'panel-');
+    var panel = document.getElementById(panelId);
+    if (!panel) return [];
+
+    var pillList = panel.querySelector('.nav-pills');
+    if (!pillList) return [];
+
+    var pills = pillList.querySelectorAll('.nav-link');
+    return Array.prototype.slice.call(pills);
+  }
+
+  function getActiveSubTabIndex(pills) {
+    for (var i = 0; i < pills.length; i++) {
+      if (pills[i].classList.contains('active')) return i;
+    }
+    return 0;
+  }
+
+  function switchSubTab(direction) {
+    var pills = getSubTabPills();
+    if (pills.length <= 1) return false;
+
+    var cur = getActiveSubTabIndex(pills);
+    var next = cur + direction;
+    if (next < 0) next = pills.length - 1;
+    if (next >= pills.length) next = 0;
+
+    var tab = new bootstrap.Tab(pills[next]);
+    tab.show();
+    pills[next].focus();
+    return true;
+  }
+
+  // ── Help overlay ──
+
+  function showHelp() {
+    var modalEl = document.getElementById('keyboardHelpModal');
+    if (!modalEl) return;
+    var modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+
+  function hideHelp() {
+    var modalEl = document.getElementById('keyboardHelpModal');
+    if (!modalEl) return;
+    var inst = bootstrap.Modal.getInstance(modalEl);
+    if (inst) inst.hide();
+  }
+
+  // ── Main handler ──
+
+  function handleKeydown(e) {
+    // Never intercept if a modal with input is active (PIN modal)
+    var pinModal = document.getElementById('pinModal');
+    if (pinModal && pinModal.classList.contains('show')) return;
+
+    var key = e.key;
+    var shift = e.shiftKey;
+    var ctrl = e.ctrlKey || e.metaKey;
+    var alt = e.altKey;
+
+    // Escape: close panels / help
+    if (key === 'Escape') {
+      var reportPanel = document.getElementById('reportSidePanel');
+      if (reportPanel && !reportPanel.classList.contains('collapsed')) {
+        reportPanel.classList.add('collapsed');
+        e.preventDefault();
+        return;
+      }
+      var snippetPanel = document.getElementById('snippetPanel');
+      if (snippetPanel && !snippetPanel.classList.contains('collapsed')) {
+        snippetPanel.classList.add('collapsed');
+        e.preventDefault();
+        return;
+      }
+      return; // let Bootstrap handle modal Escape
+    }
+
+    // Don't intercept when typing in inputs (except for Shift+arrow)
+    if (isInputFocused()) {
+      // Allow Shift+Arrow for main tab switching even from inputs
+      if (shift && !ctrl && !alt && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+        var dir = key === 'ArrowRight' ? 1 : -1;
+        var curIdx = getActiveMainTabIndex();
+        var newIdx = curIdx + dir;
+        if (newIdx < 0) newIdx = MAIN_TABS.length - 1;
+        if (newIdx >= MAIN_TABS.length) newIdx = 0;
+        switchMainTab(newIdx);
+        e.preventDefault();
+        return;
+      }
+      return;
+    }
+
+    // Don't intercept if Ctrl or Alt is held (except Shift combos above)
+    if (ctrl || alt) return;
+
+    // Number keys 1–8: switch main tab
+    var num = parseInt(key, 10);
+    if (!isNaN(num) && num >= 1 && num <= 8) {
+      switchMainTab(num - 1);
+      e.preventDefault();
+      return;
+    }
+
+    // Arrow keys: sub-tab navigation
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      if (shift) {
+        // Shift+Arrow: switch main tabs
+        var mDir = key === 'ArrowRight' ? 1 : -1;
+        var mCur = getActiveMainTabIndex();
+        var mNext = mCur + mDir;
+        if (mNext < 0) mNext = MAIN_TABS.length - 1;
+        if (mNext >= MAIN_TABS.length) mNext = 0;
+        switchMainTab(mNext);
+        e.preventDefault();
+      } else {
+        // Plain arrow: switch sub-tabs
+        var sDir = key === 'ArrowRight' ? 1 : -1;
+        if (switchSubTab(sDir)) {
+          e.preventDefault();
+        }
+      }
+      return;
+    }
+
+    // R: toggle report panel
+    if (key === 'r' || key === 'R') {
+      var toggleBtn = document.getElementById('toggleReportPanelBtn');
+      if (toggleBtn) toggleBtn.click();
+      e.preventDefault();
+      return;
+    }
+
+    // B: toggle snippet/bookmarks panel
+    if (key === 'b' || key === 'B') {
+      var snippetBtn = document.getElementById('toggleSnippetPanel');
+      if (snippetBtn) snippetBtn.click();
+      e.preventDefault();
+      return;
+    }
+
+    // ?: show help
+    if (key === '?' || (shift && key === '/')) {
+      showHelp();
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // ── Init ──
+
+  function init() {
+    document.addEventListener('keydown', handleKeydown);
+  }
+
+  return {
+    init: init,
+    showHelp: showHelp
+  };
+})();
+
 /* ── app.js ── */
 /* ═══════════════════════════════════════════════════════
    BHM.App — Main application controller
@@ -17851,7 +18347,11 @@ BHM.App = (function () {
       // ── Step 9: Initial report generation ──
       BHM.Report.update();
 
-      // ── Step 10: Show disclaimer splash on every fresh page load ──
+      // ── Step 10: Initialise keyboard shortcuts ──
+      if (BHM.Keyboard && BHM.Keyboard.init) BHM.Keyboard.init();
+      bindKeyboardHelpBtn();
+
+      // ── Step 11: Show disclaimer splash on every fresh page load ──
       showDisclaimer();
 
       console.log('BHM: App ready');
@@ -17995,11 +18495,16 @@ BHM.App = (function () {
 
     var docxBtn = document.getElementById('exportDocx');
 
+    var importBtn = document.getElementById('importJSON');
+    var importConfirmBtn = document.getElementById('importConfirmBtn');
+
     if (jsonBtn) jsonBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportJSON(); });
+    if (importBtn) importBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.importJSON(); });
     if (csvBtn) csvBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportCSV(); });
     if (auditBtn) auditBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportAudit(); });
     if (printBtn) printBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.printReport(); });
     if (docxBtn) docxBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.DocxExport.exportDocx(); });
+    if (importConfirmBtn) importConfirmBtn.addEventListener('click', function () { BHM.Export.confirmImport(); });
   }
 
   // ── Tab events ──
@@ -18025,6 +18530,14 @@ BHM.App = (function () {
       cdrScoringPill.addEventListener('shown.bs.tab', function () {
         BHM.Instruments.CDR.renderScoring(document.getElementById('cdrScoringContent'));
       });
+    }
+  }
+
+  // ── Keyboard help button ──
+  function bindKeyboardHelpBtn() {
+    var btn = document.getElementById('showKeyboardHelp');
+    if (btn && BHM.Keyboard) {
+      btn.addEventListener('click', function () { BHM.Keyboard.showHelp(); });
     }
   }
 

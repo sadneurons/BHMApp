@@ -56,6 +56,7 @@ JS_FILES=(
   "$SRC/js/report/charts.js"
   "$SRC/js/export/exporter.js"
   "$SRC/js/export/docxExport.js"
+  "$SRC/js/keyboard.js"
   "$SRC/js/app.js"
 )
 
@@ -86,7 +87,7 @@ cat > "$OUTPUT" << 'HTMLHEAD'
     var t=localStorage.getItem('bhm-theme')||'default';
     var link=document.getElementById('bootstrapCSS');
     var bw={cosmo:1,flatly:1,journal:1,lux:1,minty:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
-    if(bw[t])link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';
+    if(bw[t]){link.removeAttribute('integrity');link.href='https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/'+t+'/bootstrap.min.css';}
     var dk={dark:1,dracula:1,slate:1,solar:1,superhero:1,vapor:1,cyborg:1};
     if(dk[t])document.documentElement.setAttribute('data-bs-theme','dark');
     if(t==='dracula')document.documentElement.setAttribute('data-bhm-theme','dracula');

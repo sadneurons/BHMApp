@@ -59,7 +59,11 @@ BHM.App = (function () {
       // ── Step 9: Initial report generation ──
       BHM.Report.update();
 
-      // ── Step 10: Show disclaimer splash on every fresh page load ──
+      // ── Step 10: Initialise keyboard shortcuts ──
+      if (BHM.Keyboard && BHM.Keyboard.init) BHM.Keyboard.init();
+      bindKeyboardHelpBtn();
+
+      // ── Step 11: Show disclaimer splash on every fresh page load ──
       showDisclaimer();
 
       console.log('BHM: App ready');
@@ -203,11 +207,16 @@ BHM.App = (function () {
 
     var docxBtn = document.getElementById('exportDocx');
 
+    var importBtn = document.getElementById('importJSON');
+    var importConfirmBtn = document.getElementById('importConfirmBtn');
+
     if (jsonBtn) jsonBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportJSON(); });
+    if (importBtn) importBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.importJSON(); });
     if (csvBtn) csvBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportCSV(); });
     if (auditBtn) auditBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.exportAudit(); });
     if (printBtn) printBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.Export.printReport(); });
     if (docxBtn) docxBtn.addEventListener('click', function (e) { e.preventDefault(); BHM.DocxExport.exportDocx(); });
+    if (importConfirmBtn) importConfirmBtn.addEventListener('click', function () { BHM.Export.confirmImport(); });
   }
 
   // ── Tab events ──
@@ -233,6 +242,14 @@ BHM.App = (function () {
       cdrScoringPill.addEventListener('shown.bs.tab', function () {
         BHM.Instruments.CDR.renderScoring(document.getElementById('cdrScoringContent'));
       });
+    }
+  }
+
+  // ── Keyboard help button ──
+  function bindKeyboardHelpBtn() {
+    var btn = document.getElementById('showKeyboardHelp');
+    if (btn && BHM.Keyboard) {
+      btn.addEventListener('click', function () { BHM.Keyboard.showHelp(); });
     }
   }
 
