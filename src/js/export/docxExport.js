@@ -17,6 +17,29 @@ BHM.DocxExport = (function () {
   var FONT = 'Gill Sans MT Std';
   var FONT_HEADING = 'Gill Sans MT Std';
 
+  // Parse **bold** markers in snippet text into docx TextRun array
+  function parseSnippetBold(line) {
+    var dx = D();
+    var runs = [];
+    var re = /\*\*(.+?)\*\*/g;
+    var lastIdx = 0;
+    var m;
+    while ((m = re.exec(line)) !== null) {
+      if (m.index > lastIdx) {
+        runs.push(new dx.TextRun({ text: line.substring(lastIdx, m.index), size: 22, font: FONT, color: '333333' }));
+      }
+      runs.push(new dx.TextRun({ text: m[1], size: 22, font: FONT, color: '333333', bold: true }));
+      lastIdx = re.lastIndex;
+    }
+    if (lastIdx < line.length) {
+      runs.push(new dx.TextRun({ text: line.substring(lastIdx), size: 22, font: FONT, color: '333333' }));
+    }
+    if (runs.length === 0) {
+      runs.push(new dx.TextRun({ text: line, size: 22, font: FONT, color: '333333' }));
+    }
+    return runs;
+  }
+
   // ── Patient helpers ──
   function pat(key, fallback) { return S.get('patient.' + key) || fallback || ''; }
   function ts() { return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); }
@@ -229,6 +252,7 @@ BHM.DocxExport = (function () {
     if (cls.contains('report-header')) return;
     if (cls.contains('report-footer')) return;
     if (cls.contains('snippet-drop-label')) return;
+    if (cls.contains('diagnosis-report-block')) return; // handled in title page
     if (tag === 'button') return;
     if (tag === 'canvas') return;
 
@@ -265,8 +289,10 @@ BHM.DocxExport = (function () {
           for (var li = 0; li < lines.length; li++) {
             var line = lines[li].trim();
             if (line) {
+              // Parse **bold** markers for snippet titles
+              var runs = parseSnippetBold(line);
               elements.push(new d.Paragraph({
-                children: [new d.TextRun({ text: line, size: 22, font: FONT, color: '333333' })],
+                children: runs,
                 spacing: { before: li === 0 ? 80 : 40, after: 40 }
               }));
             } else if (li > 0 && li < lines.length - 1) {
@@ -825,6 +851,24 @@ BHM.DocxExport = (function () {
 
     // ── Title page / demographics block ──
     var titleElements = [];
+
+    // Logo (if embedded at build time)
+    var logoB64 = (typeof BHM_LOGO !== 'undefined' && BHM_LOGO) ? BHM_LOGO : '';
+    if (logoB64) {
+      // Strip data URI prefix to get raw base64
+      var rawB64 = logoB64.replace(/^data:image\/\w+;base64,/, '');
+      titleElements.push(new d.Paragraph({
+        children: [
+          new d.ImageRun({
+            data: Uint8Array.from(atob(rawB64), function (c) { return c.charCodeAt(0); }),
+            transformation: { width: 200, height: 122 },
+            type: 'png'
+          })
+        ],
+        alignment: d.AlignmentType.CENTER,
+        spacing: { after: 120 }
+      }));
+    }
 
     titleElements.push(new d.Paragraph({
       children: [new d.TextRun({ text: 'Manchester Brain Health Centre', size: 36, bold: true, color: '2080E5', font: FONT_HEADING })],

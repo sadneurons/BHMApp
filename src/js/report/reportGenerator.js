@@ -36,11 +36,19 @@ BHM.Report = (function () {
     header.className = 'report-header';
     var name = S.get('patient.name') || '[Patient Name]';
     var date = S.get('patient.dateOfCompletion') || '[Date]';
+    var logoSrc = (typeof BHM_LOGO !== 'undefined' && BHM_LOGO) ? BHM_LOGO : '';
+    var logoHtml = logoSrc
+      ? '<img src="' + logoSrc + '" alt="Manchester Brain Health Centre" style="height:60px;margin-bottom:6px">'
+      : '';
     header.innerHTML =
-      '<div style="font-size:0.85rem;color:#6c757d">PLACEHOLDER — Manchester Brain Health Centre Logo</div>' +
-      '<h3>Assessment Report</h3>' +
-      '<p class="mb-0"><strong>' + esc(name) + '</strong></p>' +
-      '<p class="text-muted mb-0">Date: ' + esc(date) + '</p>';
+      '<div style="display:flex;align-items:center;gap:14px">' +
+        (logoHtml ? '<div>' + logoHtml + '</div>' : '') +
+        '<div>' +
+          '<h3 style="margin:0">Assessment Report</h3>' +
+          '<p class="mb-0"><strong>' + esc(name) + '</strong></p>' +
+          '<p class="text-muted mb-0">Date: ' + esc(date) + '</p>' +
+        '</div>' +
+      '</div>';
     wrapper.appendChild(header);
 
     var bodyDiv = document.createElement('div');

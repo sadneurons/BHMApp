@@ -3,7 +3,7 @@
     "id": "lp-explanation",
     "title": "Lumbar Puncture Explanation",
     "category": "Investigations",
-    "text": "<b>A lumbar puncture</b> (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20-30 minutes, and most people find it straightforward. "
+    "text": "A lumbar puncture (sometimes called a spinal tap) is a procedure where a small amount of fluid is collected from the lower part of the spine. This fluid, called cerebrospinal fluid (CSF), surrounds the brain and spinal cord. By testing it, we can look for specific proteins that help us understand whether changes in the brain associated with Alzheimer's disease or other conditions are present. The procedure is carried out under local anaesthetic, usually takes around 20-30 minutes, and most people find it straightforward."
   },
   {
     "id": "blood-biomarkers",
@@ -11,7 +11,7 @@
     "category": "Investigations",
     "text": "We have arranged blood tests that look for specific markers associated with brain health. These include proteins such as phosphorylated tau (p-tau) and neurofilament light chain (NfL), which can provide information about whether changes related to Alzheimer's disease or other neurological conditions may be occurring. Blood-based biomarkers are a relatively new and evolving area of clinical practice. The results are interpreted alongside all other assessment findings and are not used in isolation to make a diagnosis."
   },
-    {
+  {
     "id": "scan-education",
     "title": "Imaging Explanation",
     "category": "Investigations",
@@ -22,6 +22,30 @@
     "title": "MRI Brain Scan Explanation",
     "category": "Investigations",
     "text": "An MRI (magnetic resonance imaging) scan of the brain uses a strong magnet and radio waves to create detailed pictures of the brain's structure. It can show whether there has been any shrinkage in particular areas, whether there are signs of previous strokes or small vessel disease, and whether any other structural changes are present. The scan does not use radiation. It typically takes 20–40 minutes, and you will need to lie still inside a scanner. If you have any metal implants or are claustrophobic, please let us know in advance."
+  },
+  {
+    "id": "pet-scan-explanation",
+    "title": "PET Brain Scan Explanation",
+    "category": "Investigations",
+    "text": "A PET (positron emission tomography) scan is a type of brain imaging that can detect specific biological changes associated with dementia. Unlike an MRI, which shows the brain's structure, a PET scan shows how the brain is functioning at a cellular level. Depending on the type of tracer used, a PET scan can detect amyloid plaques (a hallmark of Alzheimer's disease), tau protein tangles, or changes in how the brain uses glucose. The scan involves a small injection of a radioactive tracer into a vein, followed by a waiting period of around 30–90 minutes while the tracer is taken up by the brain, and then a scan lasting approximately 20–30 minutes. The radiation dose is low and comparable to a standard CT scan. PET scanning is not routinely used for all patients but may be recommended where the diagnosis is uncertain and the result would meaningfully change your care plan."
+  },
+  {
+    "id": "datscan-explanation",
+    "title": "DaTSCAN Explanation",
+    "category": "Investigations",
+    "text": "A DaTSCAN is a specialised brain scan that measures the activity of dopamine transporters in a part of the brain called the striatum. Dopamine is a chemical messenger involved in controlling movement. The scan can help distinguish dementia with Lewy bodies from Alzheimer's disease, and can help differentiate Parkinson's disease from other causes of tremor. The procedure involves taking two small tablets to protect your thyroid, followed by an injection of a small amount of radioactive tracer. After a waiting period of 3–5 hours (during which you are free to leave the department), the scan itself takes around 30–45 minutes while you lie still under a gamma camera. The radiation dose is very low. Results are typically available within one to two weeks and will be discussed with you by your clinical team."
+  },
+  {
+    "id": "neuropsych-referral",
+    "title": "Neuropsychology Referral Explanation",
+    "category": "Investigations",
+    "text": "We have referred you for a neuropsychological assessment. This involves a detailed evaluation of your thinking skills — including memory, attention, language, visuospatial abilities, and executive function (planning and problem-solving) — carried out by a clinical neuropsychologist. The assessment typically takes 2–3 hours, with breaks as needed, and uses a series of standardised pen-and-paper or computer-based tasks. The results help us build a more detailed picture of your cognitive strengths and weaknesses, which can assist with diagnosis, guide treatment planning, and provide a baseline for monitoring change over time. Neuropsychological assessment is recommended by NICE (NG97) as part of the diagnostic process where the diagnosis is uncertain or where a more detailed cognitive profile is needed."
+  },
+  {
+    "id": "eeg-explanation",
+    "title": "EEG Explanation",
+    "category": "Investigations",
+    "text": "An EEG (electroencephalogram) is a test that records the electrical activity of the brain using small sensors placed on the scalp. It is painless and takes around 30–60 minutes. An EEG can help detect abnormal patterns of brain activity that may be associated with certain types of dementia, epilepsy, or other neurological conditions. In the context of memory assessment, an EEG may be particularly useful in helping to identify conditions such as dementia with Lewy bodies (which can show characteristic slowing of brain activity) or to rule out seizure activity as a cause of cognitive symptoms. The test does not involve radiation or injections."
   },
   {
     "id": "what-is-mci",
@@ -48,10 +72,124 @@
     "text": "Dementia with Lewy bodies (DLB) is caused by tiny deposits of protein (called Lewy bodies) that build up inside nerve cells in the brain. It can cause fluctuating alertness, visual hallucinations, movement difficulties similar to Parkinson's disease, and changes in sleep. Memory problems may be less prominent early on compared to Alzheimer's disease. Some medications used for other conditions can worsen symptoms in DLB, so accurate diagnosis is important. Treatments are available that can help manage symptoms, and your care team will work with you to find the most appropriate approach."
   },
   {
+    "id": "vascular-dementia-explanation",
+    "title": "Vascular Dementia Explanation",
+    "category": "Diagnoses",
+    "text": "Vascular dementia is caused by reduced blood flow to the brain, which damages and eventually kills brain cells. This can result from strokes (where blood supply is suddenly cut off) or from small vessel disease (gradual damage to the tiny blood vessels deep inside the brain). Symptoms depend on which part of the brain is affected, but commonly include difficulties with planning, concentration, and processing speed, rather than memory loss alone. Vascular dementia may progress in a stepwise fashion — with periods of stability followed by sudden decline — or more gradually. The most important aspect of management is reducing further vascular risk: controlling blood pressure, cholesterol, and blood sugar, stopping smoking, maintaining a healthy weight, and staying physically active. These steps can help slow progression. NICE guideline NG97 recommends that vascular risk factors are actively managed in all people with dementia."
+  },
+  {
+    "id": "ftd-explanation",
+    "title": "Frontotemporal Dementia (FTD) Explanation",
+    "category": "Diagnoses",
+    "text": "Frontotemporal dementia (FTD) is a group of conditions caused by damage to the frontal and temporal lobes of the brain. It typically begins at a younger age than Alzheimer's disease, often between 45 and 65 years. There are two main forms. Behavioural variant FTD (bvFTD) primarily affects personality, behaviour, and social conduct — a person may become disinhibited, apathetic, lose empathy, or develop rigid routines or food preferences. Primary progressive aphasia (PPA) primarily affects language — causing progressive difficulty with word-finding, sentence construction, or understanding speech. Memory is often relatively preserved in the early stages. FTD is not caused by the same proteins as Alzheimer's disease, and it does not respond to the same medications. Management focuses on behavioural strategies, speech and language therapy where appropriate, psychological support, and carer education. Around one in three people with FTD have a family history of the condition, and genetic counselling may be offered."
+  },
+  {
+    "id": "pca-explanation",
+    "title": "Posterior Cortical Atrophy (PCA) Explanation",
+    "category": "Diagnoses",
+    "text": "Posterior cortical atrophy (PCA), sometimes called Benson's syndrome, is an uncommon form of dementia that primarily affects the back of the brain — the areas responsible for processing visual information. The most common underlying cause is Alzheimer's disease, though the pattern of brain cell damage is different from typical Alzheimer's. Early symptoms usually involve visual and spatial difficulties rather than memory loss: problems judging distances, difficulty reading, trouble recognising objects or faces, and getting lost in familiar environments. People often initially visit an optician, as symptoms can be mistaken for an eye problem, though vision itself is usually normal. Diagnosis involves specialist cognitive testing, brain imaging, and sometimes biomarker investigations. Management includes occupational therapy, visual aids, and supporting daily functioning. Standard Alzheimer's disease medications (cholinesterase inhibitors) may be considered where Alzheimer's pathology is confirmed."
+  },
+  {
+    "id": "pdd-explanation",
+    "title": "Parkinson's Disease Dementia Explanation",
+    "category": "Diagnoses",
+    "text": "Parkinson's disease dementia (PDD) refers to dementia that develops in someone who has had Parkinson's disease, typically at least one year after the onset of motor symptoms. Like dementia with Lewy bodies, PDD is caused by the accumulation of Lewy body proteins in the brain. Cognitive changes may include difficulties with attention, planning, and visuospatial skills, as well as slowed thinking. Hallucinations, sleep disturbance, and mood changes are also common. The distinction between PDD and dementia with Lewy bodies is primarily one of timing — in PDD, the movement symptoms come first. NICE guideline NG97 recommends that cholinesterase inhibitors (donepezil or rivastigmine) should be considered for people with Parkinson's disease dementia. Managing the balance between motor and cognitive symptoms requires close collaboration between neurology and mental health teams."
+  },
+  {
+    "id": "scd-explanation",
+    "title": "Subjective Cognitive Decline (SCD) Explanation",
+    "category": "Diagnoses",
+    "text": "Subjective cognitive decline (SCD) means that you have noticed changes in your memory or thinking, but formal testing has not identified any objective impairment — your cognitive test scores are within the normal range for your age and education level. This is a recognised clinical concept and your concerns are taken seriously. Research (including work by the international SCD Initiative, Jessen et al., 2014) shows that while SCD can sometimes be an early indicator of future cognitive decline, the majority of people with SCD do not go on to develop dementia. Many factors can contribute to the experience of cognitive change, including stress, anxiety, depression, poor sleep, medication effects, and the normal ageing process. We would recommend addressing any of these contributing factors, maintaining a healthy lifestyle to support brain health, and attending for follow-up monitoring so that we can track how things develop over time."
+  },
+  {
+    "id": "fcd-explanation",
+    "title": "Functional Cognitive Disorder (FCD) Explanation",
+    "category": "Diagnoses",
+    "text": "Functional cognitive disorder (FCD) is a condition in which a person experiences genuine and often distressing difficulties with memory, concentration, or other thinking skills, but these are not caused by a neurodegenerative disease such as Alzheimer's or a structural problem in the brain. The symptoms are real — they are not imagined or 'made up' — but they arise from the way the brain is functioning rather than from damage to brain cells. Common features include inconsistent memory performance (for example, struggling to recall something in one situation but remembering it easily in another), difficulty concentrating especially when stressed or anxious, and a strong internal focus on cognitive performance. FCD often occurs alongside anxiety, low mood, poor sleep, chronic pain, or fatigue. It is a recognised diagnosis (NICE CKS, 2024) and is potentially reversible with the right support. Treatment typically involves explanation and reassurance, addressing contributing factors such as stress and sleep, cognitive behavioural strategies, and in some cases referral to neuropsychology or psychological therapies. The key message is that the brain is not damaged — it is working differently, and this can improve."
+  },
+  {
+    "id": "normal-ageing",
+    "title": "Normal Age-Related Cognitive Changes",
+    "category": "Reassurance",
+    "text": "It is normal for some aspects of thinking to change as we get older. Processing speed tends to slow, and it may take longer to learn new information or recall names and words. Occasionally forgetting where you put your keys, briefly struggling to find the right word, or walking into a room and forgetting why — these are common experiences at any age and become somewhat more frequent as we get older. Importantly, these normal changes do not significantly interfere with daily life and do not indicate dementia. Your cognitive test results today are within the normal range for your age and education level. Staying physically active, socially engaged, mentally stimulated, and managing cardiovascular health are all evidence-based ways to support cognitive function as you age (Lancet Commission on Dementia, 2024)."
+  },
+  {
+    "id": "anxiety-cognition",
+    "title": "Anxiety and Its Effect on Cognition",
+    "category": "Reassurance",
+    "text": "Anxiety can have a significant effect on memory and concentration. When we are anxious, the brain's 'threat detection' system is highly active, which diverts resources away from the areas involved in attention, memory encoding, and retrieval. This can lead to difficulty concentrating, forgetfulness, mental 'blanking', and a feeling that your memory is not working properly. These difficulties are often most noticeable in stressful or pressured situations. Research shows that anxiety-related cognitive difficulties are functional — meaning they are caused by how the brain is operating under stress, rather than by damage to brain cells, and they are typically reversible when the anxiety is addressed. If anxiety is contributing to your cognitive symptoms, treatment options include psychological therapies (such as cognitive behavioural therapy), mindfulness-based approaches, physical activity, and in some cases medication. Your GP or our clinical team can discuss these options with you."
+  },
+  {
+    "id": "depression-cognition",
+    "title": "Depression and Its Effect on Cognition",
+    "category": "Reassurance",
+    "text": "Depression can significantly affect thinking skills, including memory, concentration, processing speed, and the ability to make decisions. This is sometimes referred to as 'cognitive symptoms of depression' and can be mistaken for early dementia. The cognitive difficulties associated with depression typically improve when the depression is effectively treated. Key features that suggest depression may be contributing to cognitive problems include low mood, loss of interest or pleasure, sleep disturbance, fatigue, and a tendency to focus on failures rather than successes during cognitive testing. NICE guideline NG97 recommends that depression and other potentially reversible causes of cognitive impairment should be identified and treated before or alongside a dementia assessment. If depression is a factor for you, treatment options include psychological therapies, physical activity, social activation, and antidepressant medication where appropriate."
+  },
+  {
+    "id": "cholinesterase-inhibitors",
+    "title": "Cholinesterase Inhibitor Medication",
+    "category": "Medications",
+    "text": "Cholinesterase inhibitors are medications recommended by NICE (guideline NG97) for the management of mild to moderate Alzheimer's disease. They work by increasing the levels of acetylcholine, a chemical messenger in the brain involved in memory and learning. The three available medications in this class are donepezil (Aricept), rivastigmine (Exelon), and galantamine (Reminyl). These medications do not cure Alzheimer's disease or stop it progressing, but they can help maintain cognitive function and daily functioning for a period of time, and some people notice a meaningful improvement in alertness, motivation, or day-to-day memory. Common side effects include nausea, diarrhoea, loss of appetite, and vivid dreams. These are usually mild and often settle after the first few weeks. The medication is started at a low dose and increased gradually. Donepezil is typically offered first, as it is taken once daily and is generally well tolerated. If side effects occur, switching to an alternative may be considered. Regular review is important to assess whether the medication is providing benefit."
+  },
+  {
+    "id": "memantine-explanation",
+    "title": "Memantine Medication",
+    "category": "Medications",
+    "text": "Memantine (Ebixa) is a medication recommended by NICE (guideline NG97) for people with moderate to severe Alzheimer's disease, or for those with moderate Alzheimer's disease who cannot tolerate cholinesterase inhibitors. It works differently from cholinesterase inhibitors — it regulates the activity of glutamate, another chemical messenger in the brain. Memantine can help with symptoms such as confusion, agitation, and difficulty with daily activities. It may be used on its own or in combination with a cholinesterase inhibitor. Common side effects include headache, dizziness, constipation, and drowsiness, though many people tolerate it well. The dose is increased gradually over four weeks. Memantine requires dose adjustment if you have significant kidney problems — your prescriber will check this."
+  },
+  {
+    "id": "why-not-medicating",
+    "title": "Why We Are Not Starting Medication",
+    "category": "Medications",
+    "text": "At present, there are no medications licensed or recommended for the treatment of mild cognitive impairment (MCI) or subjective cognitive decline. NICE guideline NG97 specifically advises that cholinesterase inhibitors and memantine should not be offered to people with MCI, as clinical trials have not demonstrated a clear benefit in this group and the medications carry a risk of side effects. This does not mean nothing can be done. The most effective strategies for supporting brain health at this stage are lifestyle-based: regular physical activity, a heart-healthy diet, social engagement, good sleep, managing blood pressure and cholesterol, and staying cognitively active. These are supported by strong evidence from the 2024 Lancet Commission on Dementia Prevention. We will continue to monitor your cognition over time, and if your situation changes, we will reassess whether medication becomes appropriate."
+  },
+  {
+    "id": "benefits-financial",
+    "title": "Benefits and Financial Support",
+    "category": "Practical",
+    "text": "If you or the person you care for has been diagnosed with dementia or a significant cognitive condition, you may be entitled to financial support.\n\nAttendance Allowance is a benefit for people of State Pension age who need help with personal care or supervision due to a physical or mental condition. It is not means-tested and can be claimed regardless of savings or income. There are two rates depending on the level of need. You can apply online or by post at gov.uk/attendance-allowance.\n\nPersonal Independence Payment (PIP) is available for people aged 16 to State Pension age with long-term health conditions affecting daily living or mobility. Application is via gov.uk/pip.\n\nCouncil Tax reduction or exemption may apply if the person with dementia has a 'severe mental impairment' — your GP or consultant can provide a letter confirming this. Contact your local council for details.\n\nCarer's Allowance is available to carers who provide care for at least 35 hours per week to someone receiving certain disability benefits. See gov.uk/carers-allowance.\n\nThe Alzheimer's Society helpline (0333 150 3456) and Citizens Advice can provide free guidance on benefits applications."
+  },
+  {
+    "id": "advance-care-planning",
+    "title": "Advance Care Planning",
+    "category": "Practical",
+    "text": "Advance care planning is the process of thinking about and recording your wishes for future care, in case a time comes when you are unable to make or communicate decisions for yourself. NICE recommends that people with dementia are offered the opportunity to discuss advance care planning at the time of diagnosis and at each subsequent review (NICE QS184).\n\nThere are several ways to record your wishes:\n\nAn Advance Statement sets out your preferences, values, and wishes for future care — for example, where you would prefer to be cared for, what matters most to you, and any cultural or religious considerations. It is not legally binding but must be taken into account by those making decisions on your behalf.\n\nAn Advance Decision to Refuse Treatment (ADRT) is a legally binding document that allows you to specify treatments you would not want to receive in certain circumstances — for example, resuscitation or artificial ventilation. It must be in writing, signed, and witnessed if it relates to life-sustaining treatment.\n\nA Lasting Power of Attorney (LPA) allows you to appoint someone to make decisions on your behalf. There are separate LPAs for health and welfare, and for property and financial affairs.\n\nWe encourage you to have these conversations while you are well, and we can support you in starting them."
+  },
+  {
+    "id": "carers-assessment",
+    "title": "Carer's Assessment",
+    "category": "Practical",
+    "text": "If you are caring for someone with a cognitive condition or dementia, you have a legal right to a carer's assessment from your local council, under the Care Act 2014. This is separate from any assessment of the person you care for. The assessment looks at how your caring role affects your physical and mental health, your ability to work, your relationships, and your leisure time. It also considers what support would help you continue in your caring role safely and sustainably.\n\nYou do not need to be providing a minimum number of hours of care to request an assessment, and you do not need to live with the person you care for. The assessment can be carried out face-to-face, by phone, or online. Based on the assessment, the council may offer support such as respite care, practical help, emotional support, or information and training.\n\nTo request a carer's assessment, contact the adult social care team at your local council. You can also ask your GP, hospital team, or a voluntary organisation such as Dementia UK (0800 888 6678) to help you arrange one."
+  },
+  {
+    "id": "mental-capacity-act",
+    "title": "Mental Capacity Act — Key Principles",
+    "category": "Practical",
+    "text": "The Mental Capacity Act 2005 is the law that protects and supports people who may not be able to make some decisions for themselves. It applies to everyone aged 16 and over in England and Wales. The Act is built on five key principles:\n\n1. Presumption of capacity: every adult is assumed to have capacity to make their own decisions unless it is established otherwise.\n2. Supported decision-making: a person must be given all practicable help to make a decision before anyone concludes they lack capacity.\n3. Unwise decisions: a person is not to be treated as lacking capacity simply because they make a decision others consider unwise.\n4. Best interests: any decision made on behalf of a person who lacks capacity must be made in their best interests.\n5. Least restrictive option: anything done on behalf of a person who lacks capacity should be the least restrictive of their rights and freedoms.\n\nCapacity is assessed on a decision-by-decision basis — a person may have capacity to make some decisions but not others. A diagnosis of dementia does not automatically mean someone lacks capacity. NICE guideline NG108 provides detailed guidance on how capacity assessments should be carried out and how best interests decisions should be made."
+  },
+  {
     "id": "lifestyle-brain-health",
     "title": "Lifestyle and Brain Health",
     "category": "Lifestyle",
-    "text": "Research shows that certain lifestyle factors can support brain health and may reduce the risk of cognitive decline. These include regular physical activity (aim for at least 150 minutes of moderate exercise per week), a balanced diet rich in fruits, vegetables, fish, and olive oil (such as the Mediterranean diet), maintaining social connections, keeping mentally active, managing blood pressure, cholesterol, and blood sugar, limiting alcohol intake, not smoking, protecting your hearing, and ensuring good-quality sleep. Even small changes in these areas can make a meaningful difference over time."
+    "text": "Research shows that certain lifestyle factors can support brain health and may reduce the risk of cognitive decline. The 2024 Lancet Commission on Dementia Prevention identified 14 modifiable risk factors that together account for approximately 45% of dementia cases worldwide. These include lower education, hearing loss, high blood pressure, smoking, obesity, depression, physical inactivity, diabetes, excessive alcohol use, traumatic brain injury, air pollution, social isolation, high LDL cholesterol, and untreated vision loss. Addressing even some of these factors can make a meaningful difference. Key recommendations include: regular physical activity (at least 150 minutes of moderate exercise per week), a balanced diet rich in fruits, vegetables, fish, and olive oil, maintaining social connections, keeping mentally active, managing blood pressure, cholesterol, and blood sugar, limiting alcohol intake, not smoking, protecting your hearing and vision, and ensuring good-quality sleep."
+  },
+  {
+    "id": "sleep-hygiene",
+    "title": "Sleep Hygiene Advice",
+    "category": "Lifestyle",
+    "text": "Good sleep is important for brain health, mood, and cognitive function. The following evidence-based recommendations can help improve sleep quality (NICE CKS on Insomnia, 2025):\n\nKeep a regular schedule — go to bed and get up at the same time each day, including weekends. Go to bed only when you feel sleepy. If you cannot fall asleep within about 20 minutes, get up and do something calm in another room, then return to bed when you feel drowsy.\n\nCreate a good sleep environment — keep your bedroom cool, dark, and quiet. Use your bed only for sleep (and intimacy), not for watching television, using your phone, or working.\n\nAvoid stimulants and disruptors — limit caffeine after midday, avoid alcohol close to bedtime (it disrupts sleep quality even if it helps you fall asleep), and avoid heavy meals or vigorous exercise in the two hours before bed.\n\nDaytime habits matter — get exposure to natural daylight during the day, stay physically active, and limit daytime napping to 20–30 minutes if needed.\n\nIf sleep problems persist despite these measures, speak with your GP. Cognitive behavioural therapy for insomnia (CBT-I) is recommended by NICE as the first-line treatment for chronic insomnia and is more effective than sleeping tablets in the long term."
+  },
+  {
+    "id": "cognitive-stimulation",
+    "title": "Cognitive Stimulation and Social Prescribing",
+    "category": "Lifestyle",
+    "text": "NICE guideline NG97 recommends cognitive stimulation therapy (CST) for people with mild to moderate dementia. CST involves group-based activities designed to stimulate thinking, concentration, and memory — such as word games, discussions, puzzles, and creative tasks — in a social and supportive setting. Research shows that CST can improve cognition and quality of life, and the benefits are comparable to those of medication. It is typically delivered as 14 sessions over seven weeks, with maintenance sessions available.\n\nFor people with milder cognitive concerns or MCI, staying cognitively and socially active is equally important. This might include joining community groups, volunteering, learning a new skill, attending classes, or participating in activities through social prescribing services. Social prescribing connects people with non-medical sources of support in their community — your GP surgery or our clinical team can make a referral. The 2024 Lancet Commission identified social isolation as a significant modifiable risk factor for dementia, so maintaining connections is one of the most valuable things you can do."
+  },
+  {
+    "id": "mediterranean-diet",
+    "title": "Mediterranean and MIND Diet",
+    "category": "Lifestyle",
+    "text": "There is growing evidence that dietary patterns can influence brain health. The Mediterranean diet — rich in vegetables, fruits, legumes, whole grains, fish, nuts, and olive oil, with moderate amounts of dairy and limited red meat and processed foods — has been consistently associated with a reduced risk of cognitive decline and dementia in observational studies. The MIND diet (Mediterranean-DASH Intervention for Neurodegenerative Delay) is a variation specifically designed to support brain health, emphasising green leafy vegetables, berries, nuts, beans, whole grains, fish, poultry, and olive oil, while limiting butter, cheese, red meat, fried food, pastries, and sweets.\n\nThe 2024 Lancet Commission on Dementia Prevention included dietary factors among the modifiable risks for dementia. While no diet has been proven to prevent dementia, the evidence supports a heart-healthy dietary pattern as beneficial for both cardiovascular and brain health. Even modest dietary improvements can be worthwhile. If you would like specific guidance, your GP can refer you to a dietitian."
   },
   {
     "id": "driving-advice",
@@ -64,6 +202,24 @@
     "title": "Lasting Power of Attorney",
     "category": "Practical",
     "text": "A Lasting Power of Attorney (LPA) is a legal document that lets you appoint someone you trust to make decisions on your behalf, should you become unable to make them yourself in the future. There are two types: one for health and welfare decisions, and one for property and financial affairs. It is a good idea to set these up while you have the capacity to do so, regardless of your current level of difficulty. You can arrange an LPA through a solicitor or via the Office of the Public Guardian website (gov.uk/power-of-attorney)."
+  },
+  {
+    "id": "follow-up-plan",
+    "title": "What to Expect Next",
+    "category": "Follow-up",
+    "text": "Following today's assessment, the next steps in your care are outlined below. We will write to your GP with a summary of our findings and recommendations. If further investigations have been arranged (such as blood tests, brain scans, or neuropsychological assessment), we will contact you with appointment details. Once all results are available, we will review them and arrange a follow-up appointment to discuss the findings with you and, if you wish, a family member or friend. At that appointment, we will discuss any diagnosis, what it means for you, and what support and treatment options are available. If you have any questions or concerns in the meantime, please do not hesitate to contact us."
+  },
+  {
+    "id": "contact-between-appointments",
+    "title": "How to Contact Us Between Appointments",
+    "category": "Follow-up",
+    "text": "If you have questions or concerns between appointments, you can contact the Manchester Brain Health Centre team. Please allow up to 5 working days for a non-urgent response.\n\nFor clinical queries, medication concerns, or changes in symptoms, please contact your allocated clinician or the team secretary. Contact details will be provided in your clinic letter.\n\nFor urgent concerns — such as a sudden or significant worsening of confusion, new neurological symptoms (weakness, speech difficulty, seizures), or concerns about safety — please contact NHS 111 (call 111, available 24 hours) or attend your nearest Emergency Department. In a life-threatening emergency, call 999.\n\nPlease note that this service does not operate a walk-in clinic. All appointments are pre-arranged."
+  },
+  {
+    "id": "red-flags-earlier-review",
+    "title": "When to Seek Earlier Review",
+    "category": "Follow-up",
+    "text": "While cognitive conditions usually change gradually, there are certain situations where you should seek an earlier clinical review rather than waiting for your next scheduled appointment:\n\nA sudden or rapid decline in memory, thinking, or daily functioning over days to weeks (rather than months).\nNew confusion, disorientation, or agitation — particularly if accompanied by fever, infection, or a change in medications.\nNew neurological symptoms such as sudden weakness on one side, speech difficulty, visual disturbance, or seizures — these may indicate a stroke or other acute condition and require urgent assessment (call 999).\nSignificant changes in mood or behaviour — such as new hallucinations, paranoia, aggression, or marked withdrawal.\nFalls or mobility problems that are new or worsening.\nConcerns about medication side effects.\n\nIf you are unsure whether something warrants earlier contact, it is always better to ask. Contact your clinical team, your GP, or NHS 111 for advice."
   },
   {
     "id": "alzheimers-society-contact",

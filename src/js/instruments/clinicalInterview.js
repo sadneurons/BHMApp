@@ -65,21 +65,6 @@ BHM.Instruments.ClinicalInterview = (function () {
       '<h5>Semi-Structured Clinical Interview</h5>' +
       '<p class="instrument-subtitle">Brain Health Manchester — Clinician-completed interview covering cognitive symptoms, personal history, and background context.</p>';
 
-    // ── Header identifiers ──
-    var hdr = section('Interview Details', 'bi-card-heading');
-    var r1 = row(4);
-    r1.appendChild(wrapCol(F.createField({ label: 'Date', statePath: SP + '.interviewDate', type: 'date' }), 'col-md-3'));
-    r1.appendChild(wrapCol(F.createField({ label: 'Clinician', statePath: SP + '.interviewer', placeholder: '' }), 'col-md-3'));
-    r1.appendChild(wrapCol(F.createField({ label: 'Client', statePath: SP + '.clientName', placeholder: '' }), 'col-md-3'));
-    r1.appendChild(wrapCol(F.createField({ label: 'EPR Number', statePath: SP + '.nhsNumber', placeholder: '' }), 'col-md-3'));
-    hdr.appendChild(r1);
-    var r2 = row(3);
-    r2.appendChild(wrapCol(F.createField({ label: 'Informant', statePath: SP + '.informantName', placeholder: '' }), 'col-md-4'));
-    r2.appendChild(wrapCol(F.createField({ label: 'Relationship', statePath: SP + '.informantRel', placeholder: '' }), 'col-md-4'));
-    r2.appendChild(wrapCol(F.createField({ label: 'Informant Present', statePath: SP + '.informantPresent', type: 'select', options: ['', 'Yes', 'No', 'By phone'] }), 'col-md-4'));
-    hdr.appendChild(r2);
-    card.appendChild(hdr);
-
     // ══════════════════════════════════════
     // A. NEW LEARNING / MEMORY
     // ══════════════════════════════════════
@@ -288,11 +273,15 @@ BHM.Instruments.ClinicalInterview = (function () {
       tdYN.appendChild(makeToggle(item.key, YN_VALS, YN_COLS));
       tr.appendChild(tdYN);
 
-      // Frequency buttons
+      // Frequency buttons (collect references for enable/disable)
+      var freqBtns = [];
       for (var f = 0; f < FREQ_VALS.length; f++) {
         var tdF = document.createElement('td');
         tdF.style.textAlign = 'center';
-        tdF.appendChild(makeRadioBtn(item.key + '_freq', FREQ_VALS[f], FREQ_COLS[f].charAt(0)));
+        tdF.className = 'cog-freq-cell';
+        var fb = makeRadioBtn(item.key + '_freq', FREQ_VALS[f], FREQ_COLS[f].charAt(0));
+        freqBtns.push(fb);
+        tdF.appendChild(fb);
         tr.appendChild(tdF);
       }
 
@@ -310,6 +299,9 @@ BHM.Instruments.ClinicalInterview = (function () {
       tr.appendChild(tdO);
 
       tbody.appendChild(tr);
+
+      // Wire Y/N toggle to enable/disable frequency buttons & onset
+      wireYNtoFreq(item.key, tdYN, freqBtns, inp);
     }
     t.appendChild(tbody);
     wrap.appendChild(t);
@@ -430,6 +422,42 @@ BHM.Instruments.ClinicalInterview = (function () {
   }
 
   // ── UI helpers ──
+
+  // Disable frequency buttons + onset when Y/N is not "yes"
+  function wireYNtoFreq(key, ynCell, freqBtns, onsetInput) {
+    function syncDisabled() {
+      var val = BHM.State.get(SP + '.' + key);
+      var enabled = (val === 'yes');
+      for (var i = 0; i < freqBtns.length; i++) {
+        freqBtns[i].disabled = !enabled;
+        freqBtns[i].style.opacity = enabled ? '1' : '0.3';
+        freqBtns[i].style.pointerEvents = enabled ? '' : 'none';
+      }
+      onsetInput.disabled = !enabled;
+      onsetInput.style.opacity = enabled ? '1' : '0.3';
+      // If switching to No, clear frequency and onset
+      if (!enabled) {
+        for (var j = 0; j < freqBtns.length; j++) {
+          freqBtns[j].classList.remove('btn-primary', 'active');
+          freqBtns[j].classList.add('btn-outline-secondary');
+        }
+        BHM.State.set(SP + '.' + key + '_freq', '');
+        BHM.State.set(SP + '.' + key + '_onset', '');
+        onsetInput.value = '';
+      }
+    }
+    // Initial sync
+    syncDisabled();
+    // Re-sync when any Y/N button in this cell is clicked
+    var btns = ynCell.querySelectorAll('.btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function () {
+        // Small delay to let the state update first
+        setTimeout(syncDisabled, 10);
+      });
+    }
+  }
+
   function makeToggle(key, vals, labels) {
     var grp = document.createElement('div');
     grp.className = 'btn-group btn-group-sm';
@@ -460,6 +488,7 @@ BHM.Instruments.ClinicalInterview = (function () {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.setAttribute('data-radio-key', key);
     btn.textContent = label || '\u25CB';
     btn.style.fontSize = '0.75rem';
     btn.style.padding = '1px 6px';
@@ -470,25 +499,13 @@ BHM.Instruments.ClinicalInterview = (function () {
     if (cur === val) { btn.classList.remove('btn-outline-secondary'); btn.classList.add('btn-primary', 'active'); }
     btn.addEventListener('click', (function (k, v) {
       return function () {
-        // Deselect siblings
-        var parent = this.parentNode.parentNode;
-        var allBtns = parent.querySelectorAll('.btn');
-        // Actually just deselect freq siblings in same row
+        // Deselect all sibling radio buttons sharing the same key in this row
         var row = this.closest('tr');
         if (row) {
-          var rBtns = row.querySelectorAll('td .btn.active');
-          // Only deselect same-key group (frequency only)
-          var myTd = this.closest('td');
-          if (myTd) {
-            var rowTds = row.querySelectorAll('td');
-            // Determine if this is a frequency column (cols 2-5)
-            var tdIdx = Array.prototype.indexOf.call(rowTds, myTd);
-            if (tdIdx >= 2 && tdIdx <= 5) {
-              for (var t = 2; t <= 5; t++) {
-                var b = rowTds[t] ? rowTds[t].querySelector('.btn') : null;
-                if (b) { b.classList.remove('btn-primary', 'active'); b.classList.add('btn-outline-secondary'); }
-              }
-            }
+          var siblings = row.querySelectorAll('[data-radio-key="' + k + '"]');
+          for (var j = 0; j < siblings.length; j++) {
+            siblings[j].classList.remove('btn-primary', 'active');
+            siblings[j].classList.add('btn-outline-secondary');
           }
         }
         BHM.State.set(SP + '.' + k, v);

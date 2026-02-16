@@ -281,9 +281,10 @@ BHM.Snippets = (function () {
     preview.textContent = snippet.text.length > 80 ? snippet.text.substring(0, 80) + '\u2026' : snippet.text;
     card.appendChild(preview);
 
-    // Drag start
+    // Drag start — include title as bold heading prefix
     card.addEventListener('dragstart', function (e) {
-      e.dataTransfer.setData('text/plain', snippet.text);
+      var textWithTitle = '**' + snippet.title + '**\n' + snippet.text;
+      e.dataTransfer.setData('text/plain', textWithTitle);
       e.dataTransfer.setData('application/x-bhm-snippet', snippet.id);
       e.dataTransfer.effectAllowed = 'copy';
       card.classList.add('dragging');
@@ -333,11 +334,11 @@ BHM.Snippets = (function () {
     }
     zone.appendChild(label);
 
-    // Content area (shows dropped text)
+    // Content area (shows dropped text, with **bold** support for titles)
     if (existing) {
       var content = document.createElement('div');
       content.className = 'snippet-drop-content';
-      content.textContent = existing;
+      content.innerHTML = formatSnippetHtml(existing);
       zone.appendChild(content);
     }
 
@@ -503,6 +504,22 @@ BHM.Snippets = (function () {
   }
   function escAttr(str) {
     return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  // Convert **bold** markers to <strong> for snippet display in report
+  function formatSnippetHtml(text) {
+    // Split into paragraphs on double-newline or single-newline
+    var lines = (text || '').split(/\n/);
+    var html = '';
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      // Escape HTML first
+      var safe = esc(line);
+      // Replace **...**  with <strong>...</strong>
+      safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      if (i > 0) html += '<br>';
+      html += safe;
+    }
+    return html;
   }
 
   return {

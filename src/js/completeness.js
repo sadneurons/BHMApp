@@ -56,7 +56,7 @@ BHM.Completeness = (function () {
       id: 'psqi', label: 'PSQI', icon: 'bi-moon-stars',
       tab: 'tab-patient', subTab: '[data-bs-target="#sub-psqi"]', group: 'patient',
       check: function (s) {
-        var keys = ['q1_bedtime', 'q2_sleepLatency', 'q3_wakeTime', 'q4_hoursSlept',
+        var keys = ['q1_bedtime', 'q2_latency_min', 'q3_waketime', 'q4_sleep_hours',
           'q5a', 'q5b', 'q5c', 'q5d', 'q5e', 'q5f', 'q5g', 'q5h', 'q5i',
           'q6_medication', 'q7_drowsiness', 'q8_enthusiasm', 'q9_quality'];
         return countKeys(s.instruments.psqi, keys);
@@ -159,7 +159,7 @@ BHM.Completeness = (function () {
       check: function (s) {
         var keys = rangeKeys('memA', 1, 6)
           .concat(rangeKeys('langB', 1, 6))
-          .concat(rangeKeys('visC', 1, 5))
+          .concat(['visC1_present', 'visC2_present', 'visC3_present', 'visC4_present', 'visC5_present'])
           .concat(['yearsEdu']);
         return countKeys(s.instruments.clinical, keys);
       }

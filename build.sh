@@ -76,7 +76,7 @@ cat > "$OUTPUT" << 'HTMLHEAD'
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; font-src cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
   <title>Manchester Brain Health Centre — Assessment App</title>
   <!-- Bootstrap 5 CSS from CDN (swapped dynamically by theme picker) -->
   <link id="bootstrapCSS" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
@@ -146,6 +146,18 @@ if [ -f "$FONT_DIR/GillSansMTStd-Heavy.otf" ]; then
   echo "  Built: embedded GillSansMTStd-Heavy.otf"
 fi
 echo "};" >> "$OUTPUT"
+
+# Inline clinic logo as base64
+LOGO_FILE="$FONT_DIR/mbhclogo.png"
+echo "" >> "$OUTPUT"
+echo "/* ── Embedded Logo (base64 PNG) ── */" >> "$OUTPUT"
+if [ -f "$LOGO_FILE" ]; then
+  echo "var BHM_LOGO = 'data:image/png;base64,$(base64 -w0 "$LOGO_FILE")';" >> "$OUTPUT"
+  echo "  Built: embedded mbhclogo.png"
+else
+  echo "var BHM_LOGO = '';" >> "$OUTPUT"
+  echo "  Warning: mbhclogo.png not found"
+fi
 
 for file in "${JS_FILES[@]}"; do
   echo "" >> "$OUTPUT"
